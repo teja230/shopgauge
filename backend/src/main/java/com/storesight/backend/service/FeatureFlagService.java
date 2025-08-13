@@ -417,6 +417,63 @@ public class FeatureFlagService {
         featureFlags.getRollout().getDiscoveryOptimizationRolloutPercentage());
   }
 
+  /** Market Intelligence feature flags */
+  public boolean isMarketIntelligenceCacheEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.cache",
+        featureFlags.getMarketIntelligence().isCacheEnabled(),
+        100); // No gradual rollout for caching
+  }
+
+  public boolean isMarketIntelligenceBatchProcessingEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.batchProcessing",
+        featureFlags.getMarketIntelligence().isBatchProcessingEnabled(),
+        100); // No gradual rollout for batch processing
+  }
+
+  public boolean isMarketIntelligenceWriteOperationsEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.writeOperations",
+        featureFlags.getMarketIntelligence().isWriteOperationsEnabled(),
+        100); // No gradual rollout for write operations
+  }
+
+  public boolean isMarketIntelligenceCacheWarmingEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.cacheWarming",
+        featureFlags.getMarketIntelligence().isCacheWarmingEnabled(),
+        100); // No gradual rollout for cache warming
+  }
+
+  public boolean isMarketIntelligenceMaterializedViewsEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.materializedViews",
+        featureFlags.getMarketIntelligence().isMaterializedViewsEnabled(),
+        100); // No gradual rollout for materialized views
+  }
+
+  public boolean isMarketIntelligenceEventDrivenInvalidationEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.eventDrivenInvalidation",
+        featureFlags.getMarketIntelligence().isEventDrivenInvalidationEnabled(),
+        100); // No gradual rollout for event-driven invalidation
+  }
+
+  public boolean isMarketIntelligenceScheduledRefreshEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.scheduledRefresh",
+        featureFlags.getMarketIntelligence().isScheduledRefreshEnabled(),
+        100); // No gradual rollout for scheduled refresh
+  }
+
+  public boolean isMarketIntelligencePerformanceMonitoringEnabled() {
+    return isFeatureEnabled(
+        "marketIntelligence.performanceMonitoring",
+        featureFlags.getMarketIntelligence().isPerformanceMonitoringEnabled(),
+        100); // No gradual rollout for performance monitoring
+  }
+
   /** Core feature flag evaluation logic */
   private boolean isFeatureEnabled(String featureName, boolean baseEnabled, int rolloutPercentage) {
     // If feature is disabled at base level, return false

@@ -78,16 +78,134 @@ public class CompetitorController {
   @Autowired private SmartSnapshotService smartSnapshotService;
   @Autowired private PriceChangeCalculationService priceChangeCalculationService;
 
+  @Autowired
+  private com.storesight.backend.service.MarketIntelligenceCacheService
+      marketIntelligenceCacheService;
+
   @Value("${competitor.scraping.max-urls-per-shop:10}")
   private int maxUrlsPerShop;
 
   // Redis-based suggestion count cache with proper invalidation
-  private static final String SUGGESTION_COUNT_CACHE_PREFIX =
-      "market-intelligence:suggestion_count:";
+  private static final String SUGGESTION_COUNT_CACHE_PREFIX = "mi:suggestion_count:";
   private static final String SUGGESTION_CACHE_INVALIDATION_KEY =
-      "market-intelligence:suggestion_cache_invalidation";
+      "mi:suggestion_cache_invalidation";
   private static final int CACHE_TTL_MINUTES =
       120; // 120 minutes cache duration (consistent with other caches)
+
+  /** Resolve shop domain by ID for cache key construction */
+  private String resolveShopDomain(Long shopId) {
+    try {
+      Map<String, Object> shop =
+          jdbcTemplate.queryForMap("SELECT shopify_domain FROM shops WHERE id = ?", shopId);
+      Object domain = shop.get("shopify_domain");
+      return domain != null ? domain.toString() : "unknown";
+    } catch (Exception e) {
+      logger.warn("Failed to resolve shop domain for id {}: {}", shopId, e.getMessage());
+      return "unknown";
+    }
+  }
+
+  /** Refresh competitors cache for a shop by querying DB and writing through to Redis */
+  private void refreshCompetitorCacheForShop(Long shopId, String shopDomain) {
+    try {
+      String query =
+          """
+              SELECT cu.id, cu.url, cu.label, cu.shopify_product_id,
+                     CASE
+                         WHEN ps.in_stock = false AND ps.price = 0 THEN
+                             COALESCE(
+                                 (SELECT price FROM price_snapshots
+                                  WHERE competitor_url_id = cu.id
+                                  AND deleted_at IS NULL
+                                  AND price > 0
+                                  ORDER BY checked_at DESC LIMIT 1),
+                                 0.0
+                             )
+                         ELSE COALESCE(ps.price, 0.0)
+                     END as price,
+                     COALESCE(ps.in_stock, true) as in_stock,
+                     COALESCE(ps.checked_at, cu.created_at) as last_checked,
+                     COALESCE(ps.price_change_percent, 0.0) as price_change_percent,
+                     p.title as product_title,
+                     CASE
+                         WHEN ps.in_stock = false AND ps.price = 0 AND
+                              EXISTS (SELECT 1 FROM price_snapshots
+                                     WHERE competitor_url_id = cu.id
+                                     AND deleted_at IS NULL
+                                     AND price > 0)
+                         THEN true
+                         ELSE false
+                     END as showing_old_price
+          FROM competitor_urls cu
+              LEFT JOIN (
+                  SELECT competitor_url_id, price, in_stock, checked_at, price_change_percent,
+                         ROW_NUMBER() OVER (PARTITION BY competitor_url_id ORDER BY checked_at DESC) as rn
+                  FROM price_snapshots
+                  WHERE deleted_at IS NULL
+              ) ps ON cu.id = ps.competitor_url_id AND ps.rn = 1
+              LEFT JOIN products p ON cu.shopify_product_id = p.shopify_product_id
+              WHERE cu.shop_id = ? AND cu.deleted_at IS NULL
+          ORDER BY cu.created_at DESC
+          """;
+
+      List<Map<String, Object>> rows = jdbcTemplate.queryForList(query, shopId);
+      List<CompetitorDto> competitors =
+          rows.stream()
+              .map(
+                  row -> {
+                    String id = String.valueOf(row.get("id"));
+                    String url = String.valueOf(row.get("url"));
+                    String label =
+                        row.get("label") != null
+                            ? String.valueOf(row.get("label"))
+                            : extractTitleFromUrl(url);
+                    Double price =
+                        row.get("price") != null ? ((Number) row.get("price")).doubleValue() : 0.0;
+                    Boolean inStock =
+                        row.get("in_stock") != null ? (Boolean) row.get("in_stock") : true;
+                    String lastChecked =
+                        row.get("last_checked") != null
+                            ? row.get("last_checked").toString()
+                            : "Never";
+                    String shopifyProductId =
+                        row.get("shopify_product_id") != null
+                            ? String.valueOf(row.get("shopify_product_id"))
+                            : null;
+                    String productTitle =
+                        row.get("product_title") != null
+                            ? String.valueOf(row.get("product_title"))
+                            : null;
+                    Double percentDiff =
+                        row.get("price_change_percent") != null
+                            ? ((Number) row.get("price_change_percent")).doubleValue()
+                            : 0.0;
+                    Boolean showingOldPrice =
+                        row.get("showing_old_price") != null
+                            ? (Boolean) row.get("showing_old_price")
+                            : false;
+
+                    return new CompetitorDto(
+                        id,
+                        url,
+                        label,
+                        price,
+                        inStock,
+                        percentDiff,
+                        lastChecked,
+                        shopifyProductId,
+                        productTitle,
+                        showingOldPrice);
+                  })
+              .collect(Collectors.toList());
+
+      marketIntelligenceCacheService.cacheCompetitorData(shopDomain, competitors);
+      logger.debug(
+          "Refreshed competitors cache for shop {} ({} items)", shopDomain, competitors.size());
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to refresh competitors cache for shop {}: {}", shopDomain, e.getMessage());
+    }
+  }
 
   /** Get cached suggestion count with Redis-based caching and proper invalidation */
   private Long getCachedSuggestionCount(Long shopId) {
@@ -206,6 +324,16 @@ public class CompetitorController {
               @Override
               public ResponseEntity<?> execute() {
                 try {
+                  final String shopDomain = resolveShopDomain(shopId);
+
+                  // L1: Session cache handled by frontend. L2: Redis cache here. L3: DB fallback.
+                  java.util.Optional<Object> cachedCompetitors =
+                      marketIntelligenceCacheService.getCachedCompetitorData(shopDomain);
+                  if (cachedCompetitors.isPresent()) {
+                    logger.debug("Returning cached competitors for shop: {}", shopDomain);
+                    return ResponseEntity.ok(cachedCompetitors.get());
+                  }
+
                   // Get competitor URLs for this shop, joining with latest price snapshots and
                   // product info, including last known price for out-of-stock items
                   String query =
@@ -316,6 +444,9 @@ public class CompetitorController {
                       competitors.size(),
                       shopId);
 
+                  // Write-through: cache fresh result in Redis
+                  marketIntelligenceCacheService.cacheCompetitorData(shopDomain, competitors);
+
                   // Check for and log any inconsistent data (competitors without price snapshots)
                   if (competitors.size() > 0) {
                     List<Map<String, Object>> inconsistentCompetitors =
@@ -361,6 +492,95 @@ public class CompetitorController {
     }
 
     return result;
+  }
+
+  /** Per-competitor on-demand refresh with targeted cache patching */
+  @PostMapping("/competitors/{id}/refresh")
+  public ResponseEntity<Map<String, Object>> refreshSingleCompetitor(
+      @PathVariable String id, HttpServletRequest request) {
+    Long shopId = getShopIdFromRequest(request);
+    if (shopId == null) {
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+          .body(Map.of("error", "Authentication required"));
+    }
+
+    long competitorId;
+    try {
+      competitorId = Long.parseLong(id);
+    } catch (NumberFormatException e) {
+      return ResponseEntity.badRequest().body(Map.of("error", "Invalid competitor id"));
+    }
+
+    try {
+      // Ensure competitor belongs to this shop and is active (not archived)
+      List<Map<String, Object>> rows =
+          jdbcTemplate.queryForList(
+              "SELECT id, url, label FROM competitor_urls WHERE id = ? AND shop_id = ? AND deleted_at IS NULL",
+              competitorId,
+              shopId);
+      if (rows.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "Competitor not found"));
+      }
+
+      Map<String, Object> record = rows.get(0);
+      String url = (String) record.get("url");
+      String label = record.get("label") != null ? record.get("label").toString() : url;
+
+      // Use the same queue-based infrastructure but with a single item
+      RedisPriceRefreshQueueService.CompetitorRefreshItem item =
+          new RedisPriceRefreshQueueService.CompetitorRefreshItem(competitorId, url, label);
+
+      RedisPriceRefreshQueueService.RefreshSession session =
+          priceRefreshQueueService.startPriceRefresh(shopId, java.util.List.of(item));
+
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Best-effort: If we already have a latest snapshot, patch list cache immediately
+      // and invalidate history/trend caches so graphs reload. The queue will update DB and
+      // caches again when it completes
+      try {
+        List<Map<String, Object>> latest =
+            jdbcTemplate.queryForList(
+                "SELECT price, in_stock, checked_at FROM price_snapshots WHERE competitor_url_id = ? AND deleted_at IS NULL ORDER BY checked_at DESC LIMIT 1",
+                competitorId);
+        if (!latest.isEmpty()) {
+          Map<String, Object> snap = latest.get(0);
+          Map<String, Object> patch = new java.util.HashMap<>();
+          patch.put("price", snap.getOrDefault("price", java.math.BigDecimal.ZERO));
+          patch.put("inStock", snap.getOrDefault("in_stock", Boolean.TRUE));
+          patch.put(
+              "lastChecked",
+              snap.get("checked_at") != null
+                  ? snap.get("checked_at").toString()
+                  : java.time.LocalDateTime.now().toString());
+          // percentDiff recomputation is skipped here; UI can recompute or will be corrected on
+          // next load
+          marketIntelligenceCacheService.updateCompetitorListEntry(shopDomain, competitorId, patch);
+
+          // Invalidate price caches so the modal/trend refetches
+          marketIntelligenceCacheService.invalidateCompetitorPriceCaches(shopDomain, competitorId);
+        }
+      } catch (Exception ignore) {
+        // Non-blocking cache patch
+      }
+
+      return ResponseEntity.ok(
+          Map.of(
+              "message", "Refresh started",
+              "session_id", session.sessionId,
+              "total", session.totalCompetitors));
+
+    } catch (Exception e) {
+      logger.error(
+          "Error starting single competitor refresh for {} on shop {}: {}",
+          competitorId,
+          shopId,
+          e.getMessage(),
+          e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Map.of("error", "Failed to start competitor refresh"));
+    }
   }
 
   /** Add a new competitor manually */
@@ -825,6 +1045,11 @@ public class CompetitorController {
 
       logger.info(
           "addCompetitor: Successfully added competitor {} for shop {}", request.url, shopId);
+
+      // Write-through cache update for competitors list
+      shopDomain = resolveShopDomain(shopId);
+      refreshCompetitorCacheForShop(shopId, shopDomain);
+
       return ResponseEntity.ok(competitor);
 
     } catch (Exception e) {
@@ -930,8 +1155,62 @@ public class CompetitorController {
           shopId, competitorUrl, "Competitor deletion completed successfully");
 
       logger.info("deleteCompetitor: Successfully deleted competitor {} for shop {}", id, shopId);
+
+      // Write-through cache update after deletion
+      String shopDomain = resolveShopDomain(shopId);
+      refreshCompetitorCacheForShop(shopId, shopDomain);
+      // Also refresh archived list cache to reflect newly archived item
+      try {
+        String archivedQuery =
+            """
+            SELECT
+                cu.id,
+                cu.url,
+                cu.label,
+                cu.deleted_at,
+                cu.platform,
+                cu.domain,
+                cu.last_successful_check,
+                COUNT(ps.id) as price_snapshots_count
+            FROM competitor_urls cu
+            LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
+            WHERE cu.shop_id = ? AND cu.deleted_at IS NOT NULL
+            GROUP BY cu.id, cu.url, cu.label, cu.deleted_at, cu.platform, cu.domain, cu.last_successful_check
+            ORDER BY cu.deleted_at DESC
+            """;
+        List<Map<String, Object>> archivedCompetitorsList =
+            jdbcTemplate.queryForList(archivedQuery, shopId);
+        marketIntelligenceCacheService.cacheArchivedCompetitorData(
+            shopDomain, archivedCompetitorsList);
+      } catch (Exception ex) {
+        logger.warn(
+            "Failed to refresh archived competitors cache for shop {}: {}",
+            shopDomain,
+            ex.getMessage());
+      }
+
+      // Include fresh counts for consistent UI
+      Integer activeCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+              Integer.class,
+              shopId);
+      Integer archivedCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NOT NULL",
+              Integer.class,
+              shopId);
+
       return ResponseEntity.ok(
-          Map.of("success", true, "message", "Competitor deleted successfully"));
+          Map.of(
+              "success",
+              true,
+              "message",
+              "Competitor deleted successfully",
+              "activeCount",
+              activeCount == null ? 0 : activeCount,
+              "archivedCount",
+              archivedCount == null ? 0 : archivedCount));
 
     } catch (ArchivedCompetitorLimitExceededException e) {
       // Let the exception handler process this specific exception
@@ -1568,6 +1847,11 @@ public class CompetitorController {
               cu.platform,
               cu.domain,
               cu.last_successful_check,
+              (
+                SELECT MAX(ps2.checked_at)
+                FROM price_snapshots ps2
+                WHERE ps2.competitor_url_id = cu.id
+              ) AS latest_snapshot_at,
               COUNT(ps.id) as price_snapshots_count
           FROM competitor_urls cu
           LEFT JOIN price_snapshots ps ON cu.id = ps.competitor_url_id AND ps.deleted_at IS NULL
@@ -1576,9 +1860,22 @@ public class CompetitorController {
           ORDER BY cu.deleted_at DESC
           """;
 
-      List<Map<String, Object>> deletedCompetitors = jdbcTemplate.queryForList(query, shopId);
+      String shopDomain = resolveShopDomain(shopId);
 
-      return ResponseEntity.ok(Map.of("competitors", deletedCompetitors));
+      // Try Redis first
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedArchivedCompetitorData(shopDomain);
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> deletedCompetitors = (List<Map<String, Object>>) cached.get();
+        return ResponseEntity.ok(Map.of("competitors", deletedCompetitors, "cached", true));
+      }
+
+      // DB fallback and write-through
+      List<Map<String, Object>> deletedCompetitors = jdbcTemplate.queryForList(query, shopId);
+      marketIntelligenceCacheService.cacheArchivedCompetitorData(shopDomain, deletedCompetitors);
+
+      return ResponseEntity.ok(Map.of("competitors", deletedCompetitors, "cached", false));
 
     } catch (Exception e) {
       logger.error("Error getting deleted competitors for shop {}: {}", shopId, e.getMessage(), e);
@@ -1663,13 +1960,67 @@ public class CompetitorController {
           "UPDATE price_snapshots SET deleted_at = NULL WHERE competitor_url_id = ? AND deleted_at IS NOT NULL",
           competitorId);
 
+      // Patch caches: remove from archived list cache and refresh active list for immediate
+      // consistency on subsequent reads
+      try {
+        String shopDomain = resolveShopDomain(shopId);
+        marketIntelligenceCacheService.removeFromArchivedList(shopDomain, competitorId);
+        // Rebuild active competitors cache from DB so UI immediately sees the restored item
+        refreshCompetitorCacheForShop(shopId, shopDomain);
+      } catch (Exception ignore) {
+      }
+
+      // Return fresh counts from DB for consistent UX
+      Integer activeCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+              Integer.class,
+              shopId);
+      Integer archivedCount =
+          jdbcTemplate.queryForObject(
+              "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NOT NULL",
+              Integer.class,
+              shopId);
+
       logger.info("Restored competitor {} for shop {}", competitorId, shopId);
       return ResponseEntity.ok(
-          Map.of("success", true, "message", "Competitor restored successfully"));
+          Map.of(
+              "success",
+              true,
+              "message",
+              "Competitor restored successfully",
+              "activeCount",
+              activeCount == null ? 0 : activeCount,
+              "archivedCount",
+              archivedCount == null ? 0 : archivedCount));
 
     } catch (CompetitorLimitExceededException e) {
-      // Let the exception handler process this specific exception
-      throw e;
+      // Include current counts in error response for UX consistency
+      try {
+        Integer activeCount =
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NULL",
+                Integer.class,
+                shopId);
+        Integer archivedCount =
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM competitor_urls WHERE shop_id = ? AND deleted_at IS NOT NULL",
+                Integer.class,
+                shopId);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .body(
+                Map.of(
+                    "error",
+                    "COMPETITOR_LIMIT_EXCEEDED",
+                    "message",
+                    e.getMessage(),
+                    "activeCount",
+                    activeCount == null ? 0 : activeCount,
+                    "archivedCount",
+                    archivedCount == null ? 0 : archivedCount));
+      } catch (Exception ignore) {
+        throw e;
+      }
     } catch (Exception e) {
       logger.error(
           "Error restoring competitor {} for shop {}: {}", competitorId, shopId, e.getMessage(), e);
@@ -1748,7 +2099,31 @@ public class CompetitorController {
         return ResponseEntity.notFound().build();
       }
 
-      // Get price history
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Try Redis cache first
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedPriceHistoryForCompetitor(
+              shopDomain, Long.parseLong(id), days);
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> priceHistory = (List<Map<String, Object>>) cached.get();
+
+        Map<String, Object> statistics =
+            smartSnapshotService.getPriceStatistics(Long.parseLong(id));
+        boolean hasSufficientHistory =
+            smartSnapshotService.hasSufficientHistory(Long.parseLong(id), 7);
+
+        return ResponseEntity.ok(
+            Map.of(
+                "priceHistory", priceHistory,
+                "statistics", statistics,
+                "hasSufficientHistory", hasSufficientHistory,
+                "days", days,
+                "cached", true));
+      }
+
+      // DB/Service fallback
       List<Map<String, Object>> priceHistory =
           smartSnapshotService.getPriceHistory(Long.parseLong(id), days);
 
@@ -1759,12 +2134,17 @@ public class CompetitorController {
       boolean hasSufficientHistory =
           smartSnapshotService.hasSufficientHistory(Long.parseLong(id), 7); // At least 7 days
 
+      // Write-through to Redis
+      marketIntelligenceCacheService.cachePriceHistoryForCompetitor(
+          shopDomain, Long.parseLong(id), days, priceHistory);
+
       return ResponseEntity.ok(
           Map.of(
               "priceHistory", priceHistory,
               "statistics", statistics,
               "hasSufficientHistory", hasSufficientHistory,
-              "days", days));
+              "days", days,
+              "cached", false));
 
     } catch (Exception e) {
       logger.error("Error getting price history for competitor {}: {}", id, e.getMessage(), e);
@@ -1848,6 +2228,17 @@ public class CompetitorController {
       }
 
       Long competitorId = Long.parseLong(id);
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Try Redis first
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedPriceTrendForCompetitor(
+              shopDomain, competitorId, days);
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cachedTrend = (Map<String, Object>) cached.get();
+        return ResponseEntity.ok(cachedTrend);
+      }
 
       // Get price trend analysis
       String trend = priceChangeCalculationService.getPriceTrend(competitorId, days);
@@ -1870,6 +2261,9 @@ public class CompetitorController {
           days,
           trend);
 
+      // Write-through
+      marketIntelligenceCacheService.cachePriceTrendForCompetitor(
+          shopDomain, competitorId, days, response);
       return ResponseEntity.ok(response);
 
     } catch (Exception e) {
@@ -1889,6 +2283,18 @@ public class CompetitorController {
     }
 
     try {
+      String shopDomain = resolveShopDomain(shopId);
+
+      // Try Redis cache first (latest snapshot status)
+      Optional<Object> cached =
+          marketIntelligenceCacheService.getCachedPriceStatusForCompetitor(
+              shopDomain, Long.parseLong(id));
+      if (cached.isPresent()) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> snapshot = (Map<String, Object>) cached.get();
+        return ResponseEntity.ok(snapshot);
+      }
+
       // Check if competitor has any price snapshots
       List<Map<String, Object>> snapshots =
           jdbcTemplate.queryForList(
@@ -1897,12 +2303,16 @@ public class CompetitorController {
 
       if (!snapshots.isEmpty()) {
         Map<String, Object> snapshot = snapshots.get(0);
-        return ResponseEntity.ok(
+        Map<String, Object> response =
             Map.of(
                 "hasPrice", true,
                 "price", snapshot.get("price"),
                 "inStock", snapshot.get("in_stock"),
-                "lastChecked", snapshot.get("checked_at")));
+                "lastChecked", snapshot.get("checked_at"));
+        // Write-through
+        marketIntelligenceCacheService.cachePriceStatusForCompetitor(
+            shopDomain, Long.parseLong(id), response);
+        return ResponseEntity.ok(response);
       } else {
         return ResponseEntity.ok(
             Map.of("hasPrice", false, "message", "Price tracking is being activated"));
@@ -2226,7 +2636,7 @@ public class CompetitorController {
       List<Map<String, Object>> competitorCheck =
           jdbcTemplate.queryForList(
               "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (competitorCheck.isEmpty()) {
@@ -2281,7 +2691,7 @@ public class CompetitorController {
           jdbcTemplate.update(
               "UPDATE competitor_urls SET shopify_product_id = ? WHERE id = ? AND shop_id = ?",
               productId,
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (rowsAffected == 0) {
@@ -2340,7 +2750,7 @@ public class CompetitorController {
       List<Map<String, Object>> competitorCheck =
           jdbcTemplate.queryForList(
               "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (competitorCheck.isEmpty()) {
@@ -2362,7 +2772,7 @@ public class CompetitorController {
       int rowsAffected =
           jdbcTemplate.update(
               "UPDATE competitor_urls SET shopify_product_id = NULL WHERE id = ? AND shop_id = ?",
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (rowsAffected == 0) {
@@ -3667,7 +4077,7 @@ public class CompetitorController {
 
       // COST OPTIMIZATION 1: Check if we recently scraped this URL (within last 2 hours)
       String domain = extractDomain(url);
-      String recentScrapeKey = "market-intelligence:recent_scrape:" + domain + ":" + url.hashCode();
+      String recentScrapeKey = "mi:recent_scrape:" + domain + ":" + url.hashCode();
 
       if (redisTemplate.hasKey(recentScrapeKey)) {
         logger.info("triggerImmediatePriceScraping: Skipping - URL scraped recently: {}", url);
@@ -3675,7 +4085,7 @@ public class CompetitorController {
       }
 
       // COST OPTIMIZATION 2: Check rate limiting with longer delays
-      String rateLimitKey = "market-intelligence:scraper_rate_limit:" + domain;
+      String rateLimitKey = "mi:scraper_rate_limit:" + domain;
       if (redisTemplate.hasKey(rateLimitKey)) {
         logger.debug("triggerImmediatePriceScraping: Rate limit active for domain: {}", domain);
         return; // Skip immediate scraping if rate limited
@@ -3845,7 +4255,7 @@ public class CompetitorController {
   /** Get cached price for URL to reduce scraping costs */
   private java.math.BigDecimal getCachedPriceForUrl(String url) {
     try {
-      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      String cacheKey = "mi:price_cache:" + url.hashCode();
       Optional<String> cachedOpt = enhancedRedisService.get(cacheKey);
       if (cachedOpt.isPresent()) {
         return new java.math.BigDecimal(cachedOpt.get());
@@ -3859,7 +4269,7 @@ public class CompetitorController {
   /** Cache price for URL to reduce future scraping costs */
   private void cachePriceForUrl(String url, java.math.BigDecimal price) {
     try {
-      String cacheKey = "market-intelligence:price_cache:" + url.hashCode();
+      String cacheKey = "mi:price_cache:" + url.hashCode();
       // Cache for 24 hours to reduce scraping frequency
       boolean success =
           enhancedRedisService.setWithTtl(

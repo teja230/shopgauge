@@ -387,3 +387,13 @@ export const getPriceRefreshStatus = async (): Promise<{
   
   return response.json();
 }; 
+
+// Per-competitor refresh (user-side)
+export const refreshSingleCompetitor = async (
+  competitorId: string | number,
+): Promise<{ message: string; session_id: string; total: number }> => {
+  const response = await fetchWithAuth(`/api/competitors/${competitorId}/refresh`, {
+    method: 'POST',
+  });
+  return response.json();
+};

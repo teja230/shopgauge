@@ -27,6 +27,10 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Archive as ArchiveIcon,
@@ -45,14 +49,17 @@ import {
   History as HistoryIcon,
   Refresh as RefreshIcon,
   VisibilityOff as VisibilityOffIcon,
+  MoreVert as MoreVertIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import StoreLogo from './StoreLogo';
 import { debugLog } from './DebugPanel';
 
 import { styled } from '@mui/material/styles';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
-import { refreshCompetitorPrices, getPriceRefreshStatus } from '../../api/index';
+import { refreshCompetitorPrices, getPriceRefreshStatus, refreshSingleCompetitor } from '../../api/index';
+import { getPriceStatus } from '../../api';
 
 export interface Competitor {
   id: string;
@@ -67,6 +74,62 @@ export interface Competitor {
   priceLoading?: boolean; // Indicates if price is being fetched
   showingOldPrice?: boolean; // Indicates if showing old price for out-of-stock item
 }
+
+// Icon buttons now use explicit MUI color props per action (consistent with main branch)
+
+// Secondary actions consolidated in an overflow menu for clarity
+const RowOverflowMenu: React.FC<{
+  competitor: Competitor;
+  onOpenSite: () => void;
+  onLinkProduct?: (c: Competitor) => void;
+}> = ({ competitor, onOpenSite, onLinkProduct }) => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
+  const handleClose = () => setAnchorEl(null);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(competitor.url);
+    } catch (_) {
+      // ignore copy errors
+    } finally {
+      handleClose();
+    }
+  };
+
+  return (
+    <>
+      <Tooltip title="More actions">
+        <IconButton size="small" aria-label="More actions" onClick={handleOpen} className="row-more-actions-button desktop-row-more-actions-button">
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Menu anchorEl={anchorEl} open={open} onClose={handleClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        <MenuItem onClick={() => { onOpenSite(); handleClose(); }}>
+          <ListItemIcon>
+            <LaunchIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Visit site" />
+        </MenuItem>
+        {onLinkProduct && (
+          <MenuItem onClick={() => { onLinkProduct(competitor); handleClose(); }}>
+            <ListItemIcon>
+              <LinkIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={competitor.shopifyProductId ? 'Change product link' : 'Link to product'} />
+          </MenuItem>
+        )}
+        <MenuItem onClick={handleCopy}>
+          <ListItemIcon>
+            <ContentCopyIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Copy URL" />
+        </MenuItem>
+      </Menu>
+    </>
+  );
+};
 
 interface CompetitorTableProps {
   data: Competitor[];
@@ -131,6 +194,7 @@ const PriceRefreshButton: React.FC<{
       <Button
         variant="contained"
         size="small"
+        className="mi-refresh-button"
         startIcon={isLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
         onClick={onRefresh}
         disabled={isLoading}
@@ -358,18 +422,18 @@ const CompetitorSkeleton: React.FC = () => {
   }
 
   return (
-    <StyledTableContainer>
-      <Table>
-        <StyledTableHead>
-          <TableRow>
-            <StyledTableCell>Competitor</StyledTableCell>
-            <StyledTableCell>Price</StyledTableCell>
-            <StyledTableCell>Status</StyledTableCell>
-            <StyledTableCell>Change</StyledTableCell>
-            <StyledTableCell>Last Checked</StyledTableCell>
-            <StyledTableCell>Actions</StyledTableCell>
-          </TableRow>
-        </StyledTableHead>
+            <StyledTableContainer>
+          <Table>
+            <StyledTableHead>
+              <TableRow>
+                <StyledTableCell>Competitor</StyledTableCell>
+                <StyledTableCell>Price</StyledTableCell>
+                <StyledTableCell>Status</StyledTableCell>
+                <StyledTableCell>Change</StyledTableCell>
+                <StyledTableCell>Last Checked</StyledTableCell>
+                <StyledTableCell>Actions</StyledTableCell>
+              </TableRow>
+            </StyledTableHead>
         <TableBody>
           {[...Array(3)].map((_, index) => (
             <StyledTableRow key={index}>
@@ -431,20 +495,34 @@ const formatLastChecked = (lastChecked: string): string => {
   if (lastChecked === 'Never' || lastChecked === 'Unknown' || !lastChecked) {
     return 'Not checked yet';
   }
+  // If backend already provided a relative string, return it as-is
+  if (/ago|just now|less than a minute/i.test(lastChecked)) {
+    return lastChecked;
+  }
   
   try {
     let date: Date;
+    let parsedAs: 'utc' | 'local' | 'unknown' = 'unknown';
     
     // Handle different timestamp formats from backend
     if (lastChecked.includes('T') && lastChecked.includes('Z')) {
       // ISO format: "2025-07-29T17:59:19.391Z"
       date = parseISO(lastChecked);
+      parsedAs = 'utc';
     } else if (lastChecked.includes(' ') && lastChecked.includes(':')) {
       // Database format: "2025-07-29 17:59:19.391"
-      date = new Date(lastChecked.replace(' ', 'T') + 'Z');
+      // Attempt LOCAL parse first (matches main branch behavior)
+      date = new Date(lastChecked.replace(' ', 'T'));
+      parsedAs = 'local';
+      // If invalid, try UTC fallback
+      if (isNaN(date.getTime())) {
+        date = new Date(lastChecked.replace(' ', 'T') + 'Z');
+        parsedAs = 'utc';
+      }
     } else {
       // Try direct parsing
       date = new Date(lastChecked);
+      parsedAs = 'unknown';
     }
     
     // Validate the date
@@ -453,25 +531,29 @@ const formatLastChecked = (lastChecked: string): string => {
       return 'Not checked yet';
     }
     
-    const timeAgo = format(date, 'PPpp');
-    
-    // Show more precise time for recent checks
-    const secondsAgo = Math.floor((Date.now() - date.getTime()) / 1000);
-    const minutesAgo = Math.floor(secondsAgo / 60);
-    const hoursAgo = Math.floor(minutesAgo / 60);
-    const daysAgo = Math.floor(hoursAgo / 24);
-    
-    if (secondsAgo < 30) return 'Just now';
-    if (secondsAgo < 60) return `${secondsAgo} seconds ago`;
-    if (minutesAgo < 1) return 'Just now';
-    if (minutesAgo === 1) return '1 minute ago';
-    if (minutesAgo < 60) return `${minutesAgo} minutes ago`;
-    if (hoursAgo === 1) return '1 hour ago';
-    if (hoursAgo < 24) return `${hoursAgo} hours ago`;
-    if (daysAgo === 1) return '1 day ago';
-    if (daysAgo < 7) return `${daysAgo} days ago`;
-    
-    return timeAgo;
+    // Heuristic: If parsed time is in the future by more than 2 minutes,
+    // re-interpret using the opposite timezone assumption (UTC vs local).
+    const now = new Date();
+    const futureSkewMs = date.getTime() - now.getTime();
+    if (futureSkewMs > 2 * 60 * 1000) {
+      if (parsedAs === 'local') {
+        const utcAlt = new Date(lastChecked.replace(' ', 'T') + 'Z');
+        if (!isNaN(utcAlt.getTime()) && utcAlt.getTime() <= now.getTime()) {
+          date = utcAlt;
+        }
+      } else if (parsedAs === 'utc') {
+        const localAlt = new Date(lastChecked.replace(' ', 'T'));
+        if (!isNaN(localAlt.getTime()) && localAlt.getTime() <= now.getTime()) {
+          date = localAlt;
+        }
+      } else {
+        // As a last resort, clamp
+        date = now;
+      }
+    }
+ 
+    // Use relative time like main branch
+    return formatDistanceToNow(date, { addSuffix: true });
   } catch (error) {
     console.warn('Error parsing lastChecked timestamp:', lastChecked, error);
     return 'Not checked yet';
@@ -534,6 +616,22 @@ const MobileCompetitorCard: React.FC<{
 }> = ({ competitor, onDelete, onViewGraph }) => {
   const [expanded, setExpanded] = useState(false);
   const { shop } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRowRefresh = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await refreshSingleCompetitor(competitor.id);
+      const status = await getPriceStatus(competitor.id);
+      competitor.price = status.price ?? competitor.price;
+      competitor.inStock = status.inStock ?? competitor.inStock;
+      competitor.lastChecked = status.lastChecked ?? competitor.lastChecked;
+    } catch (error) {
+      console.error('Failed to refresh competitor price:', error);
+    }
+    setIsRefreshing(false);
+  };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -597,6 +695,8 @@ const MobileCompetitorCard: React.FC<{
           >
             <ExpandMoreIcon />
           </IconButton>
+
+
         </CompetitorHeader>
 
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -749,46 +849,117 @@ const MobileCompetitorCard: React.FC<{
               </Stack>
             </Box>
 
-            <ActionButtonGroup>
-              <StyledActionButton
-                variant="outlined"
-                startIcon={<OpenInNewIcon />}
-                onClick={handleOpenUrl}
-                sx={{ flex: 1 }}
-              >
-                Visit Site
-              </StyledActionButton>
+            {/* Mobile: Icon-only buttons matching desktop theme */}
+            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
+              <Tooltip title="Refresh Price">
+                <IconButton
+                  size="medium"
+                  onClick={handleRowRefresh}
+                  disabled={isRefreshing}
+                  color="primary"
+                  aria-label="Refresh price"
+                  className="row-refresh-button"
+                >
+                  {isRefreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+                </IconButton>
+              </Tooltip>
               
               {onViewGraph && (
-                <StyledActionButton
-                  variant="outlined"
-                  color="info"
-                  startIcon={<BarChartIcon />}
-                  onClick={() => onViewGraph(competitor)}
-                  disabled={!competitor.lastChecked}
-                  sx={{ 
-                    flex: 1,
-                    opacity: competitor.lastChecked ? 1 : 0.4,
-                    '&:disabled': {
-                      opacity: 0.4,
-                      cursor: 'not-allowed'
-                    }
-                  }}
-                >
-                  {competitor.lastChecked ? 'View History' : 'No Data'}
-                </StyledActionButton>
+                <Tooltip title={competitor.lastChecked ? "View History" : "No Data Available"}>
+                  <span>
+                    <IconButton
+                      size="medium"
+                      onClick={() => onViewGraph(competitor)}
+                      disabled={!competitor.lastChecked}
+                      color="info"
+                      aria-label="View price history"
+                      sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
+                      className="row-graph-button"
+                    >
+                      <BarChartIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               )}
               
-              <StyledActionButton
-                variant="outlined"
-                color="warning"
-                startIcon={<ArchiveIcon />}
-                onClick={handleDelete}
-                sx={{ flex: 1 }}
-              >
-                Archive
-              </StyledActionButton>
-            </ActionButtonGroup>
+              <Tooltip title="Archive">
+                <IconButton
+                  size="medium"
+                  onClick={handleDelete}
+                  color="warning"
+                  aria-label="Archive competitor"
+                  className="row-archive-button"
+                >
+                  <ArchiveIcon />
+                </IconButton>
+              </Tooltip>
+              
+              {/* Overflow menu for secondary actions (Visit Site, Link Product, Copy URL) */}
+              <Tooltip title="More Actions">
+                <IconButton
+                  size="medium"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Create a simple dropdown menu for mobile
+                    const menu = document.createElement('div');
+                    menu.style.position = 'fixed';
+                    menu.style.top = `${e.clientY}px`;
+                    menu.style.left = `${e.clientX}px`;
+                    menu.style.zIndex = '9999';
+                    menu.style.backgroundColor = 'white';
+                    menu.style.border = '1px solid #ccc';
+                    menu.style.borderRadius = '4px';
+                    menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                    menu.style.padding = '4px 0';
+                    
+                    const visitItem = document.createElement('div');
+                    visitItem.textContent = 'Visit Site';
+                    visitItem.style.padding = '8px 16px';
+                    visitItem.style.cursor = 'pointer';
+                    visitItem.style.fontSize = '14px';
+                    visitItem.onclick = () => {
+                      window.open(competitor.url, '_blank', 'noopener,noreferrer');
+                      document.body.removeChild(menu);
+                    };
+                    visitItem.onmouseenter = () => visitItem.style.backgroundColor = '#f5f5f5';
+                    visitItem.onmouseleave = () => visitItem.style.backgroundColor = 'white';
+                    
+                    const copyItem = document.createElement('div');
+                    copyItem.textContent = 'Copy URL';
+                    copyItem.style.padding = '8px 16px';
+                    copyItem.style.cursor = 'pointer';
+                    copyItem.style.fontSize = '14px';
+                    copyItem.onclick = async () => {
+                      try {
+                        await navigator.clipboard.writeText(competitor.url);
+                      } catch (_) {
+                        // ignore copy errors
+                      }
+                      document.body.removeChild(menu);
+                    };
+                    copyItem.onmouseenter = () => copyItem.style.backgroundColor = '#f5f5f5';
+                    copyItem.onmouseleave = () => copyItem.style.backgroundColor = 'white';
+                    
+                    menu.appendChild(visitItem);
+                    menu.appendChild(copyItem);
+                    
+                    const closeMenu = () => {
+                      if (document.body.contains(menu)) {
+                        document.body.removeChild(menu);
+                      }
+                      document.removeEventListener('click', closeMenu);
+                    };
+                    
+                    document.body.appendChild(menu);
+                    document.addEventListener('click', closeMenu);
+                  }}
+                  aria-label="More actions"
+                  className="row-more-actions-button"
+                >
+                  <MoreVertIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           </Stack>
         </Collapse>
       </CardContent>
@@ -820,6 +991,52 @@ const DesktopTableRow: React.FC<{
     const productLink = getProductLink(competitor, shop);
     if (productLink) {
       window.open(productLink, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const [rowRefreshing, setRowRefreshing] = React.useState(false);
+  const handleRowRefresh = async () => {
+    if (rowRefreshing) return;
+    setRowRefreshing(true);
+    try {
+      // Start per-competitor refresh
+      await refreshSingleCompetitor(competitor.id);
+
+      // Fetch latest status for this competitor and patch session cache entry
+      const status = await getPriceStatus(competitor.id);
+
+      // Optimistically update UI for this row
+      competitor.price = status.price ?? competitor.price;
+      competitor.inStock = status.inStock ?? competitor.inStock;
+      competitor.lastChecked = status.lastChecked ?? competitor.lastChecked;
+
+      // Update sessionStorage list cache in-place
+      const shopDomain = shop || '';
+      if (shopDomain) {
+        const cacheKey = `mi_competitors_${shopDomain}`;
+        try {
+          const raw = sessionStorage.getItem(cacheKey);
+          if (raw) {
+            const arr = JSON.parse(raw) as any[];
+            const idx = arr.findIndex((c: any) => String(c.id) === String(competitor.id));
+            if (idx >= 0) {
+              arr[idx] = {
+                ...arr[idx],
+                price: competitor.price,
+                inStock: competitor.inStock,
+                lastChecked: competitor.lastChecked,
+              };
+              sessionStorage.setItem(cacheKey, JSON.stringify(arr));
+            }
+          }
+        } catch (_) {
+          // ignore session errors
+        }
+      }
+    } catch (e) {
+      // noop; UI will remain unchanged on error
+    } finally {
+      setRowRefreshing(false);
     }
   };
 
@@ -981,62 +1198,54 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Visit competitor website">
-            <IconButton 
-              size="small" 
-              onClick={handleOpenUrl}
-              sx={{ minWidth: 36, minHeight: 36 }}
-            >
-              <LaunchIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          
-          {onLinkProduct && (
-            <Tooltip title={competitor.shopifyProductId ? "Change product association" : "Link to product"}>
-              <IconButton 
-                size="small" 
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          {/* Primary action: Refresh */}
+          <Tooltip title="Refresh price for this competitor">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleRowRefresh}
+                disabled={rowRefreshing}
+                aria-label="Refresh price"
                 color="primary"
-                onClick={() => onLinkProduct(competitor)}
-                sx={{ minWidth: 36, minHeight: 36 }}
+                className="row-refresh-button desktop-row-refresh-button"
+              
               >
-                <LinkIcon fontSize="small" />
+                {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
               </IconButton>
-            </Tooltip>
-          )}
-          
-          {onViewGraph && (
-            <Tooltip title={competitor.lastChecked ? "View price history" : "No price history available"}>
-              <IconButton 
-                size="small" 
+            </span>
+          </Tooltip>
+
+          {/* Primary action: View history (when available) */}
+          <Tooltip title={competitor.lastChecked ? "View price history" : "No price history available"}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => onViewGraph && onViewGraph(competitor)}
+                disabled={!onViewGraph || !competitor.lastChecked}
+                aria-label="View price history"
                 color="info"
-                onClick={() => onViewGraph(competitor)}
-                disabled={!competitor.lastChecked}
-                sx={{ 
-                  minWidth: 36, 
-                  minHeight: 36,
-                  opacity: competitor.lastChecked ? 1 : 0.4,
-                  '&:disabled': {
-                    opacity: 0.4,
-                    cursor: 'not-allowed'
-                  }
-                }}
+                sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
+                className="row-graph-button desktop-row-graph-button"
               >
                 <BarChartIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
-          )}
-          
+            </span>
+          </Tooltip>
+
+          {/* Primary action: Archive */}
           <Tooltip title="Archive competitor">
-            <IconButton 
-              size="small" 
-              color="warning" 
-              onClick={handleDelete}
-              sx={{ minWidth: 36, minHeight: 36 }}
-            >
+            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning" className="row-archive-button desktop-row-archive-button">
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          {/* Overflow menu for secondary actions */}
+          <RowOverflowMenu
+            competitor={competitor}
+            onOpenSite={handleOpenUrl}
+            onLinkProduct={onLinkProduct}
+          />
         </Stack>
       </StyledTableCell>
     </StyledTableRow>
@@ -1149,7 +1358,8 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
       if (highlightAction === 'add') {
         color = 'success'; // Green for adding
       } else if (highlightAction === 'archive') {
-        color = 'warning'; // Orange for archiving
+        // Do not highlight in Active section when archiving
+        return;
       } else if (highlightAction === 'restore') {
         color = 'success'; // Green for restoring
       } else {
@@ -1365,7 +1575,8 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
                     if (highlightAction === 'add') {
                       highlightColor = 'success'; // Green for adding
                     } else if (highlightAction === 'archive') {
-                      highlightColor = 'warning'; // Orange for archiving
+                      // Skip highlight color for archive in Active section
+                      highlightColor = undefined;
                     } else if (highlightAction === 'restore') {
                       highlightColor = 'success'; // Green for restoring
                     } else {

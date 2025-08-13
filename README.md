@@ -72,6 +72,13 @@ Shopify merchants. It provides AI-powered revenue forecasting, professional shar
 - **Suggestion Management**: Curated competitor suggestions with approval workflow
 - **Web Scraping**: Automated data collection from competitor sites using advanced scraping techniques
 - **Competitive Alerts**: Instant notifications for price changes and market movements
+- **Multi-Tier Caching**: L1 (Frontend), L2 (Redis), L3 (Database) caching with intelligent TTL management
+- **Event-Driven Cache Invalidation**: Real-time cache invalidation based on write operations and system events
+- **Batch Processing**: Asynchronous operation handling with queue management and budget tracking
+- **Cache Warming Service**: Pre-loading critical data with priority-based warming strategies
+- **512MB Memory Profile Optimization**: Specialized configuration for resource-constrained environments
+- **Materialized Views**: Database optimization with pre-computed analytics for complex queries
+- **Admin Optimization Panel**: Comprehensive monitoring and control interface for cache, batch, and warming operations
 
 ### 🔔 **Advanced Notification System**
 
@@ -123,6 +130,7 @@ graph TB
         Components[Metric Cards, Charts, Tables]
         Notifications[Notification System<br/>Session-Based]
         Loading[Intelligent Loading<br/>Analytics Animations]
+        OPT_UI[Optimization Panel<br/>Cache Management]
     end
     
     subgraph "Backend Layer"
@@ -135,10 +143,20 @@ graph TB
         Sessions[Session Management<br/>Multi-Session Support]
     end
     
+    subgraph "Optimization Services"
+        CACHE_SVC[MarketIntelligenceCacheService<br/>Multi-Tier Caching]
+        BATCH_SVC[MarketIntelligenceBatchService<br/>Batch Processing]
+        WRITE_SVC[MarketIntelligenceWriteService<br/>Write Operations]
+        EVENT_SVC[MarketIntelligenceEventHandler<br/>Event-Driven Cache]
+        WARMING_SVC[MarketIntelligenceCacheWarmingService<br/>Cache Warming]
+        PROPS[MarketIntelligenceOptimizationProperties<br/>Configuration]
+    end
+    
     subgraph "Data Layer"
         PostgreSQL[(PostgreSQL<br/>Shops, Sessions, Metrics, Notifications, Audit Logs)]
         Redis[(Redis<br/>Sessions, Cache, Tokens, Secrets)]
         Shopify[(Shopify API<br/>Orders, Products, Customers)]
+        MATERIALIZED[Materialized Views<br/>Optimized Analytics]
     end
     
     subgraph "External Services"
@@ -148,9 +166,13 @@ graph TB
         WebScraping[Selenium + JSoup<br/>Price Monitoring]
     end
     
+    %% Frontend connections
     UI --> Auth
     Auth --> API
     API --> Gateway
+    OPT_UI --> API
+    
+    %% Backend connections
     Gateway --> Controllers
     Controllers --> Services
     Services --> Sessions
@@ -166,12 +188,92 @@ graph TB
     Workers --> PostgreSQL
     Workers --> Redis
     
+    %% Optimization services connections
+    Controllers --> CACHE_SVC
+    Controllers --> BATCH_SVC
+    Controllers --> WRITE_SVC
+    Controllers --> EVENT_SVC
+    Controllers --> WARMING_SVC
+    
+    CACHE_SVC --> Redis
+    BATCH_SVC --> PostgreSQL
+    WRITE_SVC --> PostgreSQL
+    WRITE_SVC --> Redis
+    EVENT_SVC --> Redis
+    WARMING_SVC --> Redis
+    WARMING_SVC --> PostgreSQL
+    MATERIALIZED --> PostgreSQL
+    
+    %% Configuration
+    PROPS --> CACHE_SVC
+    PROPS --> BATCH_SVC
+    PROPS --> WRITE_SVC
+    PROPS --> WARMING_SVC
+    
     style UI fill:#e1f5fe
     style Gateway fill:#f3e5f5
     style PostgreSQL fill:#e8f5e8
     style Shopify fill:#fff3e0
     style Discovery fill:#ffebee
     style Sessions fill:#f1f8e9
+    style CACHE_SVC fill:#fff8e1
+    style BATCH_SVC fill:#fff8e1
+    style WRITE_SVC fill:#fff8e1
+    style EVENT_SVC fill:#fff8e1
+    style WARMING_SVC fill:#fff8e1
+    style MATERIALIZED fill:#e8f5e8
+```
+
+### Multi-Tier Caching Architecture
+
+```mermaid
+graph TB
+    subgraph "L1 Cache (Frontend)"
+        SESSION[Session Storage]
+        LOCAL[Local Storage]
+        MEMORY[In-Memory Cache]
+    end
+    
+    subgraph "L2 Cache (Backend)"
+        REDIS[(Redis Cache)]
+        CACHE_SVC[MarketIntelligenceCacheService]
+        TTL[TTL Management]
+        COMPRESSION[Cache Compression]
+    end
+    
+    subgraph "L3 Cache (Database)"
+        DB[(PostgreSQL)]
+        MATERIALIZED[Materialized Views]
+        DB_CACHE[Database Cache]
+        INDEXES[Optimized Indexes]
+    end
+    
+    subgraph "Cache Management"
+        INVALIDATION[Cache Invalidation]
+        WARMING[Cache Warming]
+        EVICTION[Smart Eviction]
+        STATS[Cache Statistics]
+    end
+    
+    %% Cache flow
+    SESSION --> REDIS
+    LOCAL --> REDIS
+    MEMORY --> REDIS
+    REDIS --> CACHE_SVC
+    CACHE_SVC --> DB
+    DB --> MATERIALIZED
+    DB --> DB_CACHE
+    DB --> INDEXES
+    
+    %% Management flow
+    INVALIDATION --> REDIS
+    WARMING --> REDIS
+    EVICTION --> REDIS
+    STATS --> REDIS
+    
+    %% TTL and compression
+    TTL --> REDIS
+    COMPRESSION --> REDIS
 ``` 
 
 ## 🔄 Multi-Session Architecture
@@ -245,6 +347,24 @@ sequenceDiagram
 | `/api/admin/secrets`               | GET/POST/DELETE | Manage encrypted secrets            | Cookie         |
 | `/api/admin/integrations/status`   | GET             | Check integration status            | Cookie         |
 | `/api/admin/integrations/test`     | POST            | Test email/SMS integrations         | Cookie         |
+
+### Market Intelligence Optimization Endpoints
+
+| Endpoint                                    | Method | Purpose                                    | Authentication |
+|---------------------------------------------|--------|--------------------------------------------|----------------|
+| `/api/admin/market-intelligence/cache/stats`| GET    | Get cache performance statistics          | Cookie         |
+| `/api/admin/market-intelligence/cache/reset-stats` | POST | Reset cache statistics              | Cookie         |
+| `/api/admin/market-intelligence/cache/invalidate` | POST | Invalidate cache for shop/global    | Cookie         |
+| `/api/admin/market-intelligence/batch/stats` | GET   | Get batch processing statistics          | Cookie         |
+| `/api/admin/market-intelligence/batch/reset-stats` | POST | Reset batch statistics            | Cookie         |
+| `/api/admin/market-intelligence/batch/clear-queues` | POST | Clear pending batch queues      | Cookie         |
+| `/api/admin/market-intelligence/write/stats` | GET   | Get write operation statistics           | Cookie         |
+| `/api/admin/market-intelligence/write/reset-stats` | POST | Reset write statistics             | Cookie         |
+| `/api/admin/market-intelligence/cache/warming/stats` | GET | Get cache warming statistics    | Cookie         |
+| `/api/admin/market-intelligence/cache/warming/reset-stats` | POST | Reset warming statistics    | Cookie         |
+| `/api/admin/market-intelligence/cache/warming/trigger` | POST | Trigger cache warming for shop | Cookie         |
+| `/api/admin/market-intelligence/cache/warming/health` | GET | Get cache warming health status | Cookie         |
+| `/api/admin/market-intelligence/optimization/status` | GET | Get comprehensive optimization status | Cookie         |
 
 ### Advanced Features
 
@@ -330,6 +450,9 @@ CREATE TABLE audit_logs (
     INDEX idx_audit_logs_shop_id (shop_id),
     INDEX idx_audit_logs_created_at (created_at)
 );
+
+-- Materialized views for optimized analytics (cost, discovery, and performance summaries)
+-- These views provide pre-computed analytics for complex queries and improved performance
 ```
 
 ## 🚀 Quick Start

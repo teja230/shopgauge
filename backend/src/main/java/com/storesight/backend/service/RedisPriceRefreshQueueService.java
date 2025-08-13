@@ -2,6 +2,7 @@ package com.storesight.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -22,6 +23,8 @@ public class RedisPriceRefreshQueueService {
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private PriceScrapingService priceScrapingService;
   @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+  @Autowired private PriceChangeCalculationService priceChangeCalculationService;
+  @Autowired private MarketIntelligenceCacheService marketIntelligenceCacheService;
 
   // Configuration - MEMORY OPTIMIZED FOR 512MB INSTANCE
   @Value("${price.refresh.enabled:true}")
@@ -71,11 +74,18 @@ public class RedisPriceRefreshQueueService {
   @Value("${price.refresh.redis.enabled:true}")
   private boolean redisEnabled;
 
-  @Value("${price.refresh.redis.key-prefix:price_refresh}")
+  @Value("${price.refresh.redis.key-prefix:mi:price_refresh}")
   private String redisKeyPrefix;
 
   @Value("${price.refresh.redis.ttl:3600}")
   private int redisTtlSeconds;
+
+  // Manual refresh throttling (per-competitor refresh button)
+  @Value("${price.refresh.manual-minimum-interval-hours:24}")
+  private int manualRefreshMinimumIntervalHours;
+
+  @Value("${price.refresh.manual-enforce-interval:true}")
+  private boolean manualRefreshEnforceInterval;
 
   // Domain-specific rate limits (requests per minute)
   private static final Map<String, Integer> DOMAIN_RATE_LIMITS =
@@ -287,6 +297,16 @@ public class RedisPriceRefreshQueueService {
 
     for (CompetitorRefreshItem competitor : batch) {
       try {
+        // Respect minimum interval for manual refreshes to avoid unnecessary scraping
+        if (manualRefreshEnforceInterval && hasRecentSuccessfulCheck(competitor.id)) {
+          logger.info(
+              "Skipping refresh for competitor {} - last successful check is within {} hours",
+              competitor.id,
+              manualRefreshMinimumIntervalHours);
+          incrementProgress(sessionId, "skipped");
+          continue;
+        }
+
         // Apply rate limiting
         rateLimiter.acquirePermit();
 
@@ -297,14 +317,24 @@ public class RedisPriceRefreshQueueService {
           continue;
         }
 
-        // Scrape price
-        PriceScrapingService.PriceScrapingResult result =
-            priceScrapingService.scrapePriceWithMultiTier(competitor.url);
+        // Shared cache reuse: if we recently scraped this canonical URL, try to reuse
+        String urlKey = normalizeUrlToKey(competitor.url);
+        PriceScrapingService.PriceScrapingResult result;
+        if (wasRecentlyScraped(competitor.url)) {
+          result =
+              priceScrapingService
+                  .getCachedPriceResult(urlKey)
+                  .orElseGet(() -> priceScrapingService.scrapePriceWithMultiTier(competitor.url));
+        } else {
+          result = priceScrapingService.scrapePriceWithMultiTier(competitor.url);
+        }
 
         if (result.isSuccess()) {
           // Store price snapshot
           storePriceSnapshot(competitor, result);
           incrementProgress(sessionId, "completed");
+          // Publish shared cache so other shops with the same URL can reuse
+          priceScrapingService.cachePriceResult(urlKey, result, Duration.ofMinutes(30));
           markAsRecentlyScraped(competitor.url);
         } else {
           logger.warn(
@@ -347,6 +377,39 @@ public class RedisPriceRefreshQueueService {
           domain,
           sessionId,
           e.getMessage());
+    }
+  }
+
+  /** Check if a competitor has a recent successful check within the manual interval window */
+  private boolean hasRecentSuccessfulCheck(Long competitorId) {
+    try {
+      // Prefer last_successful_check; if null, look at most recent snapshot time
+      String query =
+          """
+          SELECT
+              COALESCE(
+                  cu.last_successful_check,
+                  (
+                    SELECT MAX(checked_at)
+                    FROM price_snapshots ps
+                    WHERE ps.competitor_url_id = cu.id AND ps.deleted_at IS NULL
+                  )
+              ) AS last_check
+          FROM competitor_urls cu
+          WHERE cu.id = ?
+          """;
+
+      java.sql.Timestamp last =
+          jdbcTemplate.queryForObject(query, java.sql.Timestamp.class, competitorId);
+      if (last == null) return false;
+
+      long hours = (System.currentTimeMillis() - last.getTime()) / (1000 * 60 * 60);
+      return hours < manualRefreshMinimumIntervalHours;
+
+    } catch (Exception e) {
+      logger.debug(
+          "hasRecentSuccessfulCheck: fallback false for {}: {}", competitorId, e.getMessage());
+      return false;
     }
   }
 
@@ -394,7 +457,7 @@ public class RedisPriceRefreshQueueService {
   /** Check if URL was recently scraped using Redis cache */
   private boolean wasRecentlyScraped(String url) {
     try {
-      String cacheKey = redisKeyPrefix + ":cache:" + url.hashCode();
+      String cacheKey = redisKeyPrefix + ":cache:" + normalizeUrlToKey(url);
       return Boolean.TRUE.equals(redisTemplate.hasKey(cacheKey));
     } catch (Exception e) {
       logger.debug("Failed to check cache for URL {}: {}", url, e.getMessage());
@@ -405,10 +468,59 @@ public class RedisPriceRefreshQueueService {
   /** Mark URL as recently scraped in Redis cache */
   private void markAsRecentlyScraped(String url) {
     try {
-      String cacheKey = redisKeyPrefix + ":cache:" + url.hashCode();
+      String cacheKey = redisKeyPrefix + ":cache:" + normalizeUrlToKey(url);
       redisTemplate.opsForValue().set(cacheKey, "true", Duration.ofMinutes(30));
     } catch (Exception e) {
       logger.debug("Failed to mark URL as recently scraped: {}", e.getMessage());
+    }
+  }
+
+  /** Normalize a competitor URL to a canonical cache key (stable across shops) */
+  private String normalizeUrlToKey(String rawUrl) {
+    try {
+      java.net.URI uri = new java.net.URI(rawUrl);
+      String host = (uri.getHost() != null) ? uri.getHost().toLowerCase() : "";
+      String path = (uri.getPath() != null) ? uri.getPath() : "";
+      // Drop tracking params that shouldn't affect price page identity
+      java.util.Set<String> drop =
+          java.util.Set.of(
+              "utm_source",
+              "utm_medium",
+              "utm_campaign",
+              "utm_term",
+              "utm_content",
+              "tag",
+              "affid",
+              "aff",
+              "ascsubtag",
+              "_encoding",
+              "ref",
+              "ref_",
+              "pf_rd_p",
+              "pf_rd_r",
+              "qid",
+              "sr",
+              "srsltid");
+      String query = uri.getQuery();
+      String keptQuery = null;
+      if (query != null && !query.isEmpty()) {
+        String[] parts = query.split("&");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+          int eq = part.indexOf('=');
+          String key = eq >= 0 ? part.substring(0, eq) : part;
+          if (!drop.contains(key)) {
+            if (sb.length() > 0) sb.append('&');
+            sb.append(part);
+          }
+        }
+        keptQuery = sb.length() > 0 ? sb.toString() : null;
+      }
+      String canonical = host + path + (keptQuery != null ? ("?" + keptQuery) : "");
+      return Integer.toHexString(canonical.hashCode());
+    } catch (Exception e) {
+      // Fallback to simple hash on failure
+      return Integer.toHexString(String.valueOf(rawUrl).hashCode());
     }
   }
 
@@ -591,6 +703,39 @@ public class RedisPriceRefreshQueueService {
           "v2.0-unified",
           "USD");
 
+      // Get the ID of the newly inserted snapshot
+      Long snapshotId = jdbcTemplate.queryForObject("SELECT LASTVAL()", Long.class);
+
+      // Calculate and persist price change percent for the latest snapshot (if possible)
+      if (result.getPrice() != null) {
+        try {
+          java.util.Optional<BigDecimal> calculatedChange =
+              priceChangeCalculationService.calculatePriceChangePercent(
+                  competitor.id, result.getPrice());
+          if (calculatedChange.isPresent() && snapshotId != null) {
+            BigDecimal priceChangePercent = calculatedChange.get();
+            boolean significantChange =
+                priceChangeCalculationService.isSignificantPriceChange(
+                    priceChangePercent, BigDecimal.valueOf(5));
+
+            jdbcTemplate.update(
+                "UPDATE price_snapshots SET price_change_percent = ?, significant_change = ? WHERE id = ?",
+                priceChangePercent,
+                significantChange,
+                snapshotId);
+
+            logger.debug(
+                "Stored price change percent for competitor {} snapshot {}: {}% (significant: {})",
+                competitor.id, snapshotId, priceChangePercent, significantChange);
+          }
+        } catch (Exception calcError) {
+          logger.debug(
+              "Failed to calculate price change percent for competitor {}: {}",
+              competitor.id,
+              calcError.getMessage());
+        }
+      }
+
       // Update competitor status with comprehensive tracking
       jdbcTemplate.update(
           """
@@ -612,6 +757,31 @@ public class RedisPriceRefreshQueueService {
           result.getPrice(),
           result.getScraperSource(),
           result.getResponseTime());
+
+      // Write-through: patch list cache so UI reflects latest price/inStock immediately
+      try {
+        String shopDomain = "unknown";
+        try {
+          Map<String, Object> row =
+              jdbcTemplate.queryForMap(
+                  "SELECT s.shopify_domain FROM shops s JOIN competitor_urls cu ON cu.shop_id = s.id WHERE cu.id = ?",
+                  competitor.id);
+          Object domainObj = row.get("shopify_domain");
+          if (domainObj != null) shopDomain = domainObj.toString();
+        } catch (Exception ignore) {
+        }
+
+        java.util.Map<String, Object> patch = new java.util.HashMap<>();
+        patch.put("price", result.getPrice());
+        patch.put("inStock", result.isInStock());
+        patch.put("lastChecked", java.time.LocalDateTime.now().toString());
+        marketIntelligenceCacheService.updateCompetitorListEntry(shopDomain, competitor.id, patch);
+        // Ensure charts and history refetch fresh data
+        marketIntelligenceCacheService.invalidateCompetitorPriceCaches(shopDomain, competitor.id);
+      } catch (Exception cacheErr) {
+        logger.debug(
+            "write-through cache update failed for {}: {}", competitor.id, cacheErr.getMessage());
+      }
 
     } catch (Exception e) {
       logger.error(

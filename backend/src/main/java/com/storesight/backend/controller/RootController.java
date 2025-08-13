@@ -35,6 +35,19 @@ public class RootController {
     return ResponseEntity.ok(response);
   }
 
+  /** Simple root-level health endpoint for load balancers and uptime checks */
+  @GetMapping("/health")
+  public ResponseEntity<Map<String, Object>> health() {
+    logger.debug("/health endpoint accessed");
+
+    Map<String, Object> response = new HashMap<>();
+    response.put("status", "UP");
+    response.put("service", "ShopGauge Backend");
+    response.put("timestamp", LocalDateTime.now().toString());
+
+    return ResponseEntity.ok(response);
+  }
+
   @GetMapping("/emergency-admin")
   public String emergencyAdmin() {
     return "forward:/emergency-admin.html";

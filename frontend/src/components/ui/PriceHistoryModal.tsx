@@ -12,12 +12,15 @@ import {
   AreaChart,
 } from 'recharts';
 import { fetchWithAuth } from '../../api';
+import { getMiCacheKey } from '../../utils/miCacheUtils';
+import { useAuth } from '../../context/AuthContext';
 
 interface PriceHistoryData {
   checked_at: string;
   price: number;
   in_stock: boolean;
   price_change_percent?: number;
+  significant_change?: boolean;
 }
 
 interface PriceHistoryModalProps {
@@ -37,6 +40,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   onClose,
   isDemoMode = false
 }) => {
+  const { shop } = useAuth();
   const [priceHistory, setPriceHistory] = useState<PriceHistoryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,11 +69,52 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
       }
 
       try {
+        // L1: session seed
+        try {
+          if (shop) {
+            const sessionKey = getMiCacheKey(shop);
+            const raw = sessionStorage.getItem(sessionKey);
+            if (raw) {
+              const cache = JSON.parse(raw);
+              const phKey = `price_history_${competitor.id}_90`;
+              const entry = cache[phKey];
+              if (entry && Array.isArray(entry.data)) {
+                setPriceHistory(entry.data);
+                setStatistics(entry.statistics || {});
+              }
+            }
+          }
+        } catch (_) {
+          // ignore session errors
+        }
+
         const response = await fetchWithAuth(`/api/competitors/${competitor.id}/price-history?days=90`);
         if (response.ok) {
           const data = await response.json();
           setPriceHistory(data.priceHistory || []);
           setStatistics(data.statistics || {});
+          // L1: write-through to MI session cache
+          try {
+            if (shop) {
+              const sessionKey = getMiCacheKey(shop);
+              const raw = sessionStorage.getItem(sessionKey);
+              const cache = raw ? JSON.parse(raw) : { version: '1.0', shop };
+              const phKey = `price_history_${competitor.id}_90`;
+              cache[phKey] = {
+                data: data.priceHistory || [],
+                timestamp: Date.now(),
+                lastUpdated: new Date().toISOString(),
+                version: '1.0',
+                shop,
+                source: 'redis'
+              };
+              // also persist a small stats object if present
+              cache[`${phKey}_stats`] = data.statistics || {};
+              sessionStorage.setItem(sessionKey, JSON.stringify(cache));
+            }
+          } catch (_) {
+            // ignore quota errors
+          }
         } else {
           setError('Failed to load price history');
         }
@@ -111,12 +156,17 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
     return '→';
   };
 
-  // Transform data for Recharts - data is in descending order (latest first)
-  const chartData = priceHistory.map((entry, index) => {
-    const prevPrice = index > 0 ? priceHistory[index - 1].price : entry.price;
-    const change = entry.price - prevPrice;
-    const changePercent = prevPrice > 0 ? (change / prevPrice) * 100 : 0;
-    
+  // Transform data for Recharts - render in chronological order (oldest -> newest)
+  const sortedHistory = [...priceHistory].reverse();
+  const chartData = sortedHistory.map((entry, index) => {
+    const prevPrice = index > 0 ? sortedHistory[index - 1].price : entry.price;
+    const persistedChange =
+      entry.price_change_percent !== undefined && entry.price_change_percent !== null
+        ? Number(entry.price_change_percent)
+        : undefined;
+    const fallbackChange = prevPrice > 0 ? ((entry.price - prevPrice) / prevPrice) * 100 : 0;
+    const changePercent = persistedChange !== undefined ? persistedChange : fallbackChange;
+
     return {
       date: new Date(entry.checked_at).toLocaleDateString('en-US', {
         month: 'short',
@@ -127,7 +177,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
       inStock: entry.in_stock,
       timestamp: new Date(entry.checked_at).getTime()
     };
-  }); // Data is in descending order (latest first)
+  });
 
   // Custom tooltip for the chart
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -277,12 +327,15 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {priceHistory.map((entry, index) => {
-                      // Since data is ordered from latest to oldest (descending), 
-                      // we need to compare with the next entry (older) to show the change
+                      // Since data is ordered from latest to oldest (descending), use persisted change if available
+                      const persisted =
+                        entry.price_change_percent !== undefined && entry.price_change_percent !== null
+                          ? Number(entry.price_change_percent)
+                          : undefined;
                       const nextPrice = index < priceHistory.length - 1 ? priceHistory[index + 1].price : entry.price;
-                      const change = entry.price - nextPrice;
-                      const changePercent = nextPrice > 0 ? (change / nextPrice) * 100 : 0;
-                      
+                      const fallback = nextPrice > 0 ? ((entry.price - nextPrice) / nextPrice) * 100 : 0;
+                      const changePercent = persisted !== undefined ? persisted : fallback;
+
                       return (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -361,7 +414,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                   </ResponsiveContainer>
                 </div>
                 <div className="text-center text-sm text-gray-500 mt-4">
-                  {formatDate(priceHistory[priceHistory.length - 1].checked_at)} - {formatDate(priceHistory[0].checked_at)}
+                  {formatDate(sortedHistory[0].checked_at)} - {formatDate(sortedHistory[sortedHistory.length - 1].checked_at)}
                 </div>
               </div>
             )}

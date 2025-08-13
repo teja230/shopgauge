@@ -9,10 +9,8 @@ import { PriceHistoryModal } from '../components/ui/PriceHistoryModal';
 import { 
   getCompetitors, 
   deleteCompetitor,
-  getDebouncedSuggestionCount,
   refreshSuggestionCount as refreshSuggestionCountAPI,
   addCompetitorIntelligent,
-  getPriceStatus
 } from '../api';
 import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
@@ -42,8 +40,6 @@ import Joyride from 'react-joyride';
 import type { CallBackProps, Step } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
 import { refreshCompetitorPrices, getPriceRefreshProgress } from '../api/index';
@@ -75,14 +71,14 @@ interface DemoAnalytics {
   lastUsed: Date;
 }
 
-// Tutorial steps for guided tour
+// Tutorial steps for guided tour (ordered and with precise targets)
 const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'welcome',
     title: 'Welcome to Market Intelligence!',
     description: 'This feature helps you monitor your competitors\' pricing and discover new market opportunities.',
-    target: 'body', // Changed from '.market-insights-cards' to 'body' for no highlight
-    position: 'center' // Changed from 'bottom' to 'center' for modal style
+    target: 'body',
+    position: 'center'
   },
   {
     id: 'insights',
@@ -127,31 +123,73 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     position: 'bottom'
   },
   {
+    id: 'refresh-all',
+    title: 'Bulk Refresh Prices',
+    description: 'Use this button to refresh prices in bulk for competitors with data older than 24 hours.',
+    target: '.refresh-button',
+    position: 'bottom'
+  },
+  {
+    id: 'show-archived',
+    title: 'Show Archived',
+    description: 'Open the archived competitors section to view and restore previously archived competitors.',
+    target: '.archived-competitors-button',
+    position: 'bottom'
+  },
+  {
     id: 'table',
-    title: 'Competitor Table',
+    title: 'Active Section',
     description: 'View detailed pricing information, stock status, and price changes for all your competitors.',
     target: '.competitor-table',
     position: 'top'
   },
   {
-    id: 'graph-button',
-    title: 'Price History Graphs',
-    description: 'Click the graph icon next to any competitor to view their price history and trends over time.',
-    target: '.competitor-table',
+    id: 'row-refresh',
+    title: 'Refresh a Single Competitor',
+    description: 'Use the refresh icon to update the latest price for a specific competitor.',
+    target: '.desktop-row-refresh-button',
     position: 'top'
   },
   {
-    id: 'deleted-competitors',
-    title: 'Deleted Competitors',
-    description: 'Access the "Deleted" button to view and restore previously deleted competitors with full price history preserved.',
-    target: '.deleted-competitors-button',
-    position: 'bottom'
+    id: 'row-graph',
+    title: 'Price History Graph',
+    description: 'Click the graph icon to view detailed price history and trends for this competitor.',
+    target: '.desktop-row-graph-button',
+    position: 'top'
   },
   {
-    id: 'restore-feature',
-    title: 'Restore Functionality',
-    description: 'Deleted competitors can be restored for up to 30 days. All price history and data is preserved during this period.',
-    target: '.deleted-competitors-panel',
+    id: 'row-archive',
+    title: 'Archive a Competitor',
+    description: 'Use the archive icon to move a competitor to the archived list. You can restore it later.',
+    target: '.desktop-row-archive-button',
+    position: 'top'
+  },
+  {
+    id: 'more-actions',
+    title: 'More Actions',
+    description: 'Open the menu for secondary actions like visiting the site or copying the URL.',
+    target: '.desktop-row-more-actions-button',
+    position: 'top'
+  },
+  {
+    id: 'archived-panel',
+    title: 'Archived Section',
+    description: 'This section lists archived competitors. You can restore them and their full price history at any time within 30 days.',
+    target: '.archived-competitors-panel',
+    position: 'top'
+  },
+  {
+    id: 'archived-restore',
+    title: 'Restore Archived Competitor',
+    description: 'Use the restore icon to bring back an archived competitor with their full price history.',
+    target: '.archived-restore-button',
+    position: 'top'
+  },
+  {
+    id: 'archived-delete',
+    title: 'Permanently Delete',
+    description: 'Use the delete icon to permanently remove an archived competitor. This action cannot be undone.',
+    target: '.archived-delete-button',
     position: 'top'
   }
 ];
@@ -776,9 +814,24 @@ export default function CompetitorsPage() {
     }
     
     try {
-      const cacheKey = `competitors_${shop}`;
-      const suggestionCacheKey = `market-intelligence:suggestions_${shop}`;
-      
+      const cacheKey = `mi_competitors_${shop}`;
+      const suggestionCacheKey = `mi_suggestions_${shop}`;
+
+      // L1: Session storage read (non-blocking): if present and not forcing, seed UI immediately
+      if (!forceRefresh) {
+        try {
+          const sessionData = sessionStorage.getItem(cacheKey);
+          if (sessionData) {
+            const seeded = JSON.parse(sessionData);
+            if (Array.isArray(seeded) && seeded.length >= 0) {
+              setCompetitors(seeded);
+            }
+          }
+        } catch (_) {
+          // ignore session parse errors
+        }
+      }
+
       const [competitorsData, suggestionCountData] = await Promise.all([
         fetchWithCache(cacheKey, getCompetitors, forceRefresh ? 0 : CACHE_DURATION),
         fetchWithCache(suggestionCacheKey, getDebouncedSuggestionCount, forceRefresh ? 0 : SUGGESTION_COUNT_CACHE_DURATION)
@@ -791,6 +844,12 @@ export default function CompetitorsPage() {
         competitors: competitorsData.map(c => ({ id: c.id, url: c.url, label: c.label }))
       }, 'CompetitorsPage');
       setCompetitors(competitorsData);
+              // L1: Write-through to session storage for subsequent loads
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(competitorsData));
+        } catch (_) {
+          // ignore storage quota errors
+        }
       setSuggestionCount(suggestionCountData.newSuggestions);
       
       // Handle demo mode logic - respect user preference above all
@@ -975,6 +1034,17 @@ export default function CompetitorsPage() {
             }
           );
           
+          // Invalidate session + in-memory caches before fetching fresh data
+          try {
+            if (shop) {
+              const cacheKey = `mi_competitors_${shop}`;
+              sessionStorage.removeItem(cacheKey);
+              cache.delete(cacheKey);
+            }
+          } catch (_) {
+            // ignore cache errors
+          }
+
           // Refresh the competitor data
           await fetchData(true);
           
@@ -1190,9 +1260,15 @@ export default function CompetitorsPage() {
         // Trigger highlighting for the newly added competitor
         triggerHighlight(newCompetitor.id, 'add');
       
-        // Clear cache to ensure fresh data on next load
-        const cacheKey = `competitors_${shop}`;
+        // Clear session cache and refetch to ensure fresh data on next load
+        const cacheKey = `mi_competitors_${shop}`;
+        try {
+          sessionStorage.removeItem(cacheKey);
+        } catch (e) {
+          void 0;
+        }
         cache.delete(cacheKey);
+        await fetchData(true);
         
         // Show enterprise-grade success notification
         debugLog.info('Showing success notification for competitor addition', {
@@ -1519,23 +1595,74 @@ export default function CompetitorsPage() {
       // Trigger highlighting for the archived competitor
       triggerHighlight(id, 'archive');
       
-      setCompetitors((prev) => prev.filter((c) => c.id !== id));
+      // Delay removal slightly to allow highlight animation
+      setTimeout(() => {
+        setCompetitors((prev) => prev.filter((c) => c.id !== id));
+        // Trigger archived panel refresh immediately so highlight can apply when it appears
+        setArchivedRefreshTrigger(prev => prev + 1);
+      }, 200);
       
       try {
         // Call API to actually delete from backend
         await deleteCompetitor(id);
-      
-      // Clear cache to force refresh
-      const cacheKey = `competitors_${shop}`;
-      cache.delete(cacheKey);
-      
+
+        // L1 session cache: surgical updates for efficiency
+        const cacheKey = `mi_competitors_${shop}`;
+        const archivedKey = `mi_archived_${shop}`;
+        try {
+          // Remove from active list cache
+          const rawActive = sessionStorage.getItem(cacheKey);
+          if (rawActive) {
+            const arr = JSON.parse(rawActive);
+            if (Array.isArray(arr)) {
+              const nextActive = arr.filter((c: any) => String(c.id) !== String(id));
+              sessionStorage.setItem(cacheKey, JSON.stringify(nextActive));
+            }
+          }
+
+          // Append to archived list cache (best-effort stub, backend will refresh shortly)
+          const rawArchived = sessionStorage.getItem(archivedKey);
+          const archivedArr = rawArchived ? JSON.parse(rawArchived) : [];
+          const toArchive = competitorToDelete
+            ? {
+                id: competitorToDelete.id,
+                url: competitorToDelete.url,
+                label: competitorToDelete.label,
+                deleted_at: new Date().toISOString(),
+                platform: (competitorToDelete as any).platform || 'unknown',
+                domain: (() => { try { return new URL(competitorToDelete.url).hostname.replace('www.', ''); } catch { return undefined; } })(),
+                last_successful_check: null,
+                latest_snapshot_at: null,
+                price_snapshots_count: 0,
+              }
+            : null;
+          if (toArchive) {
+            const nextArchived = [toArchive, ...(Array.isArray(archivedArr) ? archivedArr : [])];
+            sessionStorage.setItem(archivedKey, JSON.stringify(nextArchived));
+          }
+        } catch (_) {
+          // ignore session errors
+        }
+
+        // Also update in-memory cache map for active list
+        try {
+          cache.delete(cacheKey);
+        } catch (_) {
+          // Ignore cache deletion errors
+        }
+
+        // Refetch from server/Redis in background to reconcile with authoritative data
+        setTimeout(async () => {
+          await fetchData(true);
+        }, 500);
+
         notifications.showSuccess('Competitor tracking has been discontinued', {
           category: 'Competitors',
           showToast: true
         });
         
-        // Trigger refresh of archived competitors list
-        setArchivedRefreshTrigger(prev => prev + 1);
+      // Ensure archived list refreshed (second signal after API completes)
+      setArchivedRefreshTrigger(prev => prev + 1);
         
         debugLog.info('Competitor deleted successfully', { 
           competitorId: id,
@@ -1667,10 +1794,45 @@ export default function CompetitorsPage() {
     });
   }, []);
 
-  const handleProductAssociationChange = useCallback(() => {
-    // Refresh the competitors list to show updated associations
-    fetchData(true);
-  }, [fetchData]);
+  const handleProductAssociationChange = useCallback((change?: { competitorId: string; productId?: string; productTitle?: string }) => {
+    if (change?.competitorId) {
+      const { competitorId, productId, productTitle } = change;
+      // Surgical write-through: update in-memory list immediately
+      setCompetitors(prev => prev.map(c => {
+        if (String(c.id) === String(competitorId)) {
+          return {
+            ...c,
+            shopifyProductId: productId,
+            productTitle: productTitle
+          };
+        }
+        return c;
+      }));
+      // Update session cache entry immediately (L1)
+      try {
+        if (shop) {
+          const cacheKey = `mi_competitors_${shop}`;
+          const raw = sessionStorage.getItem(cacheKey);
+          if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              const next = arr.map((c: any) => String(c.id) === String(competitorId) ? {
+                ...c,
+                shopifyProductId: productId,
+                productTitle: productTitle
+              } : c);
+              sessionStorage.setItem(cacheKey, JSON.stringify(next));
+            }
+          }
+        }
+      } catch (_) {
+        // ignore session errors
+      }
+    } else {
+      // Fallback: refetch if change payload missing
+      fetchData(true);
+    }
+  }, [fetchData, shop]);
 
   // Callback for when a competitor is restored from archived section
   const handleCompetitorRestored = useCallback((competitorId?: string) => {
@@ -1681,7 +1843,15 @@ export default function CompetitorsPage() {
       triggerHighlight(competitorId, 'restore');
     }
     
-    fetchData(true); // Force refresh to update active competitors list
+    // Force refresh to update active competitors list and clear search/filter that could hide it
+    setFilterStatus('all');
+    setSearchQuery('');
+    fetchData(true).then(() => {
+      if (competitorId) {
+        // Re-trigger highlight once data is in the table so the row is visible
+        setTimeout(() => triggerHighlight(competitorId, 'restore'), 100);
+      }
+    });
   }, [fetchData]);
 
   // Limit display component
@@ -2162,6 +2332,28 @@ export default function CompetitorsPage() {
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
     console.log('Market Intelligence Joyride callback:', { action, index, status, type });
+    
+    // Ensure desktop table is expanded before row-action steps
+    if (type === 'step:before' && typeof index === 'number') {
+      const stepId = TUTORIAL_STEPS[index]?.id;
+      if (stepId && ['row-refresh','row-graph','row-archive','more-actions'].includes(stepId)) {
+        try {
+          const expander = document.querySelector('.competitor-table .desktop-table');
+          if (expander) {
+            // Ensure section is expanded if collapsible
+            const collapse = expander.closest('[data-testid="competitor-section"]');
+            if (collapse) {
+              const toggle = collapse.querySelector('button');
+              if (toggle && collapse.getAttribute('data-collapsed') === 'true') {
+                (toggle as HTMLButtonElement).click();
+              }
+            }
+          }
+        } catch (_) {
+          // Ignore errors when expanding section for tutorial
+        }
+      }
+    }
 
     // Prevent duplicate notifications
     if (notificationShownRef.current) return;
@@ -2209,7 +2401,10 @@ export default function CompetitorsPage() {
     }
     // Handle step navigation - let Joyride handle navigation internally
     else if (type === 'step:after' && typeof index === 'number') {
-      // Let Joyride handle step navigation - don't interfere
+      const stepId = TUTORIAL_STEPS[index]?.id;
+      if (stepId === 'show-archived') {
+        setShowDeletedCompetitors(true);
+      }
     }
   };
 
@@ -2862,7 +3057,7 @@ export default function CompetitorsPage() {
             <div className="space-y-4">
               {/* Active Competitors Section */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                <div className="overflow-x-auto competitor-table">
+                <div className="competitor-table">
                   <CompetitorTable 
                     data={filteredCompetitors} 
                     onDelete={handleDelete} 
@@ -2889,7 +3084,7 @@ export default function CompetitorsPage() {
               {/* Archived Competitors Panel */}
               {showDeletedCompetitors && (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                  <div className="overflow-x-auto competitor-table">
+                  <div className="competitor-table">
                     <ArchivedCompetitorsPanel
                       shopId={isDemoMode ? 'demo' : (shop || 'demo')}
                       onCountChange={setArchivedCount}

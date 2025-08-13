@@ -24,8 +24,11 @@ import {
   CardContent,
   Divider,
   Grid,
-  Stack
+  Stack,
+  Collapse,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { styled } from '@mui/material/styles';
 import {
   Restore as RestoreIcon,
@@ -35,6 +38,7 @@ import {
   TrendingUp as TrendingUpIcon,
   OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAuth } from '../../api';
 import StoreLogo from './StoreLogo';
@@ -47,6 +51,7 @@ interface ArchivedCompetitor {
   platform: string;
   domain: string;
   last_successful_check: string | null;
+  latest_snapshot_at?: string | null;
   price_snapshots_count: number;
 }
 
@@ -139,10 +144,13 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   highlightedCompetitorId,
   highlightAction,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [deletedCompetitors, setDeletedCompetitors] = useState<ArchivedCompetitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
-  const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+  const [highlightedRows, setHighlightedRows] = useState<Map<string, 'success' | 'warning'>>(new Map());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [restoreDialog, setRestoreDialog] = useState<{
     open: boolean;
     competitor: ArchivedCompetitor | null;
@@ -164,23 +172,45 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   });
 
   const notifications = useNotifications();
+  const sessionKey = React.useMemo(() => `mi_archived_${shopId}`, [shopId]);
 
-  // Function to highlight a row briefly
+  const seedFromSession = React.useCallback(() => {
+    try {
+      const raw = sessionStorage.getItem(sessionKey);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          setDeletedCompetitors(arr);
+        }
+      }
+    } catch (_) {
+      // ignore session parse errors
+    }
+  }, [sessionKey]);
+
+  // Function to highlight a row briefly, with color persistence
   const highlightRow = (competitorId: string | number, color: 'success' | 'warning') => {
     const competitorIdStr = String(competitorId);
-    setHighlightedRows(prev => new Set([...prev, competitorIdStr]));
-    
+    setHighlightedRows(prev => {
+      const next = new Map(prev);
+      next.set(competitorIdStr, color);
+      return next;
+    });
+
     // Remove highlight after 5 seconds (industry standard for UI feedback)
     setTimeout(() => {
       setHighlightedRows(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(competitorIdStr);
-        return newSet;
+        const next = new Map(prev);
+        next.delete(competitorIdStr);
+        return next;
       });
     }, 5000);
   };
 
   useEffect(() => {
+    // L1: seed from session immediately
+    seedFromSession();
+    // L2/L3: fetch and write-through to session
     loadDeletedCompetitors();
   }, [shopId]);
 
@@ -193,9 +223,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
   // Refresh archived competitors when refreshTrigger changes
   useEffect(() => {
     if (refreshTrigger !== undefined) {
+      // Seed from session first, then fetch
+      seedFromSession();
       loadDeletedCompetitors();
     }
-  }, [refreshTrigger]);
+  }, [refreshTrigger, seedFromSession]);
 
   // Handle external highlighting from props
   useEffect(() => {
@@ -216,6 +248,23 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
       highlightRow(highlightedCompetitorId, color);
     }
   }, [highlightedCompetitorId, highlightAction]);
+
+  // If external highlight id arrives before data, apply highlight when data loads
+  useEffect(() => {
+    if (highlightedCompetitorId && deletedCompetitors.some(c => String(c.id) === String(highlightedCompetitorId))) {
+      const color: 'success' | 'warning' = highlightAction === 'archive' ? 'warning' : 'success';
+      highlightRow(highlightedCompetitorId, color);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deletedCompetitors.length, highlightedCompetitorId]);
+
+  const toggleExpanded = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const loadDeletedCompetitors = async () => {
     try {
@@ -260,7 +309,14 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
         const response = await fetchWithAuth(`/api/competitors/deleted`);
         const data = await response.json();
         if (data.competitors) {
-          setDeletedCompetitors(data.competitors || []);
+          const list = data.competitors || [];
+          setDeletedCompetitors(list);
+          // L1: write-through to session
+          try {
+            sessionStorage.setItem(sessionKey, JSON.stringify(list));
+          } catch (_) {
+            // ignore quota errors
+          }
         } else {
           console.error('Unexpected response format:', data);
           notifications.showError('Failed to load deleted competitors - unexpected response format');
@@ -317,19 +373,43 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
           // Highlight the row before removing it
           highlightRow(restoreDialog.competitor!.id, 'success');
           
-          setDeletedCompetitors(prev => 
-            prev.filter(c => c.id !== restoreDialog.competitor!.id)
-          );
+          // Delay removal slightly so highlight is visible
+          setTimeout(() => {
+            setDeletedCompetitors(prev => 
+              prev.filter(c => c.id !== restoreDialog.competitor!.id)
+            );
+            // L1: update session cache
+            try {
+              const raw = sessionStorage.getItem(sessionKey);
+              if (raw) {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                  const next = arr.filter((c: any) => String(c.id) !== String(restoreDialog.competitor!.id));
+                  sessionStorage.setItem(sessionKey, JSON.stringify(next));
+                }
+              }
+            } catch (_) {
+              // ignore session errors
+            }
+          }, 250);
+          // Update header counts if provided by backend
+          if (typeof data.activeCount === 'number' && typeof data.archivedCount === 'number' && onCountChange) {
+            onCountChange(data.archivedCount);
+          }
           notifications.showSuccess('Archived competitor restored successfully', {
             showToast: true
           });
           
-          // Notify parent component to refresh active competitors
+          // Notify parent component to refresh active competitors after delay
           if (onCompetitorRestored) {
-            onCompetitorRestored(restoreDialog.competitor!.id);
+            setTimeout(() => onCompetitorRestored(restoreDialog.competitor!.id), 250);
           }
         } else {
           // Handle error response
+          // If backend provided counts in error, reflect archived count for UX consistency
+          if (typeof data?.activeCount === 'number' && typeof data?.archivedCount === 'number' && onCountChange) {
+            onCountChange(data.archivedCount);
+          }
           throw new Error(data.error || data.message || 'Failed to restore competitor');
         }
       }
@@ -483,7 +563,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
             p: 2.5,
             minHeight: 56
           }
-        }}>
+        }} className="archived-competitors-panel">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {onToggleCollapse && (
               <IconButton
@@ -574,7 +654,80 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
               </Typography>
             </Box>
           ) : (
-            /* Table - Matches CompetitorTable styling exactly */
+            /* Mobile cards or desktop table */
+            isMobile ? (
+              <Box sx={{ p: 2 }}>
+                <Stack spacing={2}>
+                  {deletedCompetitors.map((c) => (
+                    <Card key={c.id} onClick={() => toggleExpanded(c.id)} sx={{ borderRadius: 2 }}>
+                      <CardContent>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                          <StoreLogo url={c.url} size={40} />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="subtitle1" fontWeight={600} noWrap>
+                              {c.label || 'Unnamed Competitor'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {c.domain || getDomainFromUrl(c.url)}
+                            </Typography>
+                          </Box>
+                          <IconButton size="small" aria-label="expand">
+                            <ExpandMoreIcon sx={{ transform: expandedRows.has(c.id) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                          </IconButton>
+                        </Stack>
+                        <Collapse in={expandedRows.has(c.id)} timeout={200}>
+                          <Divider sx={{ my: 1.5 }} />
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Archived</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{formatDate(c.deleted_at)}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Last Check</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                            {c.last_successful_check ? formatDate(c.last_successful_check) : c.latest_snapshot_at ? formatDate(c.latest_snapshot_at) : '-'}
+                          </Typography>
+                          {/* Mobile: Icon-only buttons matching desktop theme */}
+                          <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 2 }}>
+                            <Tooltip title="Visit Site">
+                              <IconButton
+                                size="medium"
+                                onClick={(e) => { e.stopPropagation(); window.open(c.url, '_blank'); }}
+                                color="primary"
+                                aria-label="Visit competitor website"
+                              >
+                                <OpenInNewIcon />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Restore">
+                              <IconButton
+                                size="medium"
+                                onClick={(e) => { e.stopPropagation(); handleRestore(c); }}
+                                disabled={restoring === c.id}
+                                color="success"
+                                aria-label="Restore competitor"
+                                className="archived-restore-button"
+                              >
+                                {restoring === c.id ? <CircularProgress size={20} /> : <RestoreIcon />}
+                              </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Delete Permanently">
+                              <IconButton
+                                size="medium"
+                                onClick={(e) => { e.stopPropagation(); handlePermanentDelete(c); }}
+                                color="error"
+                                aria-label="Permanently delete"
+                                className="archived-delete-button"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </Collapse>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              </Box>
+            ) : (
             <StyledTableContainer>
               <Table>
                 <StyledTableHead>
@@ -588,11 +741,15 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                   </TableRow>
                 </StyledTableHead>
                 <TableBody>
-                  {deletedCompetitors.map((competitor) => (
+                  {deletedCompetitors.map((competitor) => {
+                    const idStr = String(competitor.id);
+                    const isHighlighted = highlightedRows.has(idStr);
+                    const rowColor = isHighlighted ? highlightedRows.get(idStr) : undefined;
+                    return (
                     <StyledTableRow 
                       key={competitor.id}
-                      $highlighted={highlightedRows.has(competitor.id)}
-                      $highlightColor={highlightedRows.has(competitor.id) ? 'success' : undefined}
+                      $highlighted={isHighlighted}
+                      $highlightColor={rowColor}
                     >
                       <StyledTableCell>
                         <Stack direction="row" spacing={2} alignItems="center">
@@ -614,10 +771,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                       </StyledTableCell>
                       <StyledTableCell>
                         <Typography variant="body2" color="text.secondary">
-                          {competitor.last_successful_check 
+                          {competitor.last_successful_check
                             ? formatDate(competitor.last_successful_check)
-                            : 'Never'
-                          }
+                            : competitor.latest_snapshot_at
+                              ? formatDate(competitor.latest_snapshot_at)
+                              : '-'}
                         </Typography>
                       </StyledTableCell>
                       <StyledTableCell>
@@ -638,6 +796,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               onClick={() => handleRestore(competitor)}
                               disabled={restoring === competitor.id}
                               sx={{ minWidth: 36, minHeight: 36 }}
+                              className="archived-restore-button"
                             >
                               {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
                             </IconButton>
@@ -648,6 +807,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               color="error"
                               onClick={() => handlePermanentDelete(competitor)}
                               sx={{ minWidth: 36, minHeight: 36 }}
+                              className="archived-delete-button"
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -655,10 +815,11 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                         </Stack>
                       </StyledTableCell>
                     </StyledTableRow>
-                  ))}
+                  );})}
                 </TableBody>
               </Table>
             </StyledTableContainer>
+            )
           )}
         </>
       )}

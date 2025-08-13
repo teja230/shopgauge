@@ -1,5 +1,6 @@
 package com.storesight.backend.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import com.storesight.backend.service.discovery.ScrapingdogSearchClient;
 import com.storesight.backend.service.discovery.SerpApiSearchClient;
@@ -28,12 +29,15 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class PriceScrapingService {
 
   private static final Logger log = LoggerFactory.getLogger(PriceScrapingService.class);
+  private static final String SHARED_PRICE_CACHE_PREFIX = "mi:price_refresh:cache:";
 
   @Autowired private MultiSourceSearchClient multiSourceSearchClient;
   @Autowired private ScrapingdogSearchClient scrapingdogSearchClient;
   @Autowired private SerperSearchClient serperSearchClient;
   @Autowired private SerpApiSearchClient serpApiSearchClient;
   @Autowired private WebClient webClient;
+  @Autowired private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+  private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
   @Value("${discovery.scrapingdog.key:${SCRAPINGDOG_KEY:dummy_scrapingdog_key}}")
   private String scrapingdogKey;
@@ -231,6 +235,28 @@ public class PriceScrapingService {
         "All scraping tiers exhausted - likely blocked by anti-bot protection",
         "all-tiers-failed",
         System.currentTimeMillis() - startTime);
+  }
+
+  // Shared cross-shop cache helpers for RedisPriceRefreshQueueService integration
+  public java.util.Optional<PriceScrapingResult> getCachedPriceResult(String urlKey) {
+    try {
+      String key = SHARED_PRICE_CACHE_PREFIX + urlKey;
+      String json = stringRedisTemplate.opsForValue().get(key);
+      if (json == null) return java.util.Optional.empty();
+      return java.util.Optional.ofNullable(PriceScrapingResult.fromJson(json));
+    } catch (Exception e) {
+      log.debug("getCachedPriceResult failed: {}", e.getMessage());
+      return java.util.Optional.empty();
+    }
+  }
+
+  public void cachePriceResult(String urlKey, PriceScrapingResult result, java.time.Duration ttl) {
+    try {
+      String key = SHARED_PRICE_CACHE_PREFIX + urlKey;
+      stringRedisTemplate.opsForValue().set(key, result.toJson(), ttl);
+    } catch (Exception e) {
+      log.debug("cachePriceResult failed: {}", e.getMessage());
+    }
   }
 
   /** Jsoup-based price scraping (Tier 1) Compliant with platform terms of service */
@@ -688,6 +714,22 @@ public class PriceScrapingService {
       this.responseTime = responseTime;
       this.success = success;
       this.failureReason = failureReason;
+    }
+
+    public String toJson() {
+      try {
+        return JSON_MAPPER.writeValueAsString(this);
+      } catch (Exception e) {
+        return null;
+      }
+    }
+
+    public static PriceScrapingResult fromJson(String json) {
+      try {
+        return JSON_MAPPER.readValue(json, PriceScrapingResult.class);
+      } catch (Exception e) {
+        return null;
+      }
     }
 
     public static PriceScrapingResult success(
