@@ -1,21 +1,20 @@
 package com.storesight.backend.service;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -509,7 +508,8 @@ public class MarketIntelligenceWriteService {
       @SuppressWarnings("unchecked")
       Map<String, Object> payload = (Map<String, Object>) data;
 
-      Long competitorId = asLong(payload.getOrDefault("competitorId", payload.get("competitor_url_id")));
+      Long competitorId =
+          asLong(payload.getOrDefault("competitorId", payload.get("competitor_url_id")));
       if (competitorId == null) {
         logger.debug("writePriceDataToDatabase: missing competitorId - skipping");
         return;
@@ -574,8 +574,7 @@ public class MarketIntelligenceWriteService {
       Integer dailyRequests = asInteger(payload.getOrDefault("dailyRequests", 0));
       Integer dailyDiscoveries = asInteger(payload.getOrDefault("dailyDiscoveries", 0));
 
-      var existingOpt =
-          costRepository.findByShopIdAndDateAndProvider(shopId, date, provider);
+      var existingOpt = costRepository.findByShopIdAndDateAndProvider(shopId, date, provider);
       com.storesight.backend.model.MarketIntelligenceCost entity;
       if (existingOpt.isPresent()) {
         entity = existingOpt.get();
@@ -604,6 +603,7 @@ public class MarketIntelligenceWriteService {
     // No DB table for performance metrics; keep cache-only to avoid breaking changes
     logger.debug("No-op DB write: performance metrics for shop {} (cache-only)", shopDomain);
   }
+
   // ===== Helper conversions and URL utilities (duplicate minimal logic to avoid tight coupling)
   private static String asString(Object v) {
     return v == null ? null : String.valueOf(v);
