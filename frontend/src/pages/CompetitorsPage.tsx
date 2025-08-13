@@ -147,28 +147,28 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'row-refresh',
     title: 'Refresh a Single Competitor',
     description: 'Use the refresh icon to update the latest price for a specific competitor.',
-    target: '.competitor-table .row-refresh-button',
+    target: '.row-refresh-button',
     position: 'top'
   },
   {
     id: 'row-graph',
     title: 'Price History Graph',
     description: 'Click the graph icon to view detailed price history and trends for this competitor.',
-    target: '.competitor-table .row-graph-button',
+    target: '.row-graph-button',
     position: 'top'
   },
   {
     id: 'row-archive',
     title: 'Archive a Competitor',
     description: 'Use the archive icon to move a competitor to the archived list. You can restore it later.',
-    target: '.competitor-table .row-archive-button',
+    target: '.row-archive-button',
     position: 'top'
   },
   {
     id: 'more-actions',
     title: 'More Actions',
     description: 'Open the menu for secondary actions like visiting the site or copying the URL.',
-    target: '.competitor-table .row-more-actions-button',
+    target: '.row-more-actions-button',
     position: 'top'
   },
   {
