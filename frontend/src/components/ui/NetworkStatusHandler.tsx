@@ -154,7 +154,7 @@ const useNetworkStatusInternal = () => {
     
     // Listen for connection changes if supported
     const connection = (navigator as any).connection;
-    if (connection) {
+    if (connection && typeof connection.addEventListener === 'function') {
       connection.addEventListener('change', handleConnectionChange);
     }
     
@@ -441,7 +441,7 @@ export const useNetworkStatus = () => {
     window.addEventListener('offline', handleOffline);
     
     const connection = (navigator as any).connection;
-    if (connection) {
+    if (connection && typeof connection.addEventListener === 'function') {
       connection.addEventListener('change', updateStatus);
     }
     

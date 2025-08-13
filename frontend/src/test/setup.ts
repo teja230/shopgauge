@@ -24,6 +24,20 @@ vitestVi.mock('@testing-library/react', async () => {
     render: (ui: any, options?: any) => actual.render(ui, { wrapper: TestHarness, ...options }),
   };
 });
+
+// Minimal Network Information API stub to prevent runtime errors in tests
+// https://developer.mozilla.org/en-US/docs/Web/API/NetworkInformation
+Object.defineProperty(globalThis.navigator, 'connection', {
+  value: {
+    effectiveType: '4g',
+    downlink: 10,
+    rtt: 50,
+    saveData: false,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  },
+  configurable: true,
+});
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 

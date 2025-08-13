@@ -14,13 +14,16 @@ const renderWithTheme = (component: React.ReactElement) => {
 };
 
 // Mock navigator.onLine
-const mockNavigator = {
+const mockNavigator: any = {
   onLine: true,
   connection: {
     effectiveType: '4g',
     downlink: 10,
     rtt: 50,
     saveData: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   },
 };
 
@@ -30,8 +33,8 @@ Object.defineProperty(window, 'navigator', {
 });
 
 // Mock addEventListener and removeEventListener
-const mockAddEventListener = jest.fn();
-const mockRemoveEventListener = jest.fn();
+const mockAddEventListener = vi.fn();
+const mockRemoveEventListener = vi.fn();
 Object.defineProperty(window, 'addEventListener', {
   value: mockAddEventListener,
   writable: true,
@@ -62,7 +65,7 @@ const TestComponent: React.FC = () => {
 
 describe('NetworkStatusHandler', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockNavigator.onLine = true;
   });
 

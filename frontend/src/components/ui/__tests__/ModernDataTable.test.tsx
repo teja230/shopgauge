@@ -108,7 +108,7 @@ const renderWithTheme = (component: React.ReactElement) => {
 
 describe('ModernDataTable', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Basic Rendering', () => {
@@ -439,7 +439,7 @@ describe('ModernDataTable', () => {
     });
 
     it('calls onSort callback when provided', async () => {
-      const mockOnSort = jest.fn();
+      const mockOnSort = vi.fn();
       const user = userEvent.setup();
       
       renderWithTheme(
@@ -459,7 +459,7 @@ describe('ModernDataTable', () => {
 
   describe('Row Interaction', () => {
     it('calls onRowClick when row is clicked', async () => {
-      const mockOnRowClick = jest.fn();
+      const mockOnRowClick = vi.fn();
       const user = userEvent.setup();
       
       renderWithTheme(
@@ -513,8 +513,8 @@ describe('ModernDataTable', () => {
     });
 
     it('calls pagination callbacks', async () => {
-      const mockOnPageChange = jest.fn();
-      const mockOnRowsPerPageChange = jest.fn();
+      const mockOnPageChange = vi.fn();
+      const mockOnRowsPerPageChange = vi.fn();
       const user = userEvent.setup();
 
       const mockPagination = {
@@ -602,15 +602,15 @@ describe('ModernDataTable', () => {
       // Mock mobile viewport
       Object.defineProperty(window, 'matchMedia', {
         writable: true,
-        value: jest.fn().mockImplementation(query => ({
+        value: vi.fn().mockImplementation((query: string) => ({
           matches: query.includes('(max-width: 768px)'),
           media: query,
           onchange: null,
-          addListener: jest.fn(),
-          removeListener: jest.fn(),
-          addEventListener: jest.fn(),
-          removeEventListener: jest.fn(),
-          dispatchEvent: jest.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
         })),
       });
 
