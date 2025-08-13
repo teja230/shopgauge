@@ -277,6 +277,18 @@ public class RedisPriceRefreshQueueService {
         domain,
         sessionId);
 
+    // Resolve shopId from session metadata stored in Redis
+    Long shopId = null;
+    try {
+      String sessionKey = redisKeyPrefix + ":session:" + sessionId;
+      Object sidShop = redisTemplate.opsForHash().get(sessionKey, "shopId");
+      if (sidShop != null) {
+        shopId = Long.parseLong(sidShop.toString());
+      }
+    } catch (Exception e) {
+      logger.debug("Unable to resolve shopId from session {}: {}", sessionId, e.getMessage());
+    }
+
     RateLimiter rateLimiter = getDomainRateLimiter(domain);
 
     // Process competitors in batches with rate limiting
@@ -284,7 +296,7 @@ public class RedisPriceRefreshQueueService {
       int endIndex = Math.min(i + batchSize, competitors.size());
       List<CompetitorRefreshItem> batch = competitors.subList(i, endIndex);
 
-      processBatch(sessionId, domain, batch, rateLimiter);
+      processBatch(sessionId, domain, batch, rateLimiter, shopId);
     }
 
     // Mark domain as completed
@@ -293,7 +305,7 @@ public class RedisPriceRefreshQueueService {
 
   /** Process a batch of competitors */
   private void processBatch(
-      String sessionId, String domain, List<CompetitorRefreshItem> batch, RateLimiter rateLimiter) {
+      String sessionId, String domain, List<CompetitorRefreshItem> batch, RateLimiter rateLimiter, Long shopId) {
 
     for (CompetitorRefreshItem competitor : batch) {
       try {

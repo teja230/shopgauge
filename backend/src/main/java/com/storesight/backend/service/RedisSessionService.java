@@ -46,6 +46,7 @@ public class RedisSessionService {
   private final ObjectMapper objectMapper;
   private final ShopSessionRepository
       shopSessionRepository; // Use repository directly instead of ShopService
+  @Autowired private EnhancedRedisService enhancedRedisService;
 
   @Autowired
   public RedisSessionService(
@@ -259,16 +260,16 @@ public class RedisSessionService {
     try {
       Map<String, Object> stats = new java.util.HashMap<>();
 
-      // Count active sessions in Redis
-      Set<String> sessionKeys = redisTemplate.keys(SESSION_DATA_PREFIX + "*");
+      // Count active sessions in Redis (SCAN-based)
+      Set<String> sessionKeys = enhancedRedisService.scanKeys(SESSION_DATA_PREFIX + "*");
       int totalSessions = sessionKeys != null ? sessionKeys.size() : 0;
 
-      // Count active tokens
-      Set<String> tokenKeys = redisTemplate.keys(SESSION_TOKEN_PREFIX + "*");
+      // Count active tokens (SCAN-based)
+      Set<String> tokenKeys = enhancedRedisService.scanKeys(SESSION_TOKEN_PREFIX + "*");
       int activeTokens = tokenKeys != null ? tokenKeys.size() : 0;
 
-      // Count shops with sessions
-      Set<String> shopKeys = redisTemplate.keys(SHOP_SESSIONS_PREFIX + "*");
+      // Count shops with sessions (SCAN-based)
+      Set<String> shopKeys = enhancedRedisService.scanKeys(SHOP_SESSIONS_PREFIX + "*");
       int shopsWithSessions = shopKeys != null ? shopKeys.size() : 0;
 
       stats.put("totalSessionsInRedis", totalSessions);

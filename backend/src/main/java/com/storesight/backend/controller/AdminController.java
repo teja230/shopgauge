@@ -30,6 +30,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.storesight.backend.service.EnhancedRedisService;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -44,6 +45,7 @@ public class AdminController {
   private final SessionSynchronizationService sessionSynchronizationService;
   private final ShopService shopService;
   private final RedisTemplate<String, String> redisTemplate;
+  private final EnhancedRedisService enhancedRedisService;
   private final AlertingService alertingService;
   private final MetricsCollectionService metricsCollectionService;
   private final MonitoringDashboardService monitoringDashboardService;
@@ -62,6 +64,7 @@ public class AdminController {
       SessionSynchronizationService sessionSynchronizationService,
       ShopService shopService,
       RedisTemplate<String, String> redisTemplate,
+      EnhancedRedisService enhancedRedisService,
       AlertingService alertingService,
       MetricsCollectionService metricsCollectionService,
       MonitoringDashboardService monitoringDashboardService,
@@ -75,6 +78,7 @@ public class AdminController {
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
+    this.enhancedRedisService = enhancedRedisService;
     this.alertingService = alertingService;
     this.metricsCollectionService = metricsCollectionService;
     this.monitoringDashboardService = monitoringDashboardService;
@@ -977,8 +981,8 @@ public class AdminController {
     try {
       logger.warn("ADMIN: Getting stuck sessions for shop: {}", shopDomain);
 
-      // Get all session-related Redis keys for this shop
-      Set<String> sessionKeys = redisTemplate.keys("*" + shopDomain + "*");
+      // Get all session-related Redis keys for this shop (SCAN-based)
+      Set<String> sessionKeys = enhancedRedisService.scanKeys("*" + shopDomain + "*");
       List<Map<String, Object>> stuckSessions = new ArrayList<>();
 
       logger.info(
@@ -1033,8 +1037,8 @@ public class AdminController {
     try {
       logger.warn("ADMIN: Getting all stuck sessions across all shops");
 
-      // Get all session-related Redis keys
-      Set<String> sessionKeys = redisTemplate.keys("*session*");
+      // Get all session-related Redis keys (SCAN-based)
+      Set<String> sessionKeys = enhancedRedisService.scanKeys("*session*");
       Map<String, List<Map<String, Object>>> stuckSessionsByShop = new HashMap<>();
 
       if (sessionKeys != null) {
@@ -1248,8 +1252,8 @@ public class AdminController {
     try {
       logger.warn("ADMIN: Clearing all stuck sessions for shop: {}", shopDomain);
 
-      // Clear all session-related Redis keys for this shop
-      Set<String> sessionKeys = redisTemplate.keys("*" + shopDomain + "*");
+      // Clear all session-related Redis keys for this shop (SCAN-based)
+      Set<String> sessionKeys = enhancedRedisService.scanKeys("*" + shopDomain + "*");
       int clearedCount = 0;
 
       if (sessionKeys != null) {
