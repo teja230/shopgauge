@@ -2349,7 +2349,9 @@ export default function CompetitorsPage() {
               }
             }
           }
-        } catch (_) {}
+        } catch (_) {
+          // Ignore errors when expanding section for tutorial
+        }
       }
     }
 
