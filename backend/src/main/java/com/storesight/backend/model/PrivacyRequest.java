@@ -1,5 +1,7 @@
 package com.storesight.backend.model;
 
+import com.storesight.backend.compliance.PII;
+import com.storesight.backend.compliance.PIICategory;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -53,6 +55,7 @@ public class PrivacyRequest {
   @Column(name = "created_by", length = 100)
   private String createdBy;
 
+  @PII(PIICategory.IP_ADDRESS)
   @Column(name = "ip_address", columnDefinition = "inet")
   private String ipAddress;
 

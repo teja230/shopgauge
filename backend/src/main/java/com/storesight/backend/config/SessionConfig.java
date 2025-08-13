@@ -10,13 +10,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -49,7 +47,9 @@ public class SessionConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(SessionConfig.class);
 
-  // Thread-safe session state tracking to prevent race conditions
+  // WARNING: Process-local state is not cluster-safe. Retained only for minimal in-node
+  // coordination.
+  // For cross-node fencing, EnhancedRedisService locks are used around critical sections.
   private static final ConcurrentHashMap<String, SessionState> sessionStates =
       new ConcurrentHashMap<>();
 
@@ -86,14 +86,8 @@ public class SessionConfig {
   /**
    * Enterprise-grade session error handling filter with comprehensive race condition prevention.
    *
-   * <p>This filter implements multiple layers of protection:
-   *
-   * <ul>
-   *   <li>Response state checking to prevent multiple writes
-   *   <li>Session state tracking to prevent concurrent invalidation/save conflicts
-   *   <li>Proper error categorization and handling
-   *   <li>Graceful degradation for different request types
-   * </ul>
+   * <p>This filter now avoids any response writing. It tags the request when a session error is
+   * seen and rethrows to be handled by a centralized @ControllerAdvice.
    */
   @Bean
   @Order(1) // Highest priority to catch session errors first
@@ -171,78 +165,23 @@ public class SessionConfig {
     protected void doFilterInternal(
         HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
         throws ServletException, IOException {
-
-      String sessionId = getSessionId(request);
-      SessionState sessionState = null;
-
-      if (sessionId != null) {
-        sessionState = sessionStates.computeIfAbsent(sessionId, k -> new SessionState());
-        sessionState.updateAccessTime();
-
-        // Mark session as active for the duration of this request
-        try {
-          sessionSynchronizationService.markSessionActive(sessionId, Duration.ofMinutes(5));
-        } catch (Exception e) {
-          filterLogger.debug("Failed to mark session {} as active: {}", sessionId, e.getMessage());
-        }
-      }
-
       try {
-        // Acquire distributed fence to prevent concurrent invalidation/save conflicts across nodes
-        String fenceKey = sessionId != null ? "session:fence:" + sessionId : null;
-        String fenceToken = fenceKey != null ? java.util.UUID.randomUUID().toString() : null;
-        boolean fenced = false;
-        if (fenceKey != null) {
-          fenced = enhancedRedisService.acquireLock(fenceKey, fenceToken, Duration.ofSeconds(10));
-        }
-
         filterChain.doFilter(request, response);
-
       } catch (IllegalStateException e) {
-        handleSessionError(request, response, e, sessionState, sessionId);
+        if (isSessionError(e)) {
+          request.setAttribute("session.error", true);
+        }
+        throw e;
       } catch (ServletException e) {
         if (isSessionError(e)) {
-          handleSessionError(request, response, e, sessionState, sessionId);
-        } else {
-          throw e;
+          request.setAttribute("session.error", true);
         }
+        throw e;
       } catch (Exception e) {
         if (isSessionError(e)) {
-          handleSessionError(request, response, e, sessionState, sessionId);
-        } else {
-          throw e;
+          request.setAttribute("session.error", true);
         }
-      } finally {
-        if (sessionId != null) {
-          // Release distributed fence
-          try {
-            String fenceKey = "session:fence:" + sessionId;
-            String fenceToken = null; // not tracked beyond scope; unlocking best-effort
-            enhancedRedisService.releaseLock(fenceKey, fenceToken);
-          } catch (Exception ignored) {
-          }
-
-          // Clear session active marker
-          try {
-            sessionSynchronizationService.clearSessionActive(sessionId);
-          } catch (Exception e) {
-            filterLogger.debug(
-                "Failed to clear active marker for session {}: {}", sessionId, e.getMessage());
-          }
-        }
-
-        // Clean up session state if response is committed
-        if (sessionState != null && response.isCommitted()) {
-          sessionState.markCommitted();
-        }
-      }
-    }
-
-    private String getSessionId(HttpServletRequest request) {
-      try {
-        return request.getSession(false) != null ? request.getSession().getId() : null;
-      } catch (Exception e) {
-        return null;
+        throw new ServletException(e);
       }
     }
 
@@ -282,64 +221,6 @@ public class SessionConfig {
       return false;
     }
 
-    private void handleSessionError(
-        HttpServletRequest request,
-        HttpServletResponse response,
-        Exception e,
-        SessionState sessionState,
-        String sessionId) {
-
-      String path = request.getRequestURI();
-      String method = request.getMethod();
-
-      // Check if response is already committed or written to
-      if (isResponseCommitted(response)) {
-        // Only log at debug level for committed responses to reduce noise
-        filterLogger.debug(
-            "Session invalidation after successful response for {} {} - allowing to complete normally",
-            method,
-            path);
-        return;
-      }
-
-      // Check if this is a session invalidation conflict
-      if (sessionState != null && sessionState.isCommitted()) {
-        filterLogger.debug(
-            "Session state already committed for {} {} - allowing to complete normally",
-            method,
-            path);
-        return;
-      }
-
-      // Always delegate to global handlers; do not write response here
-      filterLogger.debug("Delegating session error to global handlers for {} {}", method, path);
-      return;
-    }
-
-    private boolean isResponseCommitted(HttpServletResponse response) {
-      // Check if response is already committed
-      if (response.isCommitted()) {
-        return true;
-      }
-
-      // Check if response stream has already been written to
-      try {
-        response.getWriter();
-        return false; // Writer is available
-      } catch (IllegalStateException writerException) {
-        if (writerException.getMessage() != null
-            && writerException.getMessage().contains("getOutputStream() has already been called")) {
-          return true; // Stream already used
-        }
-        return false;
-      } catch (IOException ioException) {
-        // If we can't get the writer due to IO issues, assume it's committed
-        return true;
-      }
-    }
-
-    // Removed direct response writers; global handlers manage responses
-
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
       String path = request.getRequestURI();
@@ -353,42 +234,6 @@ public class SessionConfig {
     }
   }
 
-  /** Scheduled cleanup of session state tracking to prevent memory leaks. */
-  @Bean
-  @ConditionalOnProperty(
-      name = "session.cleanup.enabled",
-      havingValue = "true",
-      matchIfMissing = true)
-  public SessionStateCleanupTask sessionStateCleanupTask() {
-    return new SessionStateCleanupTask();
-  }
-
-  public static class SessionStateCleanupTask {
-
-    private static final Logger cleanupLogger =
-        LoggerFactory.getLogger(SessionStateCleanupTask.class);
-
-    // Clean up session states older than 1 hour
-    public void cleanupOldSessionStates() {
-      long cutoffTime = System.currentTimeMillis() - (60 * 60 * 1000); // 1 hour ago
-
-      sessionStates
-          .entrySet()
-          .removeIf(
-              entry -> {
-                SessionState state = entry.getValue();
-                boolean shouldRemove = state.getLastAccessTime() < cutoffTime;
-
-                if (shouldRemove) {
-                  cleanupLogger.debug(
-                      "Cleaning up old session state for session: {}", entry.getKey());
-                }
-
-                return shouldRemove;
-              });
-
-      cleanupLogger.debug(
-          "Session state cleanup completed. Active sessions: {}", sessionStates.size());
-    }
-  }
+  // Removed response-writing cleanup tasks and process-local cleanup scheduling to avoid
+  // process-local state patterns. Any cross-node coordination should use Redis-based tokens.
 }

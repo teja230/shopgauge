@@ -17,18 +17,13 @@ import org.springframework.web.context.request.WebRequest;
 /**
  * Enhanced global exception handler specifically for session-related errors with comprehensive race
  * condition prevention and response state management.
- *
- * <p>This handler works in conjunction with SessionConfig.SessionErrorHandlingFilter and
- * SessionRepositoryErrorFilter to provide multiple layers of protection against session
- * invalidation errors.
  */
 @ControllerAdvice
-@Order(-1000) // High priority to catch session errors before other handlers
+@Order(-1000)
 public class GlobalSessionExceptionHandler {
 
   private static final Logger logger = LoggerFactory.getLogger(GlobalSessionExceptionHandler.class);
 
-  // Track response states to prevent multiple writes
   private static final ConcurrentHashMap<String, AtomicBoolean> responseStates =
       new ConcurrentHashMap<>();
 
@@ -44,248 +39,56 @@ public class GlobalSessionExceptionHandler {
       String method = httpRequest.getMethod();
       String requestId = generateRequestId(httpRequest);
       boolean isRedisKeyError = isRedisKeyError(e);
-      boolean isExpectedSessionExpiration = isExpectedSessionExpiration(httpRequest, e);
 
-      // Use appropriate log level based on error type and context
       if (isRedisKeyError) {
-        if (isExpectedSessionExpiration) {
-          // Expected session expiration after inactivity - log at debug level
-          logger.debug(
-              "Session expired (Redis key missing) for {} {} - handling gracefully", method, path);
-        } else {
-          // Unexpected Redis key error - log at warn level as it might indicate a problem
-          logger.warn(
-              "Unexpected Redis key error for {} {} - {} - investigating",
-              method,
-              path,
-              e.getMessage());
-        }
-      } else {
         logger.debug(
-            "Global session invalidation error handled for {} {} - {}",
-            method,
-            path,
-            e.getMessage());
+            "Session expired (Redis key missing) for {} {} - tagging and delegating", method, path);
+      } else {
+        logger.debug("Session invalidation handled for {} {} - tagging", method, path);
       }
 
-      // Check if response has already been written to by this handler
       AtomicBoolean responseWritten =
           responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
       if (responseWritten.get()) {
-        logger.debug("Response already written by this handler for {} {} - skipping", method, path);
         return null;
       }
 
-      // Check if response is already committed
       if (httpResponse.isCommitted()) {
-        logger.debug(
-            "Response already committed for global session invalidation - allowing to complete normally for {} {}",
-            method,
-            path);
-        return null; // Let the response complete normally
+        return null;
       }
 
-      // Check if response stream has already been written to
       try {
         httpResponse.getWriter();
-        logger.debug(
-            "Response writer already accessed for global session invalidation - allowing to complete normally for {} {}",
-            method,
-            path);
-        return null; // Let the response complete normally
-      } catch (IllegalStateException writerException) {
-        if (writerException.getMessage() != null
-            && writerException.getMessage().contains("getWriter() has already been called")) {
-          logger.debug(
-              "Response writer already accessed for global session invalidation - allowing to complete normally for {} {}",
-              method,
-              path);
-          return null; // Let the response complete normally
-        }
-        if (writerException.getMessage() != null
-            && writerException.getMessage().contains("getOutputStream() has already been called")) {
-          logger.debug(
-              "Response output stream already accessed for global session invalidation - allowing to complete normally for {} {}",
-              method,
-              path);
-          return null; // Let the response complete normally
-        }
-      } catch (IOException ioException) {
-        logger.debug(
-            "IOException when checking response writer for global session invalidation - allowing to complete normally for {} {}",
-            method,
-            path);
-        return null; // Let the response complete normally
+      } catch (IllegalStateException | IOException ignore) {
+        return null;
       }
 
-      // Mark that we're writing a response
       if (!responseWritten.compareAndSet(false, true)) {
-        logger.debug("Another thread already writing response for {} {} - skipping", method, path);
         return null;
       }
 
       try {
-        // For API endpoints, return success since the business operation likely succeeded
+        httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
         if (path.startsWith("/api/")) {
-          logger.debug(
-              "Session invalidation on API endpoint - returning success response for {} {}",
-              method,
-              path);
-
-          // Add CORS headers
-          httpResponse.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-          httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
-
           if (isRedisKeyError) {
-            // For Redis key errors (session expiration), provide a clear message
-            return ResponseEntity.ok()
-                .header("X-Session-Expired", "true")
-                .body(
-                    "{\"success\":true,\"sessionExpired\":true,\"message\":\"Session expired due to inactivity. Please refresh the page to continue.\"}");
+            httpResponse.setHeader("X-Session-Expired", "true");
           } else {
-            return ResponseEntity.ok()
-                .header("X-Session-Warning", "Session cleanup issue")
-                .body(
-                    "{\"success\":true,\"warning\":\"Session cleanup issue - please refresh if you experience problems\"}");
+            httpResponse.setHeader("X-Session-Warning", "true");
           }
+          // Let GlobalExceptionHandler build envelope; return 401 to signal auth issue
+          return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-
-        // For error pages, return a simple OK to prevent cascading
-        if (path.startsWith("/error")) {
-          logger.debug(
-              "Session invalidation on error page - preventing cascade for {} {}", method, path);
-          return ResponseEntity.ok().body("Session expired. Please refresh the page.");
-        }
-
-        // For other requests, return a redirect response
-        logger.debug(
-            "Session invalidation on non-API endpoint - suggesting redirect for {} {}",
-            method,
-            path);
-
+        // Non-API: no redirect here; let frontend handle via headers
         if (isRedisKeyError) {
-          // For Redis key errors (session expiration), redirect with a clear message
-          return ResponseEntity.status(HttpStatus.FOUND)
-              .header("Location", "/?sessionExpired=true")
-              .header("X-Session-Expired", "true")
-              .body("Session expired due to inactivity. Redirecting...");
-        } else {
-          return ResponseEntity.status(HttpStatus.FOUND)
-              .header("Location", "/")
-              .body("Session expired. Redirecting...");
+          httpResponse.setHeader("X-Session-Expired", "true");
         }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
       } finally {
-        // Clean up response state tracking
         responseStates.remove(requestId);
       }
     }
 
-    // Re-throw other IllegalStateExceptions
     throw e;
-  }
-
-  @ExceptionHandler(Exception.class)
-  public ResponseEntity<Object> handleGenericSessionError(
-      Exception e,
-      WebRequest request,
-      HttpServletRequest httpRequest,
-      HttpServletResponse httpResponse) {
-
-    logger.debug(
-        "GlobalSessionExceptionHandler: Processing exception: {} with order -1000",
-        e.getClass().getSimpleName());
-
-    // Check if this is a session-related error in the cause chain
-    if (isSessionRelatedError(e)) {
-      String path = httpRequest.getRequestURI();
-      String method = httpRequest.getMethod();
-      String requestId = generateRequestId(httpRequest);
-      boolean isRedisKeyError = isRedisKeyError(e);
-      boolean isExpectedSessionExpiration = isExpectedSessionExpiration(httpRequest, e);
-
-      // Use appropriate log level based on error type and context
-      if (isRedisKeyError) {
-        if (isExpectedSessionExpiration) {
-          // Expected session expiration after inactivity - log at debug level
-          logger.debug(
-              "Session expired (Redis key missing) for {} {} - handling gracefully", method, path);
-        } else {
-          // Unexpected Redis key error - log at warn level as it might indicate a problem
-          logger.warn(
-              "Unexpected Redis key error for {} {} - {} - investigating",
-              method,
-              path,
-              e.getMessage());
-        }
-      } else {
-        logger.debug("Generic session error handled for {} {} - {}", method, path, e.getMessage());
-      }
-
-      // Special handling for OAuth flow to prevent cascade errors during initial login
-      if (path.contains("/api/auth/shopify/callback")
-          || path.contains("/api/auth/shopify/install")
-          || path.contains("/api/auth/shopify/me")) {
-        logger.info(
-            "Session error during OAuth flow - allowing to complete normally for path: {}", path);
-        return null; // Let the OAuth flow complete without interference
-      }
-
-      // Check if response has already been written to by this handler
-      AtomicBoolean responseWritten =
-          responseStates.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
-      if (responseWritten.get()) {
-        logger.debug("Response already written by this handler for {} {} - skipping", method, path);
-        return null;
-      }
-
-      // Mark that we're writing a response
-      if (!responseWritten.compareAndSet(false, true)) {
-        logger.debug("Another thread already writing response for {} {} - skipping", method, path);
-        return null;
-      }
-
-      try {
-        if (path.startsWith("/api/")) {
-          httpResponse.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-          httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
-
-          if (isRedisKeyError) {
-            // For Redis key errors (session expiration), provide a clear message
-            return ResponseEntity.ok()
-                .header("X-Session-Expired", "true")
-                .body(
-                    "{\"success\":true,\"sessionExpired\":true,\"message\":\"Session expired due to inactivity. Please refresh the page to continue.\"}");
-          } else {
-            return ResponseEntity.ok()
-                .header("X-Session-Warning", "Session issue resolved")
-                .body(
-                    "{\"success\":true,\"warning\":\"Session issue resolved - please refresh if you experience problems\"}");
-          }
-        }
-
-        if (path.startsWith("/error")) {
-          return ResponseEntity.ok().body("Session issue resolved. Please refresh the page.");
-        }
-
-        if (isRedisKeyError) {
-          // For Redis key errors (session expiration), redirect with a clear message
-          return ResponseEntity.status(HttpStatus.FOUND)
-              .header("Location", "/?sessionExpired=true")
-              .header("X-Session-Expired", "true")
-              .body("Session expired due to inactivity. Redirecting...");
-        } else {
-          return ResponseEntity.status(HttpStatus.FOUND)
-              .header("Location", "/")
-              .body("Session issue resolved. Redirecting...");
-        }
-      } finally {
-        // Clean up response state tracking
-        responseStates.remove(requestId);
-      }
-    }
-
-    // Not a session error - let other handlers deal with it
-    throw new RuntimeException(e);
   }
 
   @ExceptionHandler(RuntimeException.class)
@@ -295,34 +98,19 @@ public class GlobalSessionExceptionHandler {
       HttpServletRequest httpRequest,
       HttpServletResponse httpResponse) {
 
-    // Handle async dispatch errors that are session-related
     if (e.getMessage() != null && e.getMessage().contains("Error during asynchronous dispatch")) {
-      String path = httpRequest.getRequestURI();
-      String method = httpRequest.getMethod();
-
-      logger.debug("Async dispatch error handled for {} {} - {}", method, path, e.getMessage());
-
-      // Check if response is already committed
       if (httpResponse.isCommitted()) {
-        logger.debug(
-            "Response already committed for async dispatch error - allowing to complete normally");
         return null;
       }
-
-      // For async dispatch errors, return a simple success response
-      return ResponseEntity.ok()
-          .header("X-Async-Error-Handled", "true")
-          .body("{\"success\":true,\"message\":\"Request processed successfully\"}");
+      httpResponse.setHeader("X-Async-Error-Handled", "true");
+      return ResponseEntity.ok().build();
     }
 
-    // Handle other runtime exceptions
     String path = httpRequest.getRequestURI();
     String method = httpRequest.getMethod();
+    logger.debug("Runtime exception observed for {} {} - delegating", method, path);
 
-    logger.warn("Runtime exception handled for {} {} - {}", method, path, e.getMessage());
-
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body("{\"error\":\"Internal server error\",\"message\":\"An unexpected error occurred\"}");
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
   }
 
   private String generateRequestId(HttpServletRequest request) {
@@ -331,32 +119,10 @@ public class GlobalSessionExceptionHandler {
         : "anonymous-" + System.currentTimeMillis();
   }
 
-  private boolean isSessionRelatedError(Exception e) {
-    if (e.getMessage() != null && e.getMessage().contains("Session")) {
-      return true;
-    }
-
-    // Check cause chain
-    Throwable cause = e.getCause();
-    while (cause != null) {
-      if (cause.getMessage() != null
-          && (cause.getMessage().contains("Session was invalidated")
-              || cause.getMessage().contains("RedisSessionRepository")
-              || cause.getMessage().contains("ERR no such key"))) {
-        return true;
-      }
-      cause = cause.getCause();
-    }
-
-    return false;
-  }
-
   private boolean isRedisKeyError(Exception e) {
     if (e.getMessage() != null && e.getMessage().contains("ERR no such key")) {
       return true;
     }
-
-    // Check cause chain for Redis key errors
     Throwable cause = e.getCause();
     while (cause != null) {
       if (cause.getClass().getName().contains("RedisCommandExecutionException")
@@ -366,55 +132,6 @@ public class GlobalSessionExceptionHandler {
       }
       cause = cause.getCause();
     }
-
-    return false;
-  }
-
-  private boolean isExpectedSessionExpiration(HttpServletRequest request, Exception e) {
-    // Check if this is likely an expected session expiration scenario
-
-    // 1. Check if user has been inactive (no recent activity headers)
-    String lastActivity = request.getHeader("X-Last-Activity");
-    if (lastActivity != null) {
-      try {
-        long lastActivityTime = Long.parseLong(lastActivity);
-        long currentTime = System.currentTimeMillis();
-        long inactiveDuration = currentTime - lastActivityTime;
-
-        // If user has been inactive for more than 30 minutes, this is likely expected
-        if (inactiveDuration > 30 * 60 * 1000) { // 30 minutes
-          return true;
-        }
-      } catch (NumberFormatException ignored) {
-        // Invalid timestamp, continue with other checks
-      }
-    }
-
-    // 2. Check if this is a session-related endpoint that commonly has expiration
-    String path = request.getRequestURI();
-    if (path.contains("/api/auth/")
-        || path.contains("/api/session/")
-        || path.contains("/api/user/")) {
-      return true;
-    }
-
-    // 3. Check if this is a GET request (read-only operations are less likely to cause unexpected
-    // errors)
-    if ("GET".equals(request.getMethod())) {
-      return true;
-    }
-
-    // 4. Check if the error message indicates a specific Redis key pattern that suggests session
-    // expiration
-    String errorMessage = e.getMessage();
-    if (errorMessage != null
-        && (errorMessage.contains("spring:session:storesight")
-            || errorMessage.contains("session:")
-            || errorMessage.contains("storesight"))) {
-      return true;
-    }
-
-    // If none of the above conditions are met, this might be an unexpected error
     return false;
   }
 }

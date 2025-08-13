@@ -43,6 +43,8 @@ public class DataPrivacyService {
   private final MarketIntelligenceCostRepository marketIntelligenceCostRepository;
   private final CompetitorAuditService competitorAuditService;
 
+  @Autowired private CentralAuditWriter centralAuditWriter;
+
   // Data retention periods (in days)
   private static final int ORDER_DATA_RETENTION_DAYS = 60; // Only last 60 days as per requirement
   private static final int ANALYTICS_DATA_RETENTION_DAYS = 90; // Aggregated analytics
@@ -118,54 +120,23 @@ public class DataPrivacyService {
     return isValid;
   }
 
-  /** Log data access for audit trail - now using PostgreSQL */
+  /** Log data access for audit trail - now using PostgreSQL via CentralAuditWriter */
   public void logDataAccess(String action, String details) {
     logDataAccess(action, details, null);
   }
 
-  /** Log data access for audit trail with shop context */
+  /** Log data access for audit trail with shop context via CentralAuditWriter */
   public void logDataAccess(String action, String details, String shopDomain) {
     try {
       final Long shopId;
-      final String resolvedShopDomain;
-
       if (shopDomain != null && !shopDomain.trim().isEmpty()) {
-        logger.debug("Looking up shop for domain: {}", shopDomain);
-        Optional<Shop> shopOptional = shopRepository.findByShopifyDomain(shopDomain);
-        if (shopOptional.isPresent()) {
-          shopId = shopOptional.get().getId();
-          resolvedShopDomain = shopDomain;
-          logger.debug("Found shop with ID: {} for domain: {}", shopId, shopDomain);
-        } else {
-          // Use system shop for unknown domains instead of null
-          Optional<Shop> systemShop = shopRepository.findByShopifyDomain("system");
-          if (systemShop.isPresent()) {
-            shopId = systemShop.get().getId();
-            resolvedShopDomain = "system";
-            logger.warn("No shop found for domain: {}, using system shop", shopDomain);
-          } else {
-            logger.error(
-                "System shop not found, cannot create audit log for domain: {}", shopDomain);
-            return; // Don't create audit log if system shop doesn't exist
-          }
-        }
+        shopId = shopRepository.findByShopifyDomain(shopDomain).map(Shop::getId).orElse(null);
       } else {
-        // Use system shop for admin/system actions
-        Optional<Shop> systemShop = shopRepository.findByShopifyDomain("system");
-        if (systemShop.isPresent()) {
-          shopId = systemShop.get().getId();
-          resolvedShopDomain = "system";
-          logger.debug("Using system shop for admin/system action");
-        } else {
-          logger.error("System shop not found, cannot create audit log for admin action");
-          return; // Don't create audit log if system shop doesn't exist
-        }
+        shopId = shopRepository.findByShopifyDomain("system").map(Shop::getId).orElse(null);
       }
 
-      // Get request context for additional audit information
       String userAgent = null;
       String ipAddress = null;
-
       try {
         ServletRequestAttributes attributes =
             (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -174,25 +145,22 @@ public class DataPrivacyService {
           userAgent = request.getHeader("User-Agent");
           ipAddress = getClientIpAddress(request);
         }
-      } catch (Exception e) {
-        logger.debug("Could not extract request context for audit log: {}", e.getMessage());
+      } catch (Exception ignored) {
       }
 
-      AuditLog auditLog = new AuditLog(shopId, action, details, userAgent, ipAddress);
-      auditLogRepository.save(auditLog);
+      Map<String, Object> detailMap = new HashMap<>();
+      detailMap.put("details", details);
+      centralAuditWriter.writeShopAudit(shopId, action, detailMap, userAgent, ipAddress);
 
-      // Also log to application logs for immediate visibility
       logger.info(
-          "Data Privacy Audit: {} - {} - {} - Shop ID: {} - Domain: {}",
-          auditLog.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+          "Data Privacy Audit: {} - {} - Shop ID: {} - Domain: {}",
+          LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
           action,
-          details,
           shopId,
-          resolvedShopDomain);
+          shopDomain != null ? shopDomain : "system");
 
     } catch (Exception e) {
       logger.error("Failed to save audit log: {}", e.getMessage(), e);
-      // Fallback to application logging if database fails
       logger.warn("Audit log fallback: {} - {}", action, details);
     }
   }

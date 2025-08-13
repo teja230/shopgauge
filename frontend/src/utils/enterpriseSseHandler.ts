@@ -942,7 +942,7 @@ export function createSessionSseHandler(
   handlers: SseEventHandler = {}
 ): EnterpriseSseHandler {
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-  const url = `${apiBaseUrl}/api/sessions/events/${encodeURIComponent(shopDomain)}`;
+  const url = `${apiBaseUrl}/api/sse/subscribe/${encodeURIComponent(shopDomain)}`;
 
   return createEnterpriseSseHandler({
     url,

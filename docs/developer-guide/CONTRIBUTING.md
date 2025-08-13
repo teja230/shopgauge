@@ -1,4 +1,4 @@
-# Contributing to ShopGauge
+# Contributing to StoreSight
 
 Thank you for your interest in contributing to ShopGauge! We welcome contributions from the community to help improve
 our project. Please read the following guidelines to help us maintain a high standard of quality and collaboration.
@@ -80,4 +80,8 @@ environment for everyone.
 
 If you have any questions, feel free to open an issue or contact the maintainers.
 
-Thank you for contributing to ShopGauge!
+## Workflow
+- Use feature branches and open PRs with context and screenshots for UI changes.
+- Ensure backend passes: `./gradlew spotlessApply build -x test` and frontend: `npm run lint && npm run build`.
+- Add/update ADRs for significant changes in `docs/adr/`.
+- Follow semantic commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`.

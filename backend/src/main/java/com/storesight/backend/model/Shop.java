@@ -1,5 +1,8 @@
 package com.storesight.backend.model;
 
+import com.storesight.backend.compliance.AesGcmStringConverter;
+import com.storesight.backend.compliance.PII;
+import com.storesight.backend.compliance.PIICategory;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -12,9 +15,12 @@ public class Shop {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @PII(PIICategory.USER_IDENTIFIER)
   @Column(name = "shopify_domain", unique = true, nullable = false)
   private String shopifyDomain;
 
+  @PII(PIICategory.AUTH_TOKEN)
+  @Convert(converter = AesGcmStringConverter.class)
   @Column(name = "access_token", nullable = false)
   private String accessToken;
 

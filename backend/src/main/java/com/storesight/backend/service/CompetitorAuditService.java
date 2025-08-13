@@ -1,8 +1,6 @@
 package com.storesight.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.storesight.backend.model.AuditLog;
-import com.storesight.backend.repository.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -14,18 +12,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-/**
- * Specialized audit logging service for competitor management actions Provides comprehensive
- * tracking of all competitor-related operations
- */
+/** Specialized audit logging service for competitor management actions. */
 @Service
 public class CompetitorAuditService {
 
   private static final Logger logger = LoggerFactory.getLogger(CompetitorAuditService.class);
 
-  @Autowired private AuditLogRepository auditLogRepository;
-
   @Autowired private ObjectMapper objectMapper;
+  @Autowired private CentralAuditWriter centralAuditWriter;
 
   // Audit action types
   public static final String ACTION_COMPETITOR_ADDED = "COMPETITOR_ADDED";
@@ -46,8 +40,7 @@ public class CompetitorAuditService {
     details.put("url", competitorUrl);
     details.put("label", label);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_COMPETITOR_ADDED, details);
+    write(shopId, ACTION_COMPETITOR_ADDED, details);
   }
 
   /** Log competitor removal */
@@ -56,8 +49,7 @@ public class CompetitorAuditService {
     details.put("url", competitorUrl);
     details.put("reason", reason);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_COMPETITOR_REMOVED, details);
+    write(shopId, ACTION_COMPETITOR_REMOVED, details);
   }
 
   /** Log competitor data update */
@@ -66,8 +58,7 @@ public class CompetitorAuditService {
     details.put("url", competitorUrl);
     details.put("changes", changes);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_COMPETITOR_UPDATED, details);
+    write(shopId, ACTION_COMPETITOR_UPDATED, details);
   }
 
   /** Log competitor data access */
@@ -75,8 +66,7 @@ public class CompetitorAuditService {
     Map<String, Object> details = new HashMap<>();
     details.put("url", competitorUrl);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_COMPETITOR_VIEWED, details);
+    write(shopId, ACTION_COMPETITOR_VIEWED, details);
   }
 
   /** Log discovery trigger */
@@ -85,8 +75,7 @@ public class CompetitorAuditService {
     details.put("suggestionsFound", suggestionsFound);
     details.put("costIncurred", costIncurred);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_DISCOVERY_TRIGGERED, details);
+    write(shopId, ACTION_DISCOVERY_TRIGGERED, details);
   }
 
   /** Log suggestion approval */
@@ -95,8 +84,7 @@ public class CompetitorAuditService {
     details.put("url", suggestedUrl);
     details.put("title", title);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_SUGGESTION_APPROVED, details);
+    write(shopId, ACTION_SUGGESTION_APPROVED, details);
   }
 
   /** Log suggestion ignored */
@@ -105,8 +93,7 @@ public class CompetitorAuditService {
     details.put("url", suggestedUrl);
     details.put("reason", reason);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_SUGGESTION_IGNORED, details);
+    write(shopId, ACTION_SUGGESTION_IGNORED, details);
   }
 
   /** Log price alert sent */
@@ -119,8 +106,7 @@ public class CompetitorAuditService {
     details.put("alertType", alertType);
     details.put("priceChange", ((newPrice - oldPrice) / oldPrice) * 100);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_PRICE_ALERT_SENT, details);
+    write(shopId, ACTION_PRICE_ALERT_SENT, details);
   }
 
   /** Log data export */
@@ -129,8 +115,7 @@ public class CompetitorAuditService {
     details.put("exportType", exportType);
     details.put("recordCount", recordCount);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_DATA_EXPORTED, details);
+    write(shopId, ACTION_DATA_EXPORTED, details);
   }
 
   /** Log sensitive data access */
@@ -139,8 +124,7 @@ public class CompetitorAuditService {
     details.put("dataType", dataType);
     details.put("accessReason", accessReason);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_DATA_ACCESSED, details);
+    write(shopId, ACTION_DATA_ACCESSED, details);
   }
 
   /** Log settings changes */
@@ -150,34 +134,17 @@ public class CompetitorAuditService {
     details.put("oldSettings", oldSettings);
     details.put("newSettings", newSettings);
     details.put("timestamp", LocalDateTime.now());
-
-    logAction(shopId, ACTION_SETTINGS_CHANGED, details);
+    write(shopId, ACTION_SETTINGS_CHANGED, details);
   }
 
-  /** Generic audit logging method */
-  private void logAction(Long shopId, String action, Map<String, Object> details) {
+  private void write(Long shopId, String action, Map<String, Object> details) {
     try {
-      // Get request context for IP and user agent
       HttpServletRequest request = getCurrentRequest();
-      String ipAddress = null;
-      String userAgent = null;
-
-      if (request != null) {
-        ipAddress = getClientIpAddress(request);
-        userAgent = request.getHeader("User-Agent");
-      }
-
-      // Convert details to JSON string
-      String detailsJson = objectMapper.writeValueAsString(details);
-
-      // Create audit log entry
-      AuditLog auditLog = new AuditLog(shopId, action, detailsJson, userAgent, ipAddress);
-      auditLogRepository.save(auditLog);
-
-      logger.info("Audit log created: shopId={}, action={}, ip={}", shopId, action, ipAddress);
-
+      String ip = request != null ? getClientIpAddress(request) : null;
+      String ua = request != null ? request.getHeader("User-Agent") : null;
+      centralAuditWriter.writeShopAudit(shopId, action, details, ua, ip);
+      logger.info("Audit log created: shopId={}, action={}, ip={}", shopId, action, ip);
     } catch (Exception e) {
-      // Don't fail the operation if audit logging fails
       logger.error(
           "Failed to create audit log: shopId={}, action={}, error={}",
           shopId,
@@ -186,7 +153,6 @@ public class CompetitorAuditService {
     }
   }
 
-  /** Get current HTTP request */
   private HttpServletRequest getCurrentRequest() {
     try {
       ServletRequestAttributes attributes =
@@ -197,61 +163,15 @@ public class CompetitorAuditService {
     }
   }
 
-  /** Extract client IP address from request */
   private String getClientIpAddress(HttpServletRequest request) {
     String xForwardedFor = request.getHeader("X-Forwarded-For");
     if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
       return xForwardedFor.split(",")[0].trim();
     }
-
     String xRealIp = request.getHeader("X-Real-IP");
     if (xRealIp != null && !xRealIp.isEmpty()) {
       return xRealIp;
     }
-
     return request.getRemoteAddr();
-  }
-
-  /** Get audit statistics for a shop */
-  public Map<String, Object> getAuditStats(Long shopId, LocalDateTime since) {
-    Map<String, Object> stats = new HashMap<>();
-
-    try {
-      // Count actions by type
-      stats.put(
-          "competitorAdded",
-          auditLogRepository.countByShopIdAndActionAndCreatedAtAfter(
-              shopId, ACTION_COMPETITOR_ADDED, since));
-      stats.put(
-          "competitorRemoved",
-          auditLogRepository.countByShopIdAndActionAndCreatedAtAfter(
-              shopId, ACTION_COMPETITOR_REMOVED, since));
-      stats.put(
-          "discoveryTriggered",
-          auditLogRepository.countByShopIdAndActionAndCreatedAtAfter(
-              shopId, ACTION_DISCOVERY_TRIGGERED, since));
-      stats.put(
-          "suggestionsApproved",
-          auditLogRepository.countByShopIdAndActionAndCreatedAtAfter(
-              shopId, ACTION_SUGGESTION_APPROVED, since));
-      stats.put(
-          "priceAlertsSent",
-          auditLogRepository.countByShopIdAndActionAndCreatedAtAfter(
-              shopId, ACTION_PRICE_ALERT_SENT, since));
-      stats.put(
-          "dataExported",
-          auditLogRepository.countByShopIdAndActionAndCreatedAtAfter(
-              shopId, ACTION_DATA_EXPORTED, since));
-
-      // Total activity
-      long totalActivity = stats.values().stream().mapToLong(v -> (Long) v).sum();
-      stats.put("totalActivity", totalActivity);
-
-    } catch (Exception e) {
-      logger.error("Failed to get audit stats for shop {}: {}", shopId, e.getMessage());
-      stats.put("error", "Failed to retrieve audit statistics");
-    }
-
-    return stats;
   }
 }

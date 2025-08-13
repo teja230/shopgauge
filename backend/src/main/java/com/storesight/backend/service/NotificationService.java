@@ -3,6 +3,10 @@ package com.storesight.backend.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.Notification;
 import com.storesight.backend.repository.NotificationRepository;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -142,6 +146,10 @@ public class NotificationService {
     sendEmailAlertAsync(to, subject, body, null, null);
   }
 
+  @CircuitBreaker(name = "sendGrid")
+  @Retry(name = "sendGrid")
+  @Bulkhead(name = "sendGrid")
+  @RateLimiter(name = "sendGrid")
   public CompletableFuture<Void> sendEmailAlertAsync(
       String to, String subject, String body, String shopDomain, Long shopId) {
     if (!sendGridEnabled) {
@@ -204,6 +212,10 @@ public class NotificationService {
     sendSmsAlertAsync(phoneNumber, message, null, null);
   }
 
+  @CircuitBreaker(name = "twilio")
+  @Retry(name = "twilio")
+  @Bulkhead(name = "twilio")
+  @RateLimiter(name = "twilio")
   public CompletableFuture<Void> sendSmsAlertAsync(
       String phoneNumber, String message, String shopDomain, Long shopId) {
     if (!twilioEnabled) {

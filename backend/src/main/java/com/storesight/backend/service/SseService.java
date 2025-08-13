@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -103,6 +104,14 @@ public class SseService {
     return config.getSse().getEmergencyCleanupThreshold();
   }
 
+  private int getMaxPendingBatchesPerShop() {
+    return config.getSse().getMaxPendingBatchesPerShop();
+  }
+
+  private int getMaxPendingEventsPerShop() {
+    return config.getSse().getMaxPendingEventsPerShop();
+  }
+
   // Connection storage
   private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> sseEmitters =
       new ConcurrentHashMap<>();
@@ -110,6 +119,12 @@ public class SseService {
   // Batching support with enhanced resource management
   private final ConcurrentHashMap<String, List<SseEvent>> eventBatches = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Long> batchTimers = new ConcurrentHashMap<>();
+
+  // Track pending batch counts per shop to enforce caps
+  private final ConcurrentHashMap<String, AtomicInteger> pendingBatchCount =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, AtomicInteger> pendingEventCount =
+      new ConcurrentHashMap<>();
 
   // Enhanced connection health tracking
   private final ConcurrentHashMap<SseEmitter, ConnectionHealth> connectionHealth =
@@ -245,6 +260,15 @@ public class SseService {
     }
   }
 
+  private Map<String, Object> addCorrelationMetadata(Map<String, Object> metadata) {
+    Map<String, Object> out = metadata != null ? new HashMap<>(metadata) : new HashMap<>();
+    String correlationId = MDC.get("correlationId");
+    String traceparent = MDC.get("traceparent");
+    if (correlationId != null) out.put("correlationId", correlationId);
+    if (traceparent != null) out.put("traceparent", traceparent);
+    return out;
+  }
+
   /** Check if we can accept a new SSE connection */
   public boolean canAcceptConnection(String shopDomain) {
     int globalCount = sseEmitters.values().stream().mapToInt(List::size).sum();
@@ -376,9 +400,10 @@ public class SseService {
       if (reconnectMs != null) {
         eventData.put("reconnect", reconnectMs);
       }
-      if (metadata != null && !metadata.isEmpty()) {
+      Map<String, Object> metaWithCorr = addCorrelationMetadata(metadata);
+      if (!metaWithCorr.isEmpty()) {
         ObjectNode metadataNode = objectMapper.createObjectNode();
-        metadata.forEach(
+        metaWithCorr.forEach(
             (key, value) -> {
               if (value instanceof String) {
                 metadataNode.put(key, (String) value);
@@ -414,10 +439,32 @@ public class SseService {
   public void queueEventForBatching(String shopDomain, SseEvent event) {
     List<SseEvent> batch = eventBatches.computeIfAbsent(shopDomain, k -> new ArrayList<>());
 
-    // Check if emergency cleanup is needed based on global capacity
+    // Update pending counters
+    AtomicInteger shopPendingEvents =
+        pendingEventCount.computeIfAbsent(shopDomain, k -> new AtomicInteger(0));
+    AtomicInteger shopPendingBatches =
+        pendingBatchCount.computeIfAbsent(shopDomain, k -> new AtomicInteger(0));
+
+    // Enforce per-shop pending events cap (drop oldest events)
+    if (shopPendingEvents.get() >= getMaxPendingEventsPerShop()) {
+      int toDrop = Math.max(1, getMaxBatchSize());
+      int dropped = 0;
+      while (dropped < toDrop && !batch.isEmpty()) {
+        batch.remove(0);
+        shopPendingEvents.decrementAndGet();
+        dropped++;
+      }
+      totalBatchesDropped.incrementAndGet();
+      logger.warn(
+          "Dropped {} oldest events for shop {} due to pending events cap {}",
+          dropped,
+          shopDomain,
+          getMaxPendingEventsPerShop());
+    }
+
+    // Check emergency cleanup threshold
     int globalConnections = sseEmitters.values().stream().mapToInt(List::size).sum();
     double utilizationPercent = (double) globalConnections / getMaxSseGlobal() * 100;
-
     if (utilizationPercent >= getEmergencyCleanupThreshold()) {
       performEmergencyCleanup();
     }
@@ -432,24 +479,39 @@ public class SseService {
           getMaxBatchQueueSize(),
           estimateBatchMemorySize(batch));
 
-      // Remove oldest events to make room (FIFO) - more aggressive cleanup
       int eventsToRemove = Math.max(batch.size() - getMaxBatchQueueSize() + 1, batch.size() / 4);
       for (int i = 0; i < eventsToRemove && !batch.isEmpty(); i++) {
         batch.remove(0);
+        shopPendingEvents.decrementAndGet();
       }
       totalBatchesDropped.incrementAndGet();
       totalMemoryLeaksPreventedCount.incrementAndGet();
     }
 
     batch.add(event);
+    shopPendingEvents.incrementAndGet();
 
     // Start batch timer if not already running
     batchTimers.computeIfAbsent(
         shopDomain,
         k -> {
           scheduleBatchTimeout(shopDomain);
+          shopPendingBatches.incrementAndGet();
           return System.currentTimeMillis();
         });
+
+    // Enforce per-shop pending batches cap (force-send and drop overflow)
+    if (shopPendingBatches.get() > getMaxPendingBatchesPerShop()) {
+      logger.warn(
+          "Pending batches cap exceeded for shop {} ({}>{}) - forcing send and trimming",
+          shopDomain,
+          shopPendingBatches.get(),
+          getMaxPendingBatchesPerShop());
+      sendBatch(shopDomain);
+      // After send, reset timer to control batch coalescing
+      batchTimers.put(shopDomain, System.currentTimeMillis());
+      shopPendingBatches.set(Math.max(0, shopPendingBatches.get() - 1));
+    }
 
     // Send batch immediately if it reaches max size
     if (batch.size() >= getMaxBatchSize()) {
@@ -528,6 +590,15 @@ public class SseService {
       return;
     }
 
+    // Update pending counters
+    AtomicInteger shopPendingEvents =
+        pendingEventCount.computeIfAbsent(shopDomain, k -> new AtomicInteger(0));
+    AtomicInteger shopPendingBatches =
+        pendingBatchCount.computeIfAbsent(shopDomain, k -> new AtomicInteger(0));
+    shopPendingEvents.addAndGet(-batch.size());
+    if (shopPendingEvents.get() < 0) shopPendingEvents.set(0);
+    if (shopPendingBatches.get() > 0) shopPendingBatches.decrementAndGet();
+
     CopyOnWriteArrayList<SseEmitter> emitters = sseEmitters.get(shopDomain);
     if (emitters == null || emitters.isEmpty()) {
       return;
@@ -570,7 +641,6 @@ public class SseService {
 
       String batchJson = batchData.toString();
 
-      // Send to all emitters for this shop
       List<SseEmitter> emittersCopy = new ArrayList<>(emitters);
       for (SseEmitter emitter : emittersCopy) {
         try {
@@ -729,6 +799,8 @@ public class SseService {
       sseEmitters.remove(shopDomain);
       eventBatches.remove(shopDomain);
       batchTimers.remove(shopDomain);
+      pendingBatchCount.remove(shopDomain);
+      pendingEventCount.remove(shopDomain);
     }
   }
 
@@ -799,6 +871,8 @@ public class SseService {
           sseEmitters.remove(shopDomain);
           eventBatches.remove(shopDomain);
           batchTimers.remove(shopDomain);
+          pendingBatchCount.remove(shopDomain);
+          pendingEventCount.remove(shopDomain);
         }
       }
 
@@ -1112,6 +1186,8 @@ public class SseService {
           sseEmitters.remove(shopDomain);
           eventBatches.remove(shopDomain);
           batchTimers.remove(shopDomain);
+          pendingBatchCount.remove(shopDomain);
+          pendingEventCount.remove(shopDomain);
           emptyShopsRemoved++;
           logger.debug("Cleaned up empty shop domain: {}", shopDomain);
         }
@@ -1174,6 +1250,8 @@ public class SseService {
         if (emitters == null || emitters.isEmpty()) {
           eventBatches.remove(shopDomain);
           batchTimers.remove(shopDomain);
+          pendingBatchCount.remove(shopDomain);
+          pendingEventCount.remove(shopDomain);
 
           if (batch != null && !batch.isEmpty()) {
             logger.warn(
@@ -1292,6 +1370,8 @@ public class SseService {
     connectionHealth.clear();
     connectionCreationTimes.clear();
     connectionShopMapping.clear();
+    pendingBatchCount.clear();
+    pendingEventCount.clear();
 
     // Reset counters
     activeConnections.set(0);

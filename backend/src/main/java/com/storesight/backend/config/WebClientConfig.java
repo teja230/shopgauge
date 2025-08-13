@@ -5,6 +5,7 @@ import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -15,27 +16,39 @@ import reactor.netty.resources.ConnectionProvider;
 @Configuration
 public class WebClientConfig {
 
+  @Value("${http.client.connect-timeout-ms:30000}")
+  private int connectTimeoutMs;
+
+  @Value("${http.client.read-timeout-ms:60000}")
+  private int readTimeoutMs;
+
+  @Value("${http.client.write-timeout-ms:60000}")
+  private int writeTimeoutMs;
+
+  @Value("${http.client.max-connections:200}")
+  private int maxConnections;
+
   @Bean
   public WebClient.Builder webClientBuilder() {
-    // Configure connection provider with robust settings
     ConnectionProvider connectionProvider =
         ConnectionProvider.builder("custom")
-            .maxConnections(200)
+            .maxConnections(maxConnections)
             .maxIdleTime(Duration.ofSeconds(60))
             .maxLifeTime(Duration.ofMinutes(10))
             .pendingAcquireTimeout(Duration.ofSeconds(30))
             .evictInBackground(Duration.ofSeconds(120))
             .build();
 
-    // Configure HTTP client with timeouts
     HttpClient httpClient =
         HttpClient.create(connectionProvider)
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
-            .responseTimeout(Duration.ofSeconds(60))
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs)
+            .responseTimeout(Duration.ofMillis(readTimeoutMs))
             .doOnConnected(
                 conn ->
-                    conn.addHandlerLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS))
-                        .addHandlerLast(new WriteTimeoutHandler(60, TimeUnit.SECONDS)))
+                    conn.addHandlerLast(
+                            new ReadTimeoutHandler(readTimeoutMs, TimeUnit.MILLISECONDS))
+                        .addHandlerLast(
+                            new WriteTimeoutHandler(writeTimeoutMs, TimeUnit.MILLISECONDS)))
             .keepAlive(true)
             .compress(true);
 

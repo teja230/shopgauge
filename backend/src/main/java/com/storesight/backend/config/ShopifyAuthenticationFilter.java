@@ -56,15 +56,13 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         || path.startsWith("/actuator/")
         || path.startsWith("/health/")
         || path.startsWith("/api/health/")
-        || path.startsWith(
-            "/api/admin/") // Skip admin endpoints - handled by AdminAuthenticationFilter
-        || path.startsWith("/api/sessions/admin/") // Skip admin session endpoints - handled by
-        // AdminAuthenticationFilter
+        || path.startsWith("/api/admin/")
+        || path.startsWith("/api/sessions/admin/")
         || path.equals("/")
         || path.equals("/health")
         || path.equals("/api/health")
         || path.startsWith("/error")
-        || path.contains("/auth/shopify/me") // Explicitly allow /me endpoint
+        || path.contains("/auth/shopify/me")
         || path.contains("/auth/shopify/login")
         || path.contains("/auth/shopify/install")
         || path.contains("/auth/shopify/callback")
@@ -75,15 +73,11 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     }
 
     try {
-      // Log request details for debugging (only in debug mode)
       if (logger.isDebugEnabled()) {
         logRequestDetails(request);
       }
 
-      // Extract shop from cookie with fallback mechanisms
       String shopDomain = getShopFromCookie(request);
-
-      // Fallback 1: Check query parameter
       if (shopDomain == null) {
         shopDomain = request.getParameter("shop");
         if (shopDomain != null) {
@@ -91,8 +85,6 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
           setShopCookie(response, shopDomain);
         }
       }
-
-      // Fallback 2: Check session
       if (shopDomain == null) {
         shopDomain = getShopFromSession(request);
         if (shopDomain != null) {
@@ -100,251 +92,62 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
         }
       }
 
-      // Fallback 3: Check Authorization header (for API clients)
-      if (shopDomain == null) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-          // Extract shop from JWT or custom token if needed
-          logger.debug("Authorization header present, checking for shop context");
-        }
-      }
-
-      if (shopDomain != null && !shopDomain.trim().isEmpty()) {
-        // Validate shop domain format
-        if (isValidShopDomain(shopDomain)) {
-          // Get session ID for multi-session support with safe session access
-          String sessionId = null;
-          try {
-            // Use Spring Session only for session ID, not business data
-            if (request.getSession(false) != null) {
-              sessionId = request.getSession(false).getId();
-            }
-          } catch (Exception sessionEx) {
-            logger.warn("Error accessing Spring Session: {}", sessionEx.getMessage());
-            // Continue without session ID - will use fallback token lookup
+      if (shopDomain != null && !shopDomain.trim().isEmpty() && isValidShopDomain(shopDomain)) {
+        String sessionId = null;
+        try {
+          if (request.getSession(false) != null) {
+            sessionId = request.getSession(false).getId();
           }
+        } catch (Exception sessionEx) {
+          logger.warn("Error accessing Spring Session: {}", sessionEx.getMessage());
+        }
 
-          // Verify shop exists and has valid token using our custom session layer
-          String token = shopService.getTokenForShop(shopDomain, sessionId);
-          if (token != null) {
-            logger.debug("Token found for shop: {} and session: {}", shopDomain, sessionId);
-
-            // Check if this is a /me endpoint request (OAuth validation)
-            boolean isOAuthValidation = path.contains("/me") || path.contains("/auth/shopify/me");
-
-            // Perform basic session validation with OAuth grace period
-            boolean sessionValid =
-                shopService.isSessionValid(shopDomain, sessionId, isOAuthValidation);
-            if (sessionValid) {
-              logger.debug(
-                  "Session validation passed for shop: {} and session: {} (OAuth: {})",
-                  shopDomain,
-                  sessionId,
-                  isOAuthValidation);
-
-              // Set authentication context
-              UsernamePasswordAuthenticationToken authentication =
-                  new UsernamePasswordAuthenticationToken(
-                      shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-              SecurityContextHolder.getContext().setAuthentication(authentication);
-
-              logger.debug(
-                  "Authentication set for shop: {} with session: {}", shopDomain, sessionId);
-            } else {
-              logger.warn(
-                  "Session validation failed for shop: {} and session: {} - token exists but session invalid (OAuth: {})",
-                  shopDomain,
-                  sessionId,
-                  isOAuthValidation);
-
-              // For OAuth validation endpoints, be more lenient
-              if (isOAuthValidation) {
-                logger.debug(
-                    "Allowing OAuth validation despite session issues for shop: {}", shopDomain);
-                UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                        shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-              } else {
-                // For regular API calls, attempt session recovery first
-                logger.debug(
-                    "Attempting session recovery for shop: {} and session: {}",
-                    shopDomain,
-                    sessionId);
-
-                // Use async session recovery to prevent blocking response writing
-                try {
-                  boolean recoverySuccessful =
-                      sessionRecoveryService.attemptSessionRecovery(shopDomain, sessionId);
-
-                  if (recoverySuccessful) {
-                    logger.info(
-                        "Session recovery successful for shop: {} and session: {}",
-                        shopDomain,
-                        sessionId);
-                    UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                            shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                  } else {
-                    // Recovery failed, reject the request
-                    logger.warn(
-                        "Session recovery failed, rejecting request for shop: {}", shopDomain);
-                    // Don't call safeSessionCleanup here to prevent response conflicts
-                    handleAuthenticationFailure(
-                        response, "Session expired. Please re-authenticate.");
-                    return;
-                  }
-                } catch (Exception recoveryError) {
-                  logger.warn(
-                      "Session recovery error for shop: {} - {}",
-                      shopDomain,
-                      recoveryError.getMessage());
-                  handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
-                  return;
-                }
-              }
-            }
+        String token = shopService.getTokenForShop(shopDomain, sessionId);
+        if (token != null) {
+          boolean isOAuthValidation = path.contains("/me") || path.contains("/auth/shopify/me");
+          boolean sessionValid =
+              shopService.isSessionValid(shopDomain, sessionId, isOAuthValidation);
+          if (sessionValid || isOAuthValidation) {
+            UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                    shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
           } else {
-            logger.warn("No valid token found for shop: {} and session: {}", shopDomain, sessionId);
-            // Perform safe cleanup before authentication failure
-            if (sessionId != null) {
-              shopService.safeSessionCleanup(shopDomain, sessionId);
+            boolean recoverySuccessful =
+                sessionRecoveryService.attemptSessionRecovery(shopDomain, sessionId);
+            if (!recoverySuccessful) {
+              SecurityContextHolder.clearContext();
+              request.setAttribute("auth.error", "SESSION_EXPIRED");
+              throw new ServletException("Session expired. Please re-authenticate.");
             }
-            handleAuthenticationFailure(response, "Session expired. Please re-authenticate.");
-            return;
+            UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                    shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
           }
         } else {
-          logger.warn("Invalid shop domain format: {}", shopDomain);
-          handleAuthenticationFailure(response, "Invalid shop domain format.");
-          return;
+          if (sessionId != null) {
+            shopService.safeSessionCleanup(shopDomain, sessionId);
+          }
+          SecurityContextHolder.clearContext();
+          request.setAttribute("auth.error", "AUTH_REQUIRED");
+          throw new ServletException("Authentication required. Please connect your Shopify store.");
         }
       } else {
-        logger.debug("No shop domain found in request: {}", path);
-        handleAuthenticationFailure(
-            response, "Authentication required. Please connect your Shopify store.");
-        return;
+        SecurityContextHolder.clearContext();
+        request.setAttribute("auth.error", "INVALID_SHOP_DOMAIN");
+        throw new ServletException("Invalid shop domain format.");
       }
 
       filterChain.doFilter(request, response);
 
     } catch (Exception e) {
-      // Check if this is a business rule exception that should not cause authentication failure
-      if (e instanceof com.storesight.backend.exception.CompetitorLimitExceededException
-          || e instanceof com.storesight.backend.exception.ArchivedCompetitorLimitExceededException
-          || e instanceof com.storesight.backend.exception.BudgetExceededException
-          || e instanceof com.storesight.backend.exception.DiscoveryServiceUnavailableException) {
-
-        logger.debug(
-            "Business rule exception in authentication filter for path: {} - {}",
-            request.getRequestURI(),
-            e.getMessage());
-
-        // Allow business rule exceptions to pass through to proper exception handlers
-        // Don't clear security context or treat as authentication failure
-        filterChain.doFilter(request, response);
-        return;
-      }
-
-      logger.error(
-          "Authentication filter error for path: {} - {}",
-          request.getRequestURI(),
-          e.getMessage(),
-          e);
-
-      // Clear authentication context to prevent session issues
-      SecurityContextHolder.clearContext();
-
-      // Check if this is a session invalidation error
-      if (e.getMessage() != null && e.getMessage().contains("Session was invalidated")) {
-        logger.warn(
-            "Session invalidation detected in authentication filter for path: {}",
-            request.getRequestURI());
-
-        // Special handling for initial login/OAuth flow to prevent cascade errors
-        if (path.contains("/api/auth/shopify/callback")
-            || path.contains("/api/auth/shopify/install")
-            || path.contains("/api/auth/shopify/me")) {
-          logger.info(
-              "Session invalidation during OAuth flow - allowing to complete normally for path: {}",
-              path);
-          return; // Let the OAuth flow complete without interference
-        }
-
-        // CRITICAL FIX: For session invalidation errors, don't immediately fail the request
-        // Instead, try to recover gracefully and allow the request to continue
-        try {
-          // Check if response is already committed
-          if (response.isCommitted()) {
-            logger.debug(
-                "Response already committed during session invalidation - allowing to complete normally");
-            return;
-          }
-
-          // Check if response stream has already been accessed
-          try {
-            response.getWriter();
-            // Writer is available, we can proceed
-          } catch (IllegalStateException writerException) {
-            if (writerException.getMessage() != null
-                && writerException.getMessage().contains("getWriter() has already been called")) {
-              logger.debug(
-                  "Response writer already accessed during session invalidation - allowing to complete normally");
-              return;
-            }
-            if (writerException.getMessage() != null
-                && writerException
-                    .getMessage()
-                    .contains("getOutputStream() has already been called")) {
-              logger.debug(
-                  "Response output stream already accessed during session invalidation - allowing to complete normally");
-              return;
-            }
-            // Re-throw if it's a different IllegalStateException
-            throw writerException;
-          } catch (IOException ioException) {
-            logger.debug(
-                "IOException when checking response writer during session invalidation: {}",
-                ioException.getMessage());
-            return;
-          }
-
-          // For API requests, return a more graceful error
-          if (path.startsWith("/api/")) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-
-            // Add CORS headers for error responses
-            response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-            response.setHeader("Access-Control-Allow-Credentials", "true");
-            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            response.setHeader("Access-Control-Allow-Headers", "*");
-
-            String jsonResponse =
-                String.format(
-                    "{\"error\":\"session_invalidated\",\"message\":\"Session has been invalidated. Please refresh the page and try again.\",\"timestamp\":%d}",
-                    System.currentTimeMillis());
-
-            response.getWriter().write(jsonResponse);
-            response.getWriter().flush();
-            return;
-          }
-        } catch (Exception responseError) {
-          logger.warn(
-              "Failed to write session invalidation response: {}", responseError.getMessage());
-        }
-
-        handleAuthenticationFailure(
-            response, "Session has been invalidated. Please re-authenticate.");
-      } else {
-        handleAuthenticationFailure(response, "Authentication error occurred. Please try again.");
-      }
+      // Let the global exception handlers render the response consistently
+      throw e instanceof ServletException ? (ServletException) e : new ServletException(e);
     }
   }
 
   private void logRequestDetails(HttpServletRequest request) {
-    // Log headers
     Enumeration<String> headerNames = request.getHeaderNames();
     if (headerNames != null) {
       logger.debug(
@@ -354,7 +157,6 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
               .collect(Collectors.joining(", ")));
     }
 
-    // Log cookies
     Cookie[] cookies = request.getCookies();
     if (cookies != null) {
       logger.debug(
@@ -375,7 +177,6 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       logger.debug("No cookies in request");
     }
 
-    // Log session info
     if (request.getSession(false) != null) {
       logger.debug("Session ID: {}", request.getSession().getId());
     } else {
@@ -416,8 +217,6 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     if (shopDomain == null || shopDomain.trim().isEmpty()) {
       return false;
     }
-
-    // Basic validation - should end with .myshopify.com or be a custom domain
     String domain = shopDomain.toLowerCase().trim();
     return domain.matches(
             "^[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*(\\.[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]*)*$")
@@ -433,80 +232,14 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
       shopCookie.setSecure(true);
       response.addCookie(shopCookie);
-
-      // Set SameSite attribute via header for better browser compatibility
       response.addHeader(
           "Set-Cookie",
           String.format(
               "shop=%s; Path=/; Max-Age=%d; Domain=shopgaugeai.com; SameSite=Lax; Secure",
               shopDomain, 60 * 60 * 24 * 7));
-
       logger.info("Set shop cookie for: {}", shopDomain);
     } catch (Exception e) {
       logger.warn("Failed to set shop cookie: {}", e.getMessage());
-    }
-  }
-
-  private void handleAuthenticationFailure(HttpServletResponse response, String message)
-      throws IOException {
-    // Clear any authentication context to prevent session issues
-    SecurityContextHolder.clearContext();
-
-    // Check if response has already been committed or written to
-    if (response.isCommitted()) {
-      logger.warn("Response already committed, cannot write authentication failure");
-      return;
-    }
-
-    // Check if response stream has already been accessed
-    try {
-      response.getWriter();
-      // Writer is available, we can proceed
-    } catch (IllegalStateException e) {
-      if (e.getMessage() != null
-          && e.getMessage().contains("getWriter() has already been called")) {
-        logger.warn(
-            "Response writer already accessed, cannot write authentication failure: {}",
-            e.getMessage());
-        return;
-      }
-      if (e.getMessage() != null
-          && e.getMessage().contains("getOutputStream() has already been called")) {
-        logger.warn(
-            "Response output stream already accessed, cannot write authentication failure: {}",
-            e.getMessage());
-        return;
-      }
-      // Re-throw if it's a different IllegalStateException
-      throw e;
-    } catch (IOException e) {
-      logger.warn("IOException when checking response writer: {}", e.getMessage());
-      return;
-    }
-
-    try {
-      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-      response.setContentType("application/json");
-      response.setCharacterEncoding("UTF-8");
-
-      // Add CORS headers for error responses
-      response.setHeader("Access-Control-Allow-Origin", "https://www.shopgaugeai.com");
-      response.setHeader("Access-Control-Allow-Credentials", "true");
-      response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      response.setHeader("Access-Control-Allow-Headers", "*");
-
-      String jsonResponse =
-          String.format(
-              "{\"error\":\"Authentication required\",\"message\":\"%s\",\"timestamp\":%d}",
-              message, System.currentTimeMillis());
-
-      response.getWriter().write(jsonResponse);
-      response.getWriter().flush();
-    } catch (IllegalStateException e) {
-      // Response stream already used, log and continue
-      logger.warn("Cannot write to response stream: {}", e.getMessage());
-    } catch (Exception e) {
-      logger.error("Error writing authentication failure response: {}", e.getMessage());
     }
   }
 }

@@ -1,5 +1,8 @@
 package com.storesight.backend.model;
 
+import com.storesight.backend.compliance.AesGcmStringConverter;
+import com.storesight.backend.compliance.PII;
+import com.storesight.backend.compliance.PIICategory;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -14,15 +17,19 @@ public class ShopSession {
   @JoinColumn(name = "shop_id", nullable = false)
   private Shop shop;
 
+  @PII(PIICategory.SESSION_ID)
   @Column(name = "session_id", unique = true, nullable = false)
   private String sessionId;
 
+  @PII(PIICategory.AUTH_TOKEN)
+  @Convert(converter = AesGcmStringConverter.class)
   @Column(name = "access_token", nullable = false, length = 500)
   private String accessToken;
 
   @Column(name = "user_agent", columnDefinition = "TEXT")
   private String userAgent;
 
+  @PII(PIICategory.IP_ADDRESS)
   @Column(name = "ip_address", length = 45)
   private String ipAddress;
 

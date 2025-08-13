@@ -1,6 +1,8 @@
 package com.storesight.backend.controller;
 
+import com.storesight.backend.service.AdminRateLimitingService;
 import com.storesight.backend.service.SseService;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -27,18 +29,22 @@ public class SseController {
   private static final Logger logger = LoggerFactory.getLogger(SseController.class);
 
   private final SseService sseService;
+  private final AdminRateLimitingService rateLimitingService;
 
   @Autowired
-  public SseController(SseService sseService) {
+  public SseController(SseService sseService, AdminRateLimitingService rateLimitingService) {
     this.sseService = sseService;
+    this.rateLimitingService = rateLimitingService;
   }
 
   /** Authenticated SSE subscribe endpoint that binds stream to the authenticated shop. */
   @GetMapping("/subscribe/{shopDomain}")
   public ResponseEntity<?> subscribe(
-      @PathVariable String shopDomain, Authentication authentication) {
+      @PathVariable String shopDomain, Authentication authentication, HttpServletRequest request) {
     try {
+      // Validate authentication: prefer stateless principal, fallback to deny
       if (authentication == null || authentication.getName() == null) {
+        logger.warn("SSE subscribe without authentication for shop {}", shopDomain);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(Map.of("error", "Unauthorized", "message", "Authentication required"));
       }
@@ -49,10 +55,35 @@ public class SseController {
               .map(GrantedAuthority::getAuthority)
               .anyMatch(a -> a.equals("ROLE_SHOP"));
 
+      // Enforce token binding and shop-domain match
       if (!isShopRole || !principalShop.equalsIgnoreCase(shopDomain)) {
         logger.warn("SSE subscribe forbidden: principal {} for shop {}", principalShop, shopDomain);
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
             .body(Map.of("error", "Forbidden", "message", "Shop mismatch"));
+      }
+
+      // Consolidated rate limit: enforce API rate limiting per client IP
+      String clientIp = request.getHeader("X-Forwarded-For");
+      if (clientIp == null || clientIp.isBlank()) {
+        clientIp = request.getHeader("X-Real-IP");
+      }
+      if (clientIp == null || clientIp.isBlank()) {
+        clientIp = request.getRemoteAddr();
+      }
+      var rl = rateLimitingService.checkApiRequest(clientIp);
+      if (!rl.isAllowed()) {
+        logger.warn("SSE subscribe rate-limited for IP {} on shop {}", clientIp, shopDomain);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .body(
+                Map.of(
+                    "error", "rate_limited",
+                    "message", rl.getMessage(),
+                    "retryAfter",
+                        Math.max(
+                            1,
+                            java.time.Duration.between(
+                                    java.time.LocalDateTime.now(), rl.getResetTime())
+                                .getSeconds())));
       }
 
       if (!sseService.canAcceptConnection(shopDomain)) {

@@ -1,5 +1,7 @@
 package com.storesight.backend.model;
 
+import com.storesight.backend.compliance.PII;
+import com.storesight.backend.compliance.PIICategory;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -13,6 +15,7 @@ public class Notification {
   @Column(name = "shop", nullable = false)
   private String shop;
 
+  @PII(PIICategory.SESSION_ID)
   @Column(name = "session_id", nullable = true) // Make nullable for backward compatibility
   private String sessionId;
 

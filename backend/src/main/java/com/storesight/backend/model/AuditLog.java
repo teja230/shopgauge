@@ -1,5 +1,7 @@
 package com.storesight.backend.model;
 
+import com.storesight.backend.compliance.PII;
+import com.storesight.backend.compliance.PIICategory;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -23,6 +25,7 @@ public class AuditLog {
   @Column(name = "user_agent", length = 500)
   private String userAgent;
 
+  @PII(PIICategory.IP_ADDRESS)
   @Column(name = "ip_address")
   private String ipAddress;
 

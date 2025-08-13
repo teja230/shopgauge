@@ -1,107 +1,73 @@
 package com.storesight.backend.service;
 
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * Service for managing secrets using environment variables in production. Redis is still used for
- * other purposes like session persistence and Shopify tokens.
+ * Secrets management service that reads from a chain of providers. Writes are discouraged in prod.
  */
 @Service
-public class SecretService {
+public class SecretService implements SecretsProvider {
   private final StringRedisTemplate redisTemplate;
+  private final List<SecretsProvider> providers;
+
+  @Value("${secrets.rotation.enabled:true}")
+  private boolean rotationEnabled;
+
+  @Value("${secrets.rotation.cron:0 0 3 * * *}")
+  private String rotationCron;
 
   @Autowired
-  public SecretService(StringRedisTemplate redisTemplate) {
+  public SecretService(StringRedisTemplate redisTemplate, List<SecretsProvider> providers) {
     this.redisTemplate = redisTemplate;
+    this.providers = providers;
   }
 
-  /**
-   * Get secret from environment variables. Secrets are managed by the hosting platform (Render)
-   * environment variables.
-   */
+  @Override
   public Optional<String> getSecret(String key) {
-    // Map secret keys to environment variable names
+    // Chain through providers: env -> existing SecretService redis-backed fallback
+    for (SecretsProvider p : providers) {
+      if (p == this) continue; // skip self in chain
+      Optional<String> val = p.getSecret(key);
+      if (val.isPresent()) return val;
+    }
+    return getFromRedis(key);
+  }
+
+  private Optional<String> getFromRedis(String key) {
+    String redisKey = mapSecretKeyToEnvVar(key);
+    String value = redisTemplate.opsForValue().get("secret:" + redisKey);
+    return Optional.ofNullable(value);
+  }
+
+  @Override
+  public boolean supportsWrite() {
+    return true;
+  }
+
+  @Override
+  public void putSecret(String key, String value) {
     String envVarName = mapSecretKeyToEnvVar(key);
-    String value = System.getenv(envVarName);
-
-    if (value != null && !value.trim().isEmpty()) {
-      return Optional.of(value);
-    }
-
-    // No fallback - secrets should only come from environment variables
-    return Optional.empty();
+    redisTemplate.opsForValue().set("secret:" + envVarName, value);
   }
 
-  /**
-   * Store secret - in production, this should be done through Render's environment variables UI.
-   * This method is kept for backward compatibility but logs a warning.
-   */
-  public void storeSecret(String key, String value) {
-    // Check if we're in production environment
-    String activeProfile = System.getenv("SPRING_PROFILES_ACTIVE");
-    boolean isProduction = "prod".equals(activeProfile) || "production".equals(activeProfile);
-
-    if (isProduction) {
-      System.out.println(
-          "[WARN] storeSecret() called - secrets should be managed through Render environment variables in production");
-      System.out.println(
-          "[INFO] To set secret '"
-              + key
-              + "', add environment variable: "
-              + mapSecretKeyToEnvVar(key));
-    } else {
-      // In development, just log that environment variables should be used
-      String envVarName = mapSecretKeyToEnvVar(key);
-      String envValue = System.getenv(envVarName);
-
-      if (envValue != null) {
-        System.out.println("[INFO] Using environment variable for secret: " + key);
-      } else {
-        System.out.println(
-            "[INFO] Secret not found in environment. To set secret '"
-                + key
-                + "', add environment variable: "
-                + envVarName);
-      }
-    }
-  }
-
-  /**
-   * Delete secret - in production, this should be done through Render's environment variables UI.
-   */
+  @Override
   public void deleteSecret(String key) {
-    // Check if we're in production environment
-    String activeProfile = System.getenv("SPRING_PROFILES_ACTIVE");
-    boolean isProduction = "prod".equals(activeProfile) || "production".equals(activeProfile);
-
-    if (isProduction) {
-      System.out.println(
-          "[WARN] deleteSecret() called - secrets should be managed through Render environment variables in production");
-      System.out.println(
-          "[INFO] To delete secret '"
-              + key
-              + "', remove environment variable: "
-              + mapSecretKeyToEnvVar(key));
-    } else {
-      // In development, just log that environment variables should be used
-      System.out.println(
-          "[INFO] To delete secret '"
-              + key
-              + "', remove environment variable: "
-              + mapSecretKeyToEnvVar(key));
-    }
+    String envVarName = mapSecretKeyToEnvVar(key);
+    redisTemplate.delete("secret:" + envVarName);
   }
 
   /** List all configured secrets (returns keys only for security). */
   public Map<String, String> listSecrets() {
     Map<String, String> secrets = new HashMap<>();
-
-    // Only return keys of secrets that are configured
     String[] secretKeys = {
       "shopify.api.key",
       "shopify.api.secret",
@@ -112,13 +78,11 @@ public class SecretService {
       "scrapingdog.api.key",
       "serper.api.key"
     };
-
     for (String key : secretKeys) {
       if (getSecret(key).isPresent()) {
-        secrets.put(key, "[CONFIGURED]"); // Don't return actual values for security
+        secrets.put(key, "[CONFIGURED]");
       }
     }
-
     return secrets;
   }
 
@@ -142,26 +106,29 @@ public class SecretService {
       case "serper.api.key":
         return "SERPER_KEY";
       default:
-        // Convert dot notation to uppercase with underscores
         return secretKey.toUpperCase().replace(".", "_");
     }
   }
 
-  // Redis methods for other purposes (session persistence, Shopify tokens, etc.)
-
-  /** Store data in Redis (for non-secret data like sessions, tokens, etc.) */
-  public void storeInRedis(String key, String value) {
-    redisTemplate.opsForValue().set(key, value);
-  }
-
-  /** Get data from Redis (for non-secret data like sessions, tokens, etc.) */
-  public Optional<String> getFromRedis(String key) {
-    String value = redisTemplate.opsForValue().get(key);
-    return Optional.ofNullable(value);
-  }
-
-  /** Delete data from Redis (for non-secret data like sessions, tokens, etc.) */
-  public void deleteFromRedis(String key) {
-    redisTemplate.delete(key);
+  // Rotation cadence - runs daily at 3 AM by default (configurable via secrets.rotation.cron)
+  @Scheduled(cron = "${secrets.rotation.cron:0 0 3 * * *}")
+  public void scheduledRotationCheck() {
+    if (!rotationEnabled) return;
+    // Hook: check for expiring/soon-to-expire secrets and trigger rotation workflows.
+    // Actual rotation is environment/provider-specific and typically happens outside the app.
+    // Here we can emit metrics/logs to alert when rotation is due.
+    Map<String, String> due = new HashMap<>();
+    for (String key :
+        new String[] {
+          "sendgrid.api.key", "twilio.account.sid", "twilio.auth.token", "shopify.api.secret"
+        }) {
+      // Placeholder: in a real integration, query provider metadata for expiry
+      // For now, simply log that rotation check ran.
+      getSecret(key).ifPresent(v -> due.put(key, "present"));
+    }
+    if (!due.isEmpty()) {
+      org.slf4j.LoggerFactory.getLogger(SecretService.class)
+          .info("Secrets rotation check executed at {} for keys: {}", Instant.now(), due.keySet());
+    }
   }
 }

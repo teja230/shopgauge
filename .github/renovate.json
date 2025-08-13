@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits"],
+  "rangeStrategy": "bump",
+  "timezone": "UTC",
+  "prCreation": "not-pending",
+  "labels": ["dependencies"],
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "groupName": "frontend deps",
+      "schedule": ["after 10pm on sunday"],
+      "separateMajorMinor": true
+    },
+    {
+      "matchManagers": ["gradle"],
+      "groupName": "backend deps",
+      "schedule": ["after 10pm on sunday"],
+      "separateMajorMinor": true
+    }
+  ]
+}
+
+

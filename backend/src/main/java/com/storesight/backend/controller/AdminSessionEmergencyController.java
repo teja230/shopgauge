@@ -1,189 +1,131 @@
 package com.storesight.backend.controller;
 
-import com.storesight.backend.service.EnhancedRedisService;
-import com.storesight.backend.service.ShopService;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import com.storesight.backend.service.DataPrivacyService;
+import java.time.Instant;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/admin-refactor/sessions")
-@PreAuthorize("hasRole('ADMIN')")
+@RequestMapping("/api/admin-refactor/emergency")
 public class AdminSessionEmergencyController {
+
   private static final Logger logger =
       LoggerFactory.getLogger(AdminSessionEmergencyController.class);
 
-  private final EnhancedRedisService enhancedRedisService;
-  private final RedisTemplate<String, String> redisTemplate;
-  private final ShopService shopService;
+  @Autowired private RedisTemplate<String, Object> redisTemplate;
+  @Autowired private DataPrivacyService dataPrivacyService;
 
-  @Autowired
-  public AdminSessionEmergencyController(
-      EnhancedRedisService enhancedRedisService,
-      RedisTemplate<String, String> redisTemplate,
-      ShopService shopService) {
-    this.enhancedRedisService = enhancedRedisService;
-    this.redisTemplate = redisTemplate;
-    this.shopService = shopService;
-  }
-
-  @GetMapping("/stuck-sessions/{shopDomain}")
-  public ResponseEntity<Map<String, Object>> getStuckSessions(@PathVariable String shopDomain) {
-    Map<String, Object> result = new HashMap<>();
+  @PostMapping("/invalidate-session")
+  public ResponseEntity<Map<String, Object>> invalidateSession(@RequestParam String sessionId) {
     try {
-      logger.warn("ADMIN: Getting stuck sessions for shop: {}", shopDomain);
-      Set<String> sessionKeys = enhancedRedisService.scanKeys("*" + shopDomain + "*");
-      List<Map<String, Object>> stuckSessions = new ArrayList<>();
-      if (sessionKeys != null) {
-        for (String key : sessionKeys) {
-          try {
-            String value = redisTemplate.opsForValue().get(key);
-            if (value != null
-                && (value.contains("invalid")
-                    || value.contains("stuck")
-                    || value.contains("cleanup"))) {
-              Map<String, Object> sessionInfo = new HashMap<>();
-              sessionInfo.put("key", key);
-              sessionInfo.put("value", value);
-              sessionInfo.put("type", getSessionKeyType(key));
-              stuckSessions.add(sessionInfo);
-            }
-          } catch (Exception e) {
-            logger.warn("Error reading Redis key {}: {}", key, e.getMessage());
-          }
-        }
-      }
-      result.put("success", true);
-      result.put("shopDomain", shopDomain);
-      result.put("stuckSessions", stuckSessions);
-      result.put("count", stuckSessions.size());
-      result.put("timestamp", LocalDateTime.now().toString());
-      return ResponseEntity.ok(result);
+      boolean deleted =
+          Boolean.TRUE.equals(redisTemplate.delete("spring:session:sessions:" + sessionId));
+      Map<String, Object> response = new HashMap<>();
+      response.put("sessionId", sessionId);
+      response.put("deleted", deleted);
+      response.put("timestamp", Instant.now().toString());
+      return ResponseEntity.ok(response);
     } catch (Exception e) {
-      logger.error("Failed to get stuck sessions for shop {}: {}", shopDomain, e.getMessage(), e);
-      result.put("success", false);
-      result.put("error", "Failed to get stuck sessions: " + e.getMessage());
-      result.put("shopDomain", shopDomain);
-      return ResponseEntity.status(500).body(result);
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to invalidate session", "message", e.getMessage()));
     }
   }
 
-  @GetMapping("/stuck-sessions")
-  public ResponseEntity<Map<String, Object>> getAllStuckSessions() {
+  @GetMapping("/redis-keys")
+  public ResponseEntity<Map<String, Object>> listRedisKeys(
+      @RequestParam(defaultValue = "1000") int limit) {
     Map<String, Object> result = new HashMap<>();
-    try {
-      logger.warn("ADMIN: Getting all stuck sessions across all shops");
-      Set<String> sessionKeys = enhancedRedisService.scanKeys("*session*");
-      Map<String, List<Map<String, Object>>> stuckSessionsByShop = new HashMap<>();
-      if (sessionKeys != null) {
-        for (String key : sessionKeys) {
-          try {
-            String value = redisTemplate.opsForValue().get(key);
-            if (value != null
-                && (value.contains("invalid")
-                    || value.contains("stuck")
-                    || value.contains("cleanup"))) {
-              String shopDomain = extractShopDomainFromKey(key);
-              if (shopDomain != null) {
-                Map<String, Object> sessionInfo = new HashMap<>();
-                sessionInfo.put("key", key);
-                sessionInfo.put("value", value);
-                sessionInfo.put("type", getSessionKeyType(key));
-                stuckSessionsByShop
-                    .computeIfAbsent(shopDomain, k -> new ArrayList<>())
-                    .add(sessionInfo);
-              }
-            }
-          } catch (Exception e) {
-            logger.warn("Error reading Redis key {}: {}", key, e.getMessage());
-          }
-        }
+    List<Map<String, Object>> keys = new ArrayList<>();
+    try (Cursor<byte[]> cursor =
+        (Cursor<byte[]>)
+            redisTemplate
+                .getConnectionFactory()
+                .getConnection()
+                .scan(ScanOptions.scanOptions().count(1000).match("*").build())) {
+      int count = 0;
+      while (cursor.hasNext() && count < limit) {
+        String key = new String(cursor.next());
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("key", key);
+        entry.put("type", getSessionKeyType(key));
+        entry.put("shopDomain", extractShopDomainFromKey(key));
+        keys.add(entry);
+        count++;
       }
-      result.put("success", true);
-      result.put("stuckSessionsByShop", stuckSessionsByShop);
-      result.put("totalShops", stuckSessionsByShop.size());
-      result.put(
-          "totalStuckSessions", stuckSessionsByShop.values().stream().mapToInt(List::size).sum());
-      result.put("timestamp", LocalDateTime.now().toString());
+      result.put("count", keys.size());
+      result.put("keys", keys);
       return ResponseEntity.ok(result);
     } catch (Exception e) {
-      logger.error("Failed to get all stuck sessions: {}", e.getMessage());
-      result.put("success", false);
-      result.put("error", "Failed to get stuck sessions: " + e.getMessage());
-      return ResponseEntity.status(500).body(result);
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to list redis keys", "message", e.getMessage()));
     }
   }
 
-  @PostMapping("/clear-stuck-sessions/{shopDomain}")
-  public ResponseEntity<Map<String, Object>> clearAllStuckSessionsForShop(
-      @PathVariable String shopDomain) {
-    Map<String, Object> result = new HashMap<>();
+  @PostMapping("/kill-all-shop-sessions")
+  public ResponseEntity<Map<String, Object>> killAllShopSessions(@RequestParam String shopDomain) {
     try {
-      logger.warn("ADMIN: Clearing all stuck sessions for shop: {}", shopDomain);
-      Set<String> sessionKeys = enhancedRedisService.scanKeys("*" + shopDomain + "*");
-      int clearedCount = 0;
-      if (sessionKeys != null) {
-        for (String key : sessionKeys) {
-          try {
-            String value = redisTemplate.opsForValue().get(key);
-            if (value != null
-                && (value.contains("invalid")
-                    || value.contains("stuck")
-                    || value.contains("cleanup"))) {
-              redisTemplate.delete(key);
-              clearedCount++;
-            }
-          } catch (Exception e) {
-            logger.warn("Error clearing Redis key {}: {}", key, e.getMessage());
+      int deleted = 0;
+      try (Cursor<byte[]> cursor =
+          (Cursor<byte[]>)
+              redisTemplate
+                  .getConnectionFactory()
+                  .getConnection()
+                  .scan(
+                      ScanOptions.scanOptions()
+                          .count(1000)
+                          .match("*" + shopDomain + "*")
+                          .build())) {
+        while (cursor.hasNext()) {
+          String key = new String(cursor.next());
+          if (key.contains("spring:session:sessions:")) {
+            redisTemplate.delete(key);
+            deleted++;
           }
         }
       }
-      shopService.clearStuckSessionMarkersForShop(shopDomain);
-      result.put("success", true);
-      result.put("shopDomain", shopDomain);
-      result.put("clearedCount", clearedCount);
-      result.put(
-          "message", "Cleared " + clearedCount + " stuck session markers for shop: " + shopDomain);
-      result.put("timestamp", LocalDateTime.now().toString());
-      return ResponseEntity.ok(result);
+      return ResponseEntity.ok(Map.of("shopDomain", shopDomain, "deleted", deleted));
     } catch (Exception e) {
-      logger.error("Failed to clear stuck sessions for shop {}: {}", shopDomain, e.getMessage());
-      result.put("success", false);
-      result.put("error", "Failed to clear stuck sessions: " + e.getMessage());
-      result.put("shopDomain", shopDomain);
-      return ResponseEntity.status(500).body(result);
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to kill shop sessions", "message", e.getMessage()));
+    }
+  }
+
+  @PostMapping("/deny-shop")
+  public ResponseEntity<Map<String, Object>> denyShop(@RequestParam String shopDomain) {
+    try {
+      String key = "session:shop:deny:" + shopDomain.toLowerCase();
+      redisTemplate.opsForValue().set(key, "1");
+      return ResponseEntity.ok(Map.of("shopDomain", shopDomain, "denied", true));
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to deny shop", "message", e.getMessage()));
+    }
+  }
+
+  @PostMapping("/allow-shop")
+  public ResponseEntity<Map<String, Object>> allowShop(@RequestParam String shopDomain) {
+    try {
+      String key = "session:shop:deny:" + shopDomain.toLowerCase();
+      redisTemplate.delete(key);
+      return ResponseEntity.ok(Map.of("shopDomain", shopDomain, "denied", false));
+    } catch (Exception e) {
+      return ResponseEntity.status(500)
+          .body(Map.of("error", "Failed to allow shop", "message", e.getMessage()));
     }
   }
 
   private String extractShopDomainFromKey(String key) {
     try {
-      if (key.contains("shop_token:")) {
-        String[] parts = key.split("shop_token:");
-        if (parts.length > 1) {
-          String[] shopSession = parts[1].split(":");
-          if (shopSession.length > 0) {
-            return shopSession[0];
-          }
-        }
-      }
-      if (key.contains("invalid_session:")) {
-        String[] parts = key.split("invalid_session:");
-        if (parts.length > 1) {
-          String[] shopSession = parts[1].split(":");
-          if (shopSession.length > 0) {
-            return shopSession[0];
-          }
-        }
+      if (key.contains("shopify_domain:")) {
+        String suffix = key.substring(key.indexOf("shopify_domain:") + "shopify_domain:".length());
+        return suffix.split("\\s")[0];
       }
       return null;
     } catch (Exception e) {
@@ -199,7 +141,7 @@ public class AdminSessionEmergencyController {
     if (key.contains("session_invalidation:")) return "invalidation_marker";
     if (key.contains("session_state:")) return "state_marker";
     if (key.contains("session_lock:")) return "lock_marker";
+    if (key.contains("session:shop:deny:")) return "shop_deny_marker";
     return "unknown";
   }
 }
-

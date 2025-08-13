@@ -1596,100 +1596,19 @@ public class SessionManagementController {
    * /api/sessions/events/{shopDomain} to receive real-time session events. Event format: { "event":
    * "session_invalidated", "message": "Your session has been invalidated by an administrator." }
    */
+  // DEPRECATED: Use /api/sse/subscribe/{shopDomain}
   @GetMapping("/events/{shopDomain}")
-  public SseEmitter subscribeToSessionEvents(
-      @PathVariable String shopDomain, HttpServletRequest request) {
-    logger.info("SSE connection request for shop: {}", shopDomain);
-
-    // Check if SSE is enabled via feature flag
-    if (!featureFlagService.isSseEnabled()) {
-      logger.info("SSE is disabled via feature flag for shop: {}", shopDomain);
-      SseEmitter emitter = new SseEmitter(120_000L);
-      try {
-        sseService.sendMinimalEvent(
-            emitter,
-            "sse_disabled",
-            "Server-Sent Events are currently disabled. Please use polling instead.",
-            30000);
-      } catch (Exception e) {
-        logger.warn("Error sending SSE disabled message: {}", e.getMessage());
-      }
-      emitter.complete();
-      return emitter;
-    }
-
-    // CRITICAL FIX: Validate session before allowing SSE connection
-    String sessionId = null;
-    try {
-      if (request.getSession(false) != null) {
-        sessionId = request.getSession(false).getId();
-      }
-    } catch (Exception sessionEx) {
-      logger.warn("Error accessing Spring Session for SSE: {}", sessionEx.getMessage());
-    }
-
-    // --- SSE Rate Limiting ---
-    if (sessionId != null) {
-      String sseFailKey = "sse_validation_fail:" + shopDomain + ":" + sessionId;
-      try {
-        String failCountStr = redisTemplate.opsForValue().get(sseFailKey);
-        int failCount = 0;
-        if (failCountStr != null) {
-          try {
-            failCount = Integer.parseInt(failCountStr);
-          } catch (NumberFormatException ignore) {
-          }
-        }
-        if (failCount >= 3) {
-          logger.warn(
-              "SSE rate limit exceeded for session {} shop {}. Blocking for 10 minutes.",
-              sessionId,
-              shopDomain);
-          SseEmitter emitter = new SseEmitter(120_000L);
-          sseService.sendMinimalEvent(
-              emitter, "rate_limited", "Too many failed attempts. Please wait 10 minutes.", 60000);
-          emitter.complete();
-          return emitter;
-        }
-      } catch (Exception e) {
-        logger.warn("Error checking SSE rate limit: {}", e.getMessage());
-      }
-    }
-    // --- END SSE Rate Limiting ---
-
-    // Validate session before allowing SSE connection
-    if (sessionId != null && !shopService.isSessionValid(shopDomain, sessionId)) {
-      logger.warn(
-          "SSE connection rejected - invalid session {} for shop: {}", sessionId, shopDomain);
-      // Increment SSE failure count in Redis (10 min TTL)
-      try {
-        String sseFailKey = "sse_validation_fail:" + shopDomain + ":" + sessionId;
-        Long fails = redisTemplate.opsForValue().increment(sseFailKey);
-        redisTemplate.expire(sseFailKey, java.time.Duration.ofMinutes(10));
-        logger.debug("SSE validation fail count for {}: {}", sessionId, fails);
-        SseEmitter emitter = new SseEmitter(120_000L);
-        sseService.sendMinimalEvent(
-            emitter,
-            "rate_limited",
-            "Your session has been invalidated. Please re-authenticate.",
-            60000);
-        emitter.complete();
-        return emitter;
-      } catch (Exception e) {
-        logger.warn("Failed to increment SSE validation fail count: {}", e.getMessage());
-      }
-      SseEmitter emitter = new SseEmitter(120_000L);
-      sseService.sendMinimalEvent(
-          emitter,
-          "session_invalidated",
-          "Your session has been invalidated. Please re-authenticate.",
-          10000);
-      emitter.complete();
-      return emitter;
-    }
-
-    // Create SSE connection using the service
-    return sseService.createConnection(shopDomain, sessionId);
+  public ResponseEntity<Map<String, Object>> subscribeToSessionEventsDeprecated(
+      @PathVariable String shopDomain) {
+    logger.info(
+        "Deprecated SSE endpoint hit for shop: {}. Redirecting to /api/sse/subscribe/{}",
+        shopDomain,
+        shopDomain);
+    Map<String, Object> body = new HashMap<>();
+    body.put("error", "deprecated");
+    body.put("message", "Use /api/sse/subscribe/{shopDomain}");
+    body.put("redirect", "/api/sse/subscribe/" + shopDomain);
+    return ResponseEntity.status(HttpStatus.GONE).body(body);
   }
 
   /**

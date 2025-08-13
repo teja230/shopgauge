@@ -96,7 +96,7 @@ public class AdminController {
       return ResponseEntity.badRequest().body(Map.of("error", "Both key and value are required"));
     }
 
-    secretService.storeSecret(key, value);
+    secretService.putSecret(key, value);
     return ResponseEntity.ok(Map.of("status", "Secret updated successfully"));
   }
 
@@ -1180,6 +1180,17 @@ public class AdminController {
           .body(
               Map.of("error", "Failed to retrieve application metrics", "message", e.getMessage()));
     }
+  }
+
+  // Deprecated SSE/session endpoints now live under SessionManagementController and SseController
+  @GetMapping("/sse/stats")
+  public ResponseEntity<Map<String, Object>> deprecatedSseStatsRedirect() {
+    return ResponseEntity.status(410)
+        .body(
+            Map.of(
+                "error", "deprecated",
+                "message", "Use /api/sessions/admin/sse/stats",
+                "redirect", "/api/sessions/admin/sse/stats"));
   }
 
   /** MONITORING ENDPOINT: Get error pattern analysis */

@@ -1,36 +1,32 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.service.SecretService;
-import jakarta.validation.constraints.NotBlank;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin-refactor/secrets")
-@Validated
 public class AdminSecretsController {
-  private final SecretService secretService;
 
-  @Autowired
-  public AdminSecretsController(SecretService secretService) {
-    this.secretService = secretService;
-  }
-
-  public static class UpdateSecretRequest {
-    @NotBlank public String key;
-    @NotBlank public String value;
-  }
+  @Autowired private SecretService secretService;
 
   @PostMapping
-  public ResponseEntity<Map<String, String>> updateSecret(
-      @RequestBody @Validated UpdateSecretRequest req) {
-    secretService.storeSecret(req.key, req.value);
-    return ResponseEntity.ok(Map.of("status", "Secret updated successfully"));
+  public ResponseEntity<Map<String, String>> createOrUpdateSecret(
+      @RequestBody Map<String, String> request) {
+    String key = request.get("key");
+    String value = request.get("value");
+    secretService.putSecret(key, value);
+    return ResponseEntity.ok(Map.of("status", "Secret saved successfully"));
   }
 
   @GetMapping("/{key}")
@@ -55,4 +51,3 @@ public class AdminSecretsController {
     return ResponseEntity.ok(list);
   }
 }
-

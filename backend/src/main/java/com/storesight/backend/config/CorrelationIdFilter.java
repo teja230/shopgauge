@@ -57,6 +57,12 @@ public class CorrelationIdFilter implements Filter {
       // Extract correlation ID from request header
       String correlationId = httpRequest.getHeader(CorrelationIdUtil.CORRELATION_ID_HEADER);
 
+      // Also capture W3C traceparent header if present for OpenTelemetry correlation
+      String traceParent = httpRequest.getHeader("traceparent");
+      if (traceParent != null && !traceParent.isBlank()) {
+        org.slf4j.MDC.put("traceparent", traceParent);
+      }
+
       // Generate new correlation ID if not present or invalid
       if (correlationId == null
           || correlationId.trim().isEmpty()
@@ -96,6 +102,7 @@ public class CorrelationIdFilter implements Filter {
     } finally {
       // Clean up MDC to prevent memory leaks
       CorrelationIdUtil.clearCorrelationId();
+      org.slf4j.MDC.remove("traceparent");
     }
   }
 

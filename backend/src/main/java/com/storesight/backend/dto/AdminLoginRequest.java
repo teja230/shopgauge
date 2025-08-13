@@ -6,4 +6,3 @@ public class AdminLoginRequest {
   @NotBlank public String username;
   @NotBlank public String password;
 }
-

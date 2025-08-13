@@ -142,7 +142,7 @@ public class SecretsConfig {
             secret -> log.debug("Secret {} already exists", secretKey),
             () -> {
               try {
-                secretService.storeSecret(secretKey, defaultValue);
+                secretService.putSecret(secretKey, defaultValue);
                 log.debug("Initialized default secret: {}", secretKey);
               } catch (Exception e) {
                 log.debug("Could not initialize secret {}: {}", secretKey, e.getMessage());

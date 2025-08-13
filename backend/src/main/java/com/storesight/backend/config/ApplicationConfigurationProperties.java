@@ -132,6 +132,15 @@ public class ApplicationConfigurationProperties {
     @Max(100)
     private int emergencyCleanupThreshold = 80;
 
+    // Backpressure caps
+    @Min(1)
+    @Max(100)
+    private int maxPendingBatchesPerShop = 10;
+
+    @Min(1)
+    @Max(10000)
+    private int maxPendingEventsPerShop = 500;
+
     // Getters and setters
     public int getMaxConnectionsPerShop() {
       return maxConnectionsPerShop;
@@ -259,6 +268,22 @@ public class ApplicationConfigurationProperties {
 
     public void setEmergencyCleanupThreshold(int emergencyCleanupThreshold) {
       this.emergencyCleanupThreshold = emergencyCleanupThreshold;
+    }
+
+    public int getMaxPendingBatchesPerShop() {
+      return maxPendingBatchesPerShop;
+    }
+
+    public void setMaxPendingBatchesPerShop(int maxPendingBatchesPerShop) {
+      this.maxPendingBatchesPerShop = maxPendingBatchesPerShop;
+    }
+
+    public int getMaxPendingEventsPerShop() {
+      return maxPendingEventsPerShop;
+    }
+
+    public void setMaxPendingEventsPerShop(int maxPendingEventsPerShop) {
+      this.maxPendingEventsPerShop = maxPendingEventsPerShop;
     }
   }
 
