@@ -1,6 +1,6 @@
 # 🔧 Developer Guide
 
-Welcome to the StoreSight Developer Guide. This section contains APIs, integration guides, and development resources.
+Welcome to the ShopGauge Developer Guide. This section contains APIs, integration guides, and development resources.
 
 ## 📋 Contents
 
@@ -17,7 +17,7 @@ Security implementation details. Authentication, authorization, JWT tokens, and 
 GDPR compliance, privacy policies, data retention, and regulatory requirements.
 
 ### 🤝 **[Contributing Guide](CONTRIBUTING.md)**
-How to contribute to the StoreSight project. Development setup, coding standards, and pull request process.
+How to contribute to the ShopGauge project. Development setup, coding standards, and pull request process.
 
 ### 📡 **[SSE Admin Card](SSE_ADMIN_CARD.md)**
 Server-sent events implementation for real-time admin interface updates.

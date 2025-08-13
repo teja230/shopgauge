@@ -1,4 +1,4 @@
-# StoreSight Architecture Overview
+# ShopGauge Architecture Overview
 
 This document summarizes the system architecture at a high level.
 

@@ -12,14 +12,14 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
   @Bean
-  public OpenAPI storesightOpenAPI() {
+  public OpenAPI shopgaugeOpenAPI() {
     return new OpenAPI()
         .info(
             new Info()
-                .title("StoreSight API")
-                .description("StoreSight backend API")
+                .title("ShopGauge API")
+                .description("ShopGauge backend API")
                 .version("v1")
-                .contact(new Contact().name("StoreSight").url("https://shopgaugeai.com"))
+                .contact(new Contact().name("ShopGauge").url("https://shopgaugeai.com"))
                 .license(new License().name("Proprietary")))
         .externalDocs(
             new ExternalDocumentation()

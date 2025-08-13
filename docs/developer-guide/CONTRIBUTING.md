@@ -1,4 +1,4 @@
-# Contributing to StoreSight
+# Contributing to ShopGauge
 
 Thank you for your interest in contributing to ShopGauge! We welcome contributions from the community to help improve
 our project. Please read the following guidelines to help us maintain a high standard of quality and collaboration.

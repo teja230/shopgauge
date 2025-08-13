@@ -1,12 +1,12 @@
 import { defineConfig } from 'orval';
 
 export default defineConfig({
-  storesight: {
+  shopgauge: {
     input: {
       target: process.env.OPENAPI_URL || 'http://localhost:8080/v3/api-docs',
     },
     output: {
-      target: 'src/generated/storesight-client.ts',
+      target: 'src/generated/shopgauge-client.ts',
       client: 'react-query',
       prettier: true,
       override: {
