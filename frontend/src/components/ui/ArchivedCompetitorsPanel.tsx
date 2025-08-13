@@ -563,7 +563,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
             p: 2.5,
             minHeight: 56
           }
-        }}>
+        }} className="archived-competitors-panel">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {onToggleCollapse && (
               <IconButton

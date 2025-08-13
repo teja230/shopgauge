@@ -75,14 +75,14 @@ interface DemoAnalytics {
   lastUsed: Date;
 }
 
-// Tutorial steps for guided tour
+// Tutorial steps for guided tour (ordered and with precise targets)
 const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'welcome',
     title: 'Welcome to Market Intelligence!',
     description: 'This feature helps you monitor your competitors\' pricing and discover new market opportunities.',
-    target: 'body', // Changed from '.market-insights-cards' to 'body' for no highlight
-    position: 'center' // Changed from 'bottom' to 'center' for modal style
+    target: 'body',
+    position: 'center'
   },
   {
     id: 'insights',
@@ -134,24 +134,52 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     position: 'top'
   },
   {
-    id: 'graph-button',
-    title: 'Price History Graphs',
-    description: 'Click the graph icon next to any competitor to view their price history and trends over time.',
-    target: '.competitor-table',
+    id: 'row-refresh',
+    title: 'Refresh a Single Competitor',
+    description: 'Use the refresh icon to update the latest price for a specific competitor.',
+    target: '.row-refresh-button',
     position: 'top'
   },
   {
-    id: 'deleted-competitors',
-    title: 'Deleted Competitors',
-    description: 'Access the "Deleted" button to view and restore previously deleted competitors with full price history preserved.',
-    target: '.deleted-competitors-button',
+    id: 'row-graph',
+    title: 'Price History Graph',
+    description: 'Click the graph icon to view detailed price history and trends for this competitor.',
+    target: '.row-graph-button',
+    position: 'top'
+  },
+  {
+    id: 'row-archive',
+    title: 'Archive a Competitor',
+    description: 'Use the archive icon to move a competitor to the archived list. You can restore it later.',
+    target: '.row-archive-button',
+    position: 'top'
+  },
+  {
+    id: 'more-actions',
+    title: 'More Actions',
+    description: 'Open the menu for secondary actions like visiting the site or copying the URL.',
+    target: '.row-more-actions-button',
+    position: 'top'
+  },
+  {
+    id: 'refresh-all',
+    title: 'Bulk Refresh Prices',
+    description: 'Use this button to refresh prices in bulk for competitors with data older than 24 hours.',
+    target: '.mi-refresh-button',
+    position: 'left'
+  },
+  {
+    id: 'show-archived',
+    title: 'Show Archived',
+    description: 'Open the archived competitors section to view and restore previously archived competitors.',
+    target: '.archived-competitors-button',
     position: 'bottom'
   },
   {
-    id: 'restore-feature',
-    title: 'Restore Functionality',
-    description: 'Deleted competitors can be restored for up to 30 days. All price history and data is preserved during this period.',
-    target: '.deleted-competitors-panel',
+    id: 'archived-panel',
+    title: 'Archived Section',
+    description: 'This section lists archived competitors. You can restore them and their full price history at any time within 30 days.',
+    target: '.archived-competitors-panel',
     position: 'top'
   }
 ];
@@ -2305,8 +2333,11 @@ export default function CompetitorsPage() {
       // Don't show notification for close action to avoid duplicates
     }
     // Handle step navigation - let Joyride handle navigation internally
-    else if (type === 'step:after' && typeof index === 'number') {
-      // Let Joyride handle step navigation - don't interfere
+  else if (type === 'step:after' && typeof index === 'number') {
+      const stepId = TUTORIAL_STEPS[index]?.id;
+      if (stepId === 'show-archived') {
+        setShowDeletedCompetitors(true);
+      }
     }
   };
 
