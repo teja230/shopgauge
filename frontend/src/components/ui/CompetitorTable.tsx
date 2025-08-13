@@ -101,7 +101,7 @@ const RowOverflowMenu: React.FC<{
   return (
     <>
       <Tooltip title="More actions">
-        <IconButton size="small" aria-label="More actions" onClick={handleOpen} className="row-more-actions-button">
+        <IconButton size="small" aria-label="More actions" onClick={handleOpen} className="row-more-actions-button desktop-row-more-actions-button">
           <MoreVertIcon fontSize="small" />
         </IconButton>
       </Tooltip>
@@ -1208,7 +1208,7 @@ const DesktopTableRow: React.FC<{
                 disabled={rowRefreshing}
                 aria-label="Refresh price"
                 color="primary"
-                className="row-refresh-button"
+                className="row-refresh-button desktop-row-refresh-button"
               
               >
                 {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
@@ -1226,7 +1226,7 @@ const DesktopTableRow: React.FC<{
                 aria-label="View price history"
                 color="info"
                 sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
-                className="row-graph-button"
+                className="row-graph-button desktop-row-graph-button"
               >
                 <BarChartIcon fontSize="small" />
               </IconButton>
@@ -1235,7 +1235,7 @@ const DesktopTableRow: React.FC<{
 
           {/* Primary action: Archive */}
           <Tooltip title="Archive competitor">
-            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning" className="row-archive-button">
+            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning" className="row-archive-button desktop-row-archive-button">
               <ArchiveIcon fontSize="small" />
             </IconButton>
           </Tooltip>
