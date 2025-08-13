@@ -1395,6 +1395,8 @@ public class MarketIntelligenceAdminController {
 
   /** Trigger immediate price scraping using unified multi-tier system */
   private void triggerImmediatePriceScraping(String competitorId, String url, Long shopId) {
+    // NOTE: Consider moving this logic into a dedicated ScrapingOrchestratorService to keep
+    // controllers slim and improve testability.
     try {
       log.info(
           "triggerImmediatePriceScraping: Starting unified scraping for competitor ID: {}",

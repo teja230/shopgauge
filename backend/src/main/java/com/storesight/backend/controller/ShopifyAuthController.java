@@ -346,31 +346,44 @@ public class ShopifyAuthController {
         return;
       }
 
-      // Validate HMAC if present (optional but recommended for security)
-      if (hmac != null && apiSecret != null) {
-        try {
-          boolean isValidHmac = validateHmac(params, apiSecret);
-          if (!isValidHmac) {
-            logger.error("HMAC validation failed for shop: {}", shop);
-            String redirectUrl =
-                frontendUrl
-                    + "/?error=hmac_validation&error_message="
-                    + java.net.URLEncoder.encode(
-                        "Security validation failed. Please try the installation process again.",
-                        "UTF-8");
-            logger.info("Redirecting to frontend with HMAC validation error: {}", redirectUrl);
-            response.sendRedirect(redirectUrl);
-            return;
-          }
-          logger.info("HMAC validation successful for shop: {}", shop);
-        } catch (Exception hmacError) {
-          logger.warn("HMAC validation error (continuing anyway): {}", hmacError.getMessage());
+      // Enforce HMAC validation for all OAuth callbacks
+      if (hmac == null || apiSecret == null) {
+        logger.error("HMAC or API secret missing for shop: {}", shop);
+        String redirectUrl =
+            frontendUrl
+                + "/?error=hmac_missing&error_message="
+                + java.net.URLEncoder.encode(
+                    "Security validation missing. Please restart the installation from Shopify.",
+                    "UTF-8");
+        logger.info("Redirecting to frontend with HMAC missing error: {}", redirectUrl);
+        response.sendRedirect(redirectUrl);
+        return;
+      }
+      try {
+        boolean isValidHmac = validateHmac(params, apiSecret);
+        if (!isValidHmac) {
+          logger.error("HMAC validation failed for shop: {}", shop);
+          String redirectUrl =
+              frontendUrl
+                  + "/?error=hmac_validation&error_message="
+                  + java.net.URLEncoder.encode(
+                      "Security validation failed. Please try the installation process again.",
+                      "UTF-8");
+          logger.info("Redirecting to frontend with HMAC validation error: {}", redirectUrl);
+          response.sendRedirect(redirectUrl);
+          return;
         }
-      } else {
-        logger.info(
-            "Skipping HMAC validation - hmac: {}, apiSecret: {}",
-            hmac != null ? "present" : "null",
-            apiSecret != null ? "present" : "null");
+        logger.info("HMAC validation successful for shop: {}", shop);
+      } catch (Exception hmacError) {
+        logger.error("HMAC validation error: {}", hmacError.getMessage(), hmacError);
+        String redirectUrl =
+            frontendUrl
+                + "/?error=hmac_validation&error_message="
+                + java.net.URLEncoder.encode(
+                    "Security validation error. Please restart the installation.",
+                    "UTF-8");
+        response.sendRedirect(redirectUrl);
+        return;
       }
 
       logger.info("Starting token exchange process for shop: {}", shop);
@@ -687,16 +700,16 @@ public class ShopifyAuthController {
       throw new RuntimeException("Shopify API secret is not configured");
     }
 
-    String url = "https://" + shop + "/admin/oauth/access_token";
-    Map<String, String> body =
-        Map.of("client_id", apiKey, "client_secret", apiSecret, "code", code);
+          String url = "https://" + shop + "/admin/oauth/access_token";
+      Map<String, String> body =
+          Map.of("client_id", apiKey, "client_secret", apiSecret, "code", code);
 
-    logger.info("Making token exchange request to: {}", url);
-    logger.info(
-        "Request body parameters: client_id={}, client_secret={}, code={}",
-        apiKey.substring(0, Math.min(8, apiKey.length())) + "...",
-        apiSecret.substring(0, Math.min(8, apiSecret.length())) + "...",
-        code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
+      logger.info("Making token exchange request to: {}", url);
+      logger.info(
+          "Request body parameters: client_id={}, client_secret=REDACTED, code={}",
+          apiKey.substring(0, Math.min(8, apiKey.length())) + "...",
+          "REDACTED",
+          code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
 
     // Single attempt - no retries since authorization codes are single-use
     try {

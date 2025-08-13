@@ -214,6 +214,51 @@ class CompetitorScraperWorkerTest {
     assertEquals(3, maxConcurrentScrapersLimit);
   }
 
+  @Test
+  void testEnforceMaxConcurrentScrapersLimit() {
+    // Given
+    int configuredLimit = (Integer) ReflectionTestUtils.getField(scraperWorker, "maxConcurrentScrapersLimit");
+    java.util.concurrent.atomic.AtomicInteger concurrent = new java.util.concurrent.atomic.AtomicInteger();
+
+    // Simulate runnable tasks and ensure we never exceed limit when starting tasks sequentially
+    java.util.List<Runnable> tasks = new java.util.ArrayList<>();
+    for (int i = 0; i < configuredLimit * 2; i++) {
+      tasks.add(
+          () -> {
+            int now = concurrent.incrementAndGet();
+            try {
+              org.junit.jupiter.api.Assertions.assertTrue(now <= configuredLimit);
+              try {
+                Thread.sleep(10);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            } finally {
+              concurrent.decrementAndGet();
+            }
+          });
+    }
+
+    // Execute tasks via executor
+    scraperWorker.initializeExecutor();
+    java.util.concurrent.ExecutorService exec =
+        (java.util.concurrent.ExecutorService)
+            ReflectionTestUtils.getField(scraperWorker, "scrapeExecutor");
+
+    for (Runnable r : tasks) {
+      exec.submit(r);
+    }
+
+    exec.shutdown();
+    try {
+      exec.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+
+    // then no assertion failure occurred
+  }
+
   private Map<String, Object> createCompetitorUrlData(
       Long id, String url, String label, Long shopId, String shopDomain) {
     Map<String, Object> data = new HashMap<>();

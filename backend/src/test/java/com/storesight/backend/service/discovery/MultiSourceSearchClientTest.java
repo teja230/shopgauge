@@ -344,6 +344,37 @@ class MultiSourceSearchClientTest {
     assertEquals(3, providers.size());
   }
 
+  @Test
+  void testProviderTelemetry_OnFailureAndSuccess() {
+    SearchClient failing = mock(SearchClient.class);
+    when(failing.getProviderName()).thenReturn("provA");
+    when(failing.getPriority()).thenReturn(1);
+    when(failing.isEnabled()).thenReturn(true);
+    when(failing.getCostPerSearch()).thenReturn(0.001);
+    when(failing.search(anyString(), anyInt())).thenThrow(new RuntimeException("boom"));
+
+    SearchClient succeeding = mock(SearchClient.class);
+    when(succeeding.getProviderName()).thenReturn("provB");
+    when(succeeding.getPriority()).thenReturn(2);
+    when(succeeding.isEnabled()).thenReturn(true);
+    when(succeeding.getCostPerSearch()).thenReturn(0.001);
+    when(succeeding.search(anyString(), anyInt()))
+        .thenReturn(java.util.List.of(new SearchClient.SearchResult("url", "title", 1.0, "provB")));
+
+    MultiSourceSearchClient client = new MultiSourceSearchClient();
+    ReflectionTestUtils.setField(client, "searchClients", java.util.List.of(client, failing, succeeding));
+    ReflectionTestUtils.setField(client, "costOptimizationService", mock(com.storesight.backend.service.CostOptimizationService.class));
+    ReflectionTestUtils.setField(client, "metricsCollectionService", mock(com.storesight.backend.service.MetricsCollectionService.class));
+    ReflectionTestUtils.setField(client, "multiSourceEnabled", true);
+    ReflectionTestUtils.setField(client, "fallbackEnabled", true);
+    ReflectionTestUtils.setField(client, "maxProvidersToTry", 3);
+    client.init();
+
+    java.util.List<SearchClient.SearchResult> results = client.search("kw", 3);
+    assertNotNull(results);
+    assertFalse(results.isEmpty());
+  }
+
   private SearchClient.SearchResult createSearchResult(String url, String title, double price) {
     return new SearchClient.SearchResult(url, title, price, "Test description");
   }

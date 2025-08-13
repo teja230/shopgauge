@@ -396,4 +396,61 @@ public class EnhancedRedisService {
   public CircuitBreakerConfig getCircuitBreakerConfig() {
     return circuitBreaker.getCircuitBreakerConfig();
   }
+<<<<<<< Current (Your changes)
+=======
+
+  /**
+   * SCAN for keys matching a pattern without blocking Redis like KEYS.
+   * Returns up to maxCount keys if specified (>0), otherwise scans all.
+   */
+  public java.util.Set<String> scanKeys(String pattern) {
+    return scanKeys(pattern, 0);
+  }
+
+  public java.util.Set<String> scanKeys(String pattern, int maxCount) {
+    return executeWithFallback(
+        () -> {
+          java.util.Set<String> result = new java.util.HashSet<>();
+          stringRedisTemplate.execute(
+              (org.springframework.data.redis.core.RedisCallback<Void>)
+                  connection -> {
+                    org.springframework.data.redis.core.ScanOptions options =
+                        org.springframework.data.redis.core.ScanOptions.scanOptions()
+                            .match(pattern)
+                            .count(1000)
+                            .build();
+                    try (org.springframework.data.redis.core.Cursor<byte[]> cursor =
+                        connection.scan(options)) {
+                      while (cursor.hasNext()) {
+                        String key = new String(cursor.next());
+                        result.add(key);
+                        if (maxCount > 0 && result.size() >= maxCount) {
+                          break;
+                        }
+                      }
+                    } catch (Exception e) {
+                      logger.warn("SCAN failed for pattern {}: {}", pattern, e.getMessage());
+                    }
+                    return null;
+                  });
+          return result;
+        },
+        java.util.Collections::emptySet);
+  }
+
+  /**
+   * Delete all keys that match a pattern using SCAN to avoid blocking.
+   * Returns the number of keys deleted.
+   */
+  public long deleteByPattern(String pattern) {
+    java.util.Set<String> keys = scanKeys(pattern);
+    if (keys == null || keys.isEmpty()) return 0L;
+    return executeWithFallback(
+        () -> {
+          Long deleted = stringRedisTemplate.delete(keys);
+          return deleted != null ? deleted : 0L;
+        },
+        () -> 0L);
+  }
+>>>>>>> Incoming (Background Agent changes)
 }

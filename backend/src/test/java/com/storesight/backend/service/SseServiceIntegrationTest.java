@@ -436,6 +436,28 @@ class SseServiceIntegrationTest extends BaseIntegrationTest {
     }
   }
 
+  @Test
+  void testHighConcurrencyConnections_DoNotExceedGlobalLimit() {
+    String shopDomain = TEST_SHOP_DOMAIN;
+    int attemptConnections = 200;
+
+    java.util.List<SseEmitter> emitters = new java.util.ArrayList<>();
+    for (int i = 0; i < attemptConnections; i++) {
+      SseEmitter emitter = sseService.createConnection(shopDomain, TEST_SESSION_PREFIX + "hc-" + i);
+      if (emitter != null) {
+        emitters.add(emitter);
+      }
+    }
+
+    var stats = sseService.getStatistics();
+    int active = (int) stats.get("activeConnections");
+    int maxGlobal = (int) stats.get("maxGlobalConnections");
+    org.junit.jupiter.api.Assertions.assertTrue(active <= maxGlobal);
+
+    // Cleanup
+    emitters.forEach(SseEmitter::complete);
+  }
+
   private void cleanupTestData() {
     // Clean up Redis keys that might be left from previous tests
     try {

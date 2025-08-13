@@ -29,6 +29,7 @@ public class CostOptimizationService {
   private static final Logger log = LoggerFactory.getLogger(CostOptimizationService.class);
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
+  @Autowired private EnhancedRedisService enhancedRedisService;
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private MarketIntelligenceCostRepository costRepository;
 
@@ -301,8 +302,8 @@ public class CostOptimizationService {
   /** Calculate estimated savings from caching */
   private BigDecimal calculateCachingSavings() {
     try {
-      // Get cache hit statistics
-      Set<String> cacheKeys = redisTemplate.keys("search_cache_*");
+      // Get cache hit statistics (SCAN-based)
+      Set<String> cacheKeys = enhancedRedisService.scanKeys("search_cache_*");
       if (cacheKeys == null) {
         return BigDecimal.ZERO;
       }

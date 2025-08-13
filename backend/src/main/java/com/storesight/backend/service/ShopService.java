@@ -37,6 +37,7 @@ public class ShopService {
   private final RedisSessionService redisSessionService; // Added RedisSessionService
   private final SseService sseService; // Added for SSE operations
   private final SessionSynchronizationService sessionSynchronizationService;
+  @Autowired private EnhancedRedisService enhancedRedisService;
 
   // Redis key patterns for backward compatibility and caching
   private static final String SHOP_TOKEN_PREFIX = "shop_token:";
@@ -1070,9 +1071,9 @@ public class ShopService {
 
   private void clearShopCache(String shopifyDomain) {
     try {
-      // Clear all shop-related cache keys
+      // Clear all shop-related cache keys (SCAN-based)
       String pattern = SHOP_TOKEN_PREFIX + shopifyDomain + "*";
-      Set<String> keys = redisTemplate.keys(pattern);
+      Set<String> keys = enhancedRedisService.scanKeys(pattern);
       if (keys != null && !keys.isEmpty()) {
         redisTemplate.delete(keys);
         logger.debug("Cleared {} cache keys for shop: {}", keys.size(), shopifyDomain);
@@ -1082,9 +1083,9 @@ public class ShopService {
       String activeSessionsKey = ACTIVE_SESSIONS_PREFIX + shopifyDomain;
       redisTemplate.delete(activeSessionsKey);
 
-      // Clear invalid session cache for this shop
+      // Clear invalid session cache for this shop (SCAN-based)
       String invalidSessionPattern = INVALID_SESSION_PREFIX + shopifyDomain + "*";
-      Set<String> invalidKeys = redisTemplate.keys(invalidSessionPattern);
+      Set<String> invalidKeys = enhancedRedisService.scanKeys(invalidSessionPattern);
       if (invalidKeys != null && !invalidKeys.isEmpty()) {
         redisTemplate.delete(invalidKeys);
         logger.debug(
@@ -1301,16 +1302,15 @@ public class ShopService {
   /** Clean up old Redis keys that might be orphaned */
   private void cleanupOldRedisKeys() {
     try {
-      // This is a basic cleanup - in production you might want to use Redis SCAN
-      // to avoid blocking operations on large keysets
-      var allTokenKeys = redisTemplate.keys(SHOP_TOKEN_PREFIX + "*");
+      // Use Redis SCAN to avoid blocking operations on large keysets
+      var allTokenKeys = enhancedRedisService.scanKeys(SHOP_TOKEN_PREFIX + "*");
       if (allTokenKeys != null && !allTokenKeys.isEmpty()) {
         logger.debug("Found {} Redis token keys for potential cleanup", allTokenKeys.size());
         // For now, just log the count. More sophisticated cleanup can be added later.
       }
 
-      // Clean up old invalid session cache entries
-      var allInvalidSessionKeys = redisTemplate.keys(INVALID_SESSION_PREFIX + "*");
+      // Clean up old invalid session cache entries (SCAN-based)
+      var allInvalidSessionKeys = enhancedRedisService.scanKeys(INVALID_SESSION_PREFIX + "*");
       if (allInvalidSessionKeys != null && !allInvalidSessionKeys.isEmpty()) {
         logger.debug(
             "Found {} invalid session cache keys for cleanup", allInvalidSessionKeys.size());
@@ -2335,8 +2335,8 @@ public class ShopService {
 
       // Clear Redis cache entries for this session
       try {
-        // Find all Redis keys related to this session
-        Set<String> keys = redisTemplate.keys("*" + sessionId + "*");
+        // Find all Redis keys related to this session (SCAN-based)
+        Set<String> keys = enhancedRedisService.scanKeys("*" + sessionId + "*");
         if (keys != null && !keys.isEmpty()) {
           redisTemplate.delete(keys);
           logger.info("Cleared {} Redis keys for stuck session: {}", keys.size(), sessionId);
@@ -2367,8 +2367,8 @@ public class ShopService {
 
       // Clear Redis cache entries for this shop
       try {
-        // Find all Redis keys related to this shop
-        Set<String> keys = redisTemplate.keys("*" + shopifyDomain + "*");
+        // Find all Redis keys related to this shop (SCAN-based)
+        Set<String> keys = enhancedRedisService.scanKeys("*" + shopifyDomain + "*");
         if (keys != null && !keys.isEmpty()) {
           redisTemplate.delete(keys);
           clearedCount += keys.size();
@@ -2381,7 +2381,7 @@ public class ShopService {
 
       // Clear session synchronization markers for this shop
       try {
-        Set<String> syncKeys = redisTemplate.keys("*session*" + shopifyDomain + "*");
+        Set<String> syncKeys = enhancedRedisService.scanKeys("*session*" + shopifyDomain + "*");
         if (syncKeys != null && !syncKeys.isEmpty()) {
           redisTemplate.delete(syncKeys);
           clearedCount += syncKeys.size();
@@ -2396,7 +2396,7 @@ public class ShopService {
 
       // Clear session locks for this shop
       try {
-        Set<String> lockKeys = redisTemplate.keys("*session_lock*" + shopifyDomain + "*");
+        Set<String> lockKeys = enhancedRedisService.scanKeys("*session_lock*" + shopifyDomain + "*");
         if (lockKeys != null && !lockKeys.isEmpty()) {
           redisTemplate.delete(lockKeys);
           clearedCount += lockKeys.size();
@@ -2412,7 +2412,7 @@ public class ShopService {
       // Clear invalidation markers for this shop
       try {
         Set<String> invalidationKeys =
-            redisTemplate.keys("*session_invalidation*" + shopifyDomain + "*");
+            enhancedRedisService.scanKeys("*session_invalidation*" + shopifyDomain + "*");
         if (invalidationKeys != null && !invalidationKeys.isEmpty()) {
           redisTemplate.delete(invalidationKeys);
           clearedCount += invalidationKeys.size();
