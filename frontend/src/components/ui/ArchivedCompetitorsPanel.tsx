@@ -703,6 +703,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                                 disabled={restoring === c.id}
                                 color="success"
                                 aria-label="Restore competitor"
+                                className="archived-restore-button"
                               >
                                 {restoring === c.id ? <CircularProgress size={20} /> : <RestoreIcon />}
                               </IconButton>
@@ -714,6 +715,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                                 onClick={(e) => { e.stopPropagation(); handlePermanentDelete(c); }}
                                 color="error"
                                 aria-label="Permanently delete"
+                                className="archived-delete-button"
                               >
                                 <DeleteIcon />
                               </IconButton>
@@ -794,6 +796,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               onClick={() => handleRestore(competitor)}
                               disabled={restoring === competitor.id}
                               sx={{ minWidth: 36, minHeight: 36 }}
+                              className="archived-restore-button"
                             >
                               {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
                             </IconButton>
@@ -804,6 +807,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               color="error"
                               onClick={() => handlePermanentDelete(competitor)}
                               sx={{ minWidth: 36, minHeight: 36 }}
+                              className="archived-delete-button"
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>

@@ -9,10 +9,8 @@ import { PriceHistoryModal } from '../components/ui/PriceHistoryModal';
 import { 
   getCompetitors, 
   deleteCompetitor,
-  getDebouncedSuggestionCount,
   refreshSuggestionCount as refreshSuggestionCountAPI,
   addCompetitorIntelligent,
-  getPriceStatus
 } from '../api';
 import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
@@ -42,8 +40,6 @@ import Joyride from 'react-joyride';
 import type { CallBackProps, Step } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
 import { refreshCompetitorPrices, getPriceRefreshProgress } from '../api/index';
@@ -131,7 +127,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Bulk Refresh Prices',
     description: 'Use this button to refresh prices in bulk for competitors with data older than 24 hours.',
     target: '.refresh-button',
-    position: 'left'
+    position: 'bottom'
   },
   {
     id: 'show-archived',
@@ -141,15 +137,8 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     position: 'bottom'
   },
   {
-    id: 'archived-panel',
-    title: 'Archived Section',
-    description: 'This section lists archived competitors. You can restore them and their full price history at any time within 30 days.',
-    target: '.archived-competitors-panel',
-    position: 'top'
-  },
-  {
     id: 'table',
-    title: 'Competitor Table',
+    title: 'Active Section',
     description: 'View detailed pricing information, stock status, and price changes for all your competitors.',
     target: '.competitor-table',
     position: 'top'
@@ -180,6 +169,27 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'More Actions',
     description: 'Open the menu for secondary actions like visiting the site or copying the URL.',
     target: '.row-more-actions-button',
+    position: 'top'
+  },
+  {
+    id: 'archived-panel',
+    title: 'Archived Section',
+    description: 'This section lists archived competitors. You can restore them and their full price history at any time within 30 days.',
+    target: '.archived-competitors-panel',
+    position: 'top'
+  },
+  {
+    id: 'archived-restore',
+    title: 'Restore Archived Competitor',
+    description: 'Use the restore icon to bring back an archived competitor with their full price history.',
+    target: '.archived-restore-button',
+    position: 'top'
+  },
+  {
+    id: 'archived-delete',
+    title: 'Permanently Delete',
+    description: 'Use the delete icon to permanently remove an archived competitor. This action cannot be undone.',
+    target: '.archived-delete-button',
     position: 'top'
   }
 ];
