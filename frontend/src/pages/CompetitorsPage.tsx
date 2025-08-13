@@ -127,6 +127,27 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     position: 'bottom'
   },
   {
+    id: 'refresh-all',
+    title: 'Bulk Refresh Prices',
+    description: 'Use this button to refresh prices in bulk for competitors with data older than 24 hours.',
+    target: '.refresh-button',
+    position: 'left'
+  },
+  {
+    id: 'show-archived',
+    title: 'Show Archived',
+    description: 'Open the archived competitors section to view and restore previously archived competitors.',
+    target: '.archived-competitors-button',
+    position: 'bottom'
+  },
+  {
+    id: 'archived-panel',
+    title: 'Archived Section',
+    description: 'This section lists archived competitors. You can restore them and their full price history at any time within 30 days.',
+    target: '.archived-competitors-panel',
+    position: 'top'
+  },
+  {
     id: 'table',
     title: 'Competitor Table',
     description: 'View detailed pricing information, stock status, and price changes for all your competitors.',
@@ -159,27 +180,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'More Actions',
     description: 'Open the menu for secondary actions like visiting the site or copying the URL.',
     target: '.row-more-actions-button',
-    position: 'top'
-  },
-  {
-    id: 'refresh-all',
-    title: 'Bulk Refresh Prices',
-    description: 'Use this button to refresh prices in bulk for competitors with data older than 24 hours.',
-    target: '.mi-refresh-button',
-    position: 'left'
-  },
-  {
-    id: 'show-archived',
-    title: 'Show Archived',
-    description: 'Open the archived competitors section to view and restore previously archived competitors.',
-    target: '.archived-competitors-button',
-    position: 'bottom'
-  },
-  {
-    id: 'archived-panel',
-    title: 'Archived Section',
-    description: 'This section lists archived competitors. You can restore them and their full price history at any time within 30 days.',
-    target: '.archived-competitors-panel',
     position: 'top'
   }
 ];
@@ -1784,10 +1784,45 @@ export default function CompetitorsPage() {
     });
   }, []);
 
-  const handleProductAssociationChange = useCallback(() => {
-    // Refresh the competitors list to show updated associations
-    fetchData(true);
-  }, [fetchData]);
+  const handleProductAssociationChange = useCallback((change?: { competitorId: string; productId?: string; productTitle?: string }) => {
+    if (change?.competitorId) {
+      const { competitorId, productId, productTitle } = change;
+      // Surgical write-through: update in-memory list immediately
+      setCompetitors(prev => prev.map(c => {
+        if (String(c.id) === String(competitorId)) {
+          return {
+            ...c,
+            shopifyProductId: productId,
+            productTitle: productTitle
+          };
+        }
+        return c;
+      }));
+      // Update session cache entry immediately (L1)
+      try {
+        if (shop) {
+          const cacheKey = `mi_competitors_${shop}`;
+          const raw = sessionStorage.getItem(cacheKey);
+          if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              const next = arr.map((c: any) => String(c.id) === String(competitorId) ? {
+                ...c,
+                shopifyProductId: productId,
+                productTitle: productTitle
+              } : c);
+              sessionStorage.setItem(cacheKey, JSON.stringify(next));
+            }
+          }
+        }
+      } catch (_) {
+        // ignore session errors
+      }
+    } else {
+      // Fallback: refetch if change payload missing
+      fetchData(true);
+    }
+  }, [fetchData, shop]);
 
   // Callback for when a competitor is restored from archived section
   const handleCompetitorRestored = useCallback((competitorId?: string) => {
