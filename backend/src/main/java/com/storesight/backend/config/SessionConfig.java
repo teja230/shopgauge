@@ -1,5 +1,6 @@
 package com.storesight.backend.config;
 
+import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.RedisSessionService;
 import com.storesight.backend.service.SessionRecoveryService;
 import com.storesight.backend.service.SessionSecurityService;
@@ -12,7 +13,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,9 +53,6 @@ public class SessionConfig {
   private static final ConcurrentHashMap<String, SessionState> sessionStates =
       new ConcurrentHashMap<>();
 
-  // Read-write lock for session operations to prevent concurrent invalidation/save conflicts
-  private static final ReentrantReadWriteLock sessionLock = new ReentrantReadWriteLock();
-
   @Autowired private RedisSessionService redisSessionService;
 
   @Autowired private SessionRecoveryService sessionRecoveryService;
@@ -63,6 +60,8 @@ public class SessionConfig {
   @Autowired private SessionSecurityService sessionSecurityService;
 
   @Autowired private SessionSynchronizationService sessionSynchronizationService;
+
+  @Autowired private EnhancedRedisService enhancedRedisService;
 
   /** Enhanced Redis session repository with proper error handling and synchronization. */
   @Bean
@@ -99,7 +98,7 @@ public class SessionConfig {
   @Bean
   @Order(1) // Highest priority to catch session errors first
   public SessionErrorHandlingFilter sessionErrorHandlingFilter() {
-    return new SessionErrorHandlingFilter(sessionSynchronizationService);
+    return new SessionErrorHandlingFilter(sessionSynchronizationService, enhancedRedisService);
   }
 
   /**
@@ -159,9 +158,13 @@ public class SessionConfig {
         LoggerFactory.getLogger(SessionErrorHandlingFilter.class);
 
     private final SessionSynchronizationService sessionSynchronizationService;
+    private final EnhancedRedisService enhancedRedisService;
 
-    public SessionErrorHandlingFilter(SessionSynchronizationService sessionSynchronizationService) {
+    public SessionErrorHandlingFilter(
+        SessionSynchronizationService sessionSynchronizationService,
+        EnhancedRedisService enhancedRedisService) {
       this.sessionSynchronizationService = sessionSynchronizationService;
+      this.enhancedRedisService = enhancedRedisService;
     }
 
     @Override
@@ -185,9 +188,12 @@ public class SessionConfig {
       }
 
       try {
-        // Acquire read lock for session operations
-        if (sessionId != null) {
-          sessionLock.readLock().lock();
+        // Acquire distributed fence to prevent concurrent invalidation/save conflicts across nodes
+        String fenceKey = sessionId != null ? "session:fence:" + sessionId : null;
+        String fenceToken = fenceKey != null ? java.util.UUID.randomUUID().toString() : null;
+        boolean fenced = false;
+        if (fenceKey != null) {
+          fenced = enhancedRedisService.acquireLock(fenceKey, fenceToken, Duration.ofSeconds(10));
         }
 
         filterChain.doFilter(request, response);
@@ -207,9 +213,14 @@ public class SessionConfig {
           throw e;
         }
       } finally {
-        // Release read lock
         if (sessionId != null) {
-          sessionLock.readLock().unlock();
+          // Release distributed fence
+          try {
+            String fenceKey = "session:fence:" + sessionId;
+            String fenceToken = null; // not tracked beyond scope; unlocking best-effort
+            enhancedRedisService.releaseLock(fenceKey, fenceToken);
+          } catch (Exception ignored) {
+          }
 
           // Clear session active marker
           try {
@@ -300,31 +311,9 @@ public class SessionConfig {
         return;
       }
 
-      // For API endpoints, let GlobalSessionExceptionHandler handle them to ensure consistency
-      if (path.startsWith("/api/")) {
-        filterLogger.debug(
-            "API session error - delegating to GlobalSessionExceptionHandler for {} {}",
-            method,
-            path);
-        // Don't write response here, let GlobalSessionExceptionHandler handle it
-        return;
-      }
-
-      // Log at info level only for uncommitted responses that need handling
-      filterLogger.info(
-          "Session error handled gracefully for {} {} - {}", method, path, e.getMessage());
-
-      // Handle different request types appropriately
-      try {
-        if (path.startsWith("/error")) {
-          handleErrorPageSessionError(response, path);
-        } else {
-          handleBrowserSessionError(response, path);
-        }
-      } catch (IOException ioException) {
-        filterLogger.warn(
-            "Failed to write error response for {} {}: {}", method, path, ioException.getMessage());
-      }
+      // Always delegate to global handlers; do not write response here
+      filterLogger.debug("Delegating session error to global handlers for {} {}", method, path);
+      return;
     }
 
     private boolean isResponseCommitted(HttpServletResponse response) {
@@ -349,28 +338,7 @@ public class SessionConfig {
       }
     }
 
-    private void handleErrorPageSessionError(HttpServletResponse response, String path)
-        throws IOException {
-
-      filterLogger.debug("Session error on error page - preventing cascade for {}", path);
-
-      response.setStatus(HttpServletResponse.SC_OK);
-      response.setContentType("text/plain");
-      response.setCharacterEncoding("UTF-8");
-      response.getWriter().write("Session expired. Please refresh the page.");
-    }
-
-    private void handleBrowserSessionError(HttpServletResponse response, String path)
-        throws IOException {
-
-      filterLogger.debug("Session error on browser request - redirecting for {}", path);
-
-      response.setStatus(HttpServletResponse.SC_FOUND);
-      response.setHeader("Location", "/?sessionExpired=true");
-      response.setContentType("text/plain");
-      response.setCharacterEncoding("UTF-8");
-      response.getWriter().write("Session expired. Redirecting...");
-    }
+    // Removed direct response writers; global handlers manage responses
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

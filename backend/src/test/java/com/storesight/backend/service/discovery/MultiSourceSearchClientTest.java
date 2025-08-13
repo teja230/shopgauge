@@ -362,9 +362,16 @@ class MultiSourceSearchClientTest {
         .thenReturn(java.util.List.of(new SearchClient.SearchResult("url", "title", 1.0, "provB")));
 
     MultiSourceSearchClient client = new MultiSourceSearchClient();
-    ReflectionTestUtils.setField(client, "searchClients", java.util.List.of(client, failing, succeeding));
-    ReflectionTestUtils.setField(client, "costOptimizationService", mock(com.storesight.backend.service.CostOptimizationService.class));
-    ReflectionTestUtils.setField(client, "metricsCollectionService", mock(com.storesight.backend.service.MetricsCollectionService.class));
+    ReflectionTestUtils.setField(
+        client, "searchClients", java.util.List.of(client, failing, succeeding));
+    ReflectionTestUtils.setField(
+        client,
+        "costOptimizationService",
+        mock(com.storesight.backend.service.CostOptimizationService.class));
+    ReflectionTestUtils.setField(
+        client,
+        "metricsCollectionService",
+        mock(com.storesight.backend.service.MetricsCollectionService.class));
     ReflectionTestUtils.setField(client, "multiSourceEnabled", true);
     ReflectionTestUtils.setField(client, "fallbackEnabled", true);
     ReflectionTestUtils.setField(client, "maxProvidersToTry", 3);

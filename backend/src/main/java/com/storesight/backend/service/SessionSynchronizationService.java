@@ -985,7 +985,8 @@ public class SessionSynchronizationService {
         }
 
         // Clean up orphaned invalidation markers using SCAN
-        Set<String> invalidationKeys = enhancedRedisService.scanKeys(SESSION_INVALIDATION_PREFIX + "*");
+        Set<String> invalidationKeys =
+            enhancedRedisService.scanKeys(SESSION_INVALIDATION_PREFIX + "*");
         if (invalidationKeys != null) {
           for (String invalidationKey : invalidationKeys) {
             String sessionId = invalidationKey.substring(SESSION_INVALIDATION_PREFIX.length());

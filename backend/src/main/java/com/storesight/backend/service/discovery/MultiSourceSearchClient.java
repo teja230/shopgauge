@@ -38,7 +38,9 @@ public class MultiSourceSearchClient implements SearchClient {
 
   @Autowired private List<SearchClient> searchClients;
   @Autowired private CostOptimizationService costOptimizationService;
-  @Autowired private com.storesight.backend.service.MetricsCollectionService metricsCollectionService;
+
+  @Autowired
+  private com.storesight.backend.service.MetricsCollectionService metricsCollectionService;
 
   private List<SearchClient> sortedProviders;
 
