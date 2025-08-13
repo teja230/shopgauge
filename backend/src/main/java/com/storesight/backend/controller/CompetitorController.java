@@ -2636,7 +2636,7 @@ public class CompetitorController {
       List<Map<String, Object>> competitorCheck =
           jdbcTemplate.queryForList(
               "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (competitorCheck.isEmpty()) {
@@ -2691,7 +2691,7 @@ public class CompetitorController {
           jdbcTemplate.update(
               "UPDATE competitor_urls SET shopify_product_id = ? WHERE id = ? AND shop_id = ?",
               productId,
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (rowsAffected == 0) {
@@ -2750,7 +2750,7 @@ public class CompetitorController {
       List<Map<String, Object>> competitorCheck =
           jdbcTemplate.queryForList(
               "SELECT id, url, shopify_product_id FROM competitor_urls WHERE id = ? AND shop_id = ?",
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (competitorCheck.isEmpty()) {
@@ -2772,7 +2772,7 @@ public class CompetitorController {
       int rowsAffected =
           jdbcTemplate.update(
               "UPDATE competitor_urls SET shopify_product_id = NULL WHERE id = ? AND shop_id = ?",
-              id,
+              Long.parseLong(id),
               shopId);
 
       if (rowsAffected == 0) {
