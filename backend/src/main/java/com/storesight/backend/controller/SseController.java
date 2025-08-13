@@ -6,7 +6,10 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -28,6 +31,44 @@ public class SseController {
   @Autowired
   public SseController(SseService sseService) {
     this.sseService = sseService;
+  }
+
+  /** Authenticated SSE subscribe endpoint that binds stream to the authenticated shop. */
+  @GetMapping("/subscribe/{shopDomain}")
+  public ResponseEntity<?> subscribe(
+      @PathVariable String shopDomain, Authentication authentication) {
+    try {
+      if (authentication == null || authentication.getName() == null) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(Map.of("error", "Unauthorized", "message", "Authentication required"));
+      }
+
+      String principalShop = authentication.getName();
+      boolean isShopRole =
+          authentication.getAuthorities().stream()
+              .map(GrantedAuthority::getAuthority)
+              .anyMatch(a -> a.equals("ROLE_SHOP"));
+
+      if (!isShopRole || !principalShop.equalsIgnoreCase(shopDomain)) {
+        logger.warn("SSE subscribe forbidden: principal {} for shop {}", principalShop, shopDomain);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(Map.of("error", "Forbidden", "message", "Shop mismatch"));
+      }
+
+      if (!sseService.canAcceptConnection(shopDomain)) {
+        logger.warn("SSE subscribe denied due to capacity for shop {}", shopDomain);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .body(Map.of("error", "Too many connections", "retryAfterMs", 10000));
+      }
+
+      String sessionId = null; // SseService handles optional session awareness
+      SseEmitter emitter = sseService.createConnection(shopDomain, sessionId);
+      return ResponseEntity.ok(emitter);
+    } catch (Exception e) {
+      logger.error("Error establishing SSE subscription for {}: {}", shopDomain, e.getMessage());
+      return ResponseEntity.internalServerError()
+          .body(Map.of("error", "Failed to subscribe", "message", e.getMessage()));
+    }
   }
 
   /** Get comprehensive SSE statistics for monitoring */
