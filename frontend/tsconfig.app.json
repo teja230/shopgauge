@@ -31,6 +31,11 @@
     "src"
   ],
   "exclude": [
+    "src/test/**",
+    "src/**/*.stories.ts",
+    "src/**/*.stories.tsx",
+    "src/**/*.mdx",
+    "src/stories/**",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "src/**/__tests__/**/*"

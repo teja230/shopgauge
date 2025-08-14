@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { expect, userEvent, within } from '@storybook/test';
+// Replace Storybook test utils with Testing Library for v9 compatibility
+import { within } from '@testing-library/dom';
+import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom';
 
 import { Page } from './Page';
 
@@ -23,11 +26,11 @@ export const LoggedIn: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const loginButton = canvas.getByRole('button', { name: /Log in/i });
-    await expect(loginButton).toBeInTheDocument();
+    expect(loginButton).toBeInTheDocument();
     await userEvent.click(loginButton);
-    await expect(loginButton).not.toBeInTheDocument();
+    expect(loginButton).not.toBeInTheDocument();
 
     const logoutButton = canvas.getByRole('button', { name: /Log out/i });
-    await expect(logoutButton).toBeInTheDocument();
+    expect(logoutButton).toBeInTheDocument();
   },
 };
