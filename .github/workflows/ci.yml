@@ -1,10 +1,13 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
+  # Only run on main branch and PRs to main (not all branches)
   push:
-    branches: [ "**" ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ "**" ]
+    branches: [ main, develop ]
+  # Manual trigger for other branches when needed
+  workflow_dispatch:
 
 jobs:
   backend:
@@ -12,6 +15,50 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    
+    # Add services for testing
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: storesight
+          POSTGRES_USER: storesight
+          POSTGRES_PASSWORD: storesight
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    env:
+      # Database configuration for tests
+      DB_URL: jdbc:postgresql://localhost:5432/storesight
+      DB_USER: storesight
+      DB_PASS: storesight
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      # Dummy values for required environment variables
+      SHOPIFY_API_KEY: test_key
+      SHOPIFY_API_SECRET: test_secret
+      SERPAPI_KEY: test_serpapi_key
+      SENDGRID_API_KEY: test_sendgrid_key
+      TWILIO_ACCOUNT_SID: test_twilio_sid
+      TWILIO_AUTH_TOKEN: test_twilio_token
+      # Admin JWT secret for tests
+      ADMIN_JWT_SECRET: test-jwt-secret-key-for-ci-cd-only
+    
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -21,7 +68,7 @@ jobs:
           cache: gradle
       - name: Spotless Check
         run: ./gradlew --no-daemon spotlessCheck
-      - name: Build
+      - name: Build & Test
         run: ./gradlew --no-daemon build
 
   frontend:
@@ -45,8 +92,9 @@ jobs:
       - name: Unit tests
         run: npm run test --silent
 
+  # Storybook build only on main branch to save costs
   storybook:
-    if: false  # enable when needed
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,7 +104,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - run: npm run build-storybook --silent
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build Storybook
+        run: npm run build-storybook --silent
 
 

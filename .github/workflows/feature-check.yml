@@ -1,0 +1,44 @@
+name: Feature Branch Check
+
+on:
+  push:
+    branches-ignore: [ main, develop ]
+  pull_request:
+    branches-ignore: [ main, develop ]
+
+jobs:
+  backend-quick-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Spotless Check
+        run: ./gradlew --no-daemon spotlessCheck
+      - name: Compile Only
+        run: ./gradlew --no-daemon compileJava
+            
+  frontend-quick-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint --silent
+      - name: Type Check
+        run: npx tsc --noEmit

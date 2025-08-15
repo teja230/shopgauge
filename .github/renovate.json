@@ -6,6 +6,7 @@
   "prCreation": "not-pending",
   "labels": ["dependencies"],
   "dependencyDashboard": true,
+  "schedule": ["after 10pm on sunday"],
   "packageRules": [
     {
       "matchManagers": ["npm"],
@@ -15,9 +16,25 @@
     },
     {
       "matchManagers": ["gradle"],
-      "groupName": "backend deps",
+      "groupName": "backend deps", 
       "schedule": ["after 10pm on sunday"],
       "separateMajorMinor": true
+    },
+    {
+      "matchUpdateTypes": ["patch"],
+      "groupName": "patch updates",
+      "schedule": ["after 10pm on sunday"]
+    },
+    {
+      "matchUpdateTypes": ["minor"],
+      "groupName": "minor updates",
+      "schedule": ["after 10pm on sunday"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "groupName": "major updates",
+      "schedule": ["after 10pm on sunday"],
+      "prCreation": "not-pending"
     }
   ]
 }

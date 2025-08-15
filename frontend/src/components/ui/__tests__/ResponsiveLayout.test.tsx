@@ -91,7 +91,11 @@ describe('Responsive Layout Tests', () => {
     it('renders full sidebar navigation on desktop', () => {
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <AdminSidebar />
           </AdminLayout>
         </TestWrapper>
@@ -116,7 +120,11 @@ describe('Responsive Layout Tests', () => {
 
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <DashboardContent />
           </AdminLayout>
         </TestWrapper>
@@ -153,7 +161,11 @@ describe('Responsive Layout Tests', () => {
     it('applies desktop-specific styling', () => {
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="content"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Content', path: '/admin/content' }]}
+          >
             <div data-testid="content">Desktop Content</div>
           </AdminLayout>
         </TestWrapper>
@@ -175,7 +187,11 @@ describe('Responsive Layout Tests', () => {
     it('renders collapsible sidebar on tablet', () => {
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <AdminSidebar />
           </AdminLayout>
         </TestWrapper>
@@ -201,7 +217,11 @@ describe('Responsive Layout Tests', () => {
 
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <TabletDashboard />
           </AdminLayout>
         </TestWrapper>
@@ -261,7 +281,11 @@ describe('Responsive Layout Tests', () => {
     it('renders drawer-style navigation on mobile', () => {
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <AdminSidebar />
           </AdminLayout>
         </TestWrapper>
@@ -288,7 +312,11 @@ describe('Responsive Layout Tests', () => {
 
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <MobileDashboard />
           </AdminLayout>
         </TestWrapper>
@@ -351,7 +379,11 @@ describe('Responsive Layout Tests', () => {
     it('handles mobile-specific interactions', () => {
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="content"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Content', path: '/admin/content' }]}
+          >
             <div data-testid="mobile-content">Mobile Content</div>
           </AdminLayout>
         </TestWrapper>
@@ -400,7 +432,11 @@ describe('Responsive Layout Tests', () => {
       
       const { rerender } = render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <AdminSidebar />
           </AdminLayout>
         </TestWrapper>
@@ -411,7 +447,11 @@ describe('Responsive Layout Tests', () => {
       
       rerender(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <AdminSidebar />
           </AdminLayout>
         </TestWrapper>
@@ -461,7 +501,11 @@ describe('Responsive Layout Tests', () => {
 
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="content"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Content', path: '/admin/content' }]}
+          >
             <LongContentComponent />
           </AdminLayout>
         </TestWrapper>
@@ -482,7 +526,11 @@ describe('Responsive Layout Tests', () => {
         
         const { unmount } = render(
           <TestWrapper>
-            <AdminLayout>
+            <AdminLayout
+            currentSection="content"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Content', path: '/admin/content' }]}
+          >
               <div data-testid="text-content">
                 <h1>Main Heading</h1>
                 <p>Body text content</p>
@@ -511,7 +559,11 @@ describe('Responsive Layout Tests', () => {
       
       render(
         <TestWrapper>
-          <AdminLayout>
+          <AdminLayout
+            currentSection="dashboard"
+            onSectionChange={vi.fn()}
+            breadcrumbs={[{ label: 'Dashboard', path: '/admin/dashboard' }]}
+          >
             <AdminSidebar />
             <ModernDataTable
               data={mockTableData}
@@ -562,10 +614,10 @@ describe('Responsive Layout Tests', () => {
       
       // Should handle large datasets efficiently
       expect(renderTime).toBeLessThan(2000); // 2 second threshold for larger dataset
-      
-      // Should render data rows
-      const rows = screen.getAllByRole('row');
-      expect(rows.length).toBeGreaterThan(1);
+
+      // On mobile, the table renders as cards with role list/listitem
+      const items = screen.getAllByRole('listitem');
+      expect(items.length).toBeGreaterThan(1);
     });
   });
 });

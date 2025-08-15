@@ -38,8 +38,8 @@ public class AdminAuthController {
       HttpServletRequest request,
       HttpServletResponse response) {
 
-    String username = loginRequest.username;
-    String password = loginRequest.password;
+    String username = loginRequest.getUsername();
+    String password = loginRequest.getPassword();
 
     Map<String, Object> result = new HashMap<>();
 

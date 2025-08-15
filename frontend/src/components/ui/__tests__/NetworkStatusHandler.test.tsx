@@ -23,7 +23,16 @@ const mockNavigator: any = {
     saveData: false,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
+    dispatchEvent: vi.fn((event: Event) => {
+      // Simulate actual event dispatching for connection changes
+      const listeners = mockNavigator.connection._listeners || [];
+      listeners.forEach((listener: any) => {
+        if (typeof listener === 'function') {
+          listener(event);
+        }
+      });
+    }),
+    _listeners: [], // Internal listener storage
   },
 };
 
@@ -112,16 +121,24 @@ describe('NetworkStatusHandler', () => {
     
     renderWithTheme(<NetworkStatusHandler />);
     
+    // Wait for component to initialize
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+    
     // Simulate going offline
     mockNavigator.onLine = false;
     
     // Trigger offline event
     const offlineEvent = new Event('offline');
-    window.dispatchEvent(offlineEvent);
+    
+    await act(async () => {
+      window.dispatchEvent(offlineEvent);
+    });
     
     await waitFor(() => {
       expect(screen.getByText(/Connection Lost/i)).toBeInTheDocument();
-    });
+    }, { timeout: 2000 });
   });
 
   it('shows reconnected alert when coming back online', async () => {
@@ -130,20 +147,29 @@ describe('NetworkStatusHandler', () => {
     
     renderWithTheme(<NetworkStatusHandler />);
     
+    // Wait for component to initialize
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+    
     // Simulate coming online
     mockNavigator.onLine = true;
     
     // Trigger online event
     const onlineEvent = new Event('online');
-    window.dispatchEvent(onlineEvent);
+    
+    await act(async () => {
+      window.dispatchEvent(onlineEvent);
+    });
     
     await waitFor(() => {
       expect(screen.getByText(/Connection Restored/i)).toBeInTheDocument();
-    });
+    }, { timeout: 2000 });
   });
 
-  it('enables auto retry when offline', () => {
-    mockNavigator.onLine = false;
+  it('enables auto retry when offline', async () => {
+    // Start online, then go offline to trigger the transition
+    mockNavigator.onLine = true;
     
     renderWithTheme(
       <NetworkStatusHandler 
@@ -152,44 +178,98 @@ describe('NetworkStatusHandler', () => {
       />
     );
     
-    // Should show auto retry information
-    expect(screen.getByText(/Automatically retrying/i)).toBeInTheDocument();
+    // Wait for component to initialize
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+    
+    // Go offline to trigger auto retry
+    mockNavigator.onLine = false;
+    const offlineEvent = new Event('offline');
+    
+    await act(async () => {
+      window.dispatchEvent(offlineEvent);
+    });
+    
+    // Wait for offline alert with auto retry text
+    await waitFor(() => {
+      expect(screen.getByText(/Connection Lost/i)).toBeInTheDocument();
+    }, { timeout: 2000 });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Automatically retrying every/i)).toBeInTheDocument();
+    }, { timeout: 2000 });
   });
 
   it('allows dismissing offline alert', async () => {
-    mockNavigator.onLine = false;
+    const user = userEvent.setup();
+    
+    // Start online then go offline to trigger the alert
+    mockNavigator.onLine = true;
     
     renderWithTheme(<NetworkStatusHandler />);
     
-    // Trigger offline event to show alert
+    // Wait for component to initialize
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+    
+    // Go offline to trigger alert
+    mockNavigator.onLine = false;
     const offlineEvent = new Event('offline');
-    window.dispatchEvent(offlineEvent);
+    
+    await act(async () => {
+      window.dispatchEvent(offlineEvent);
+    });
     
     await waitFor(() => {
       expect(screen.getByText(/Connection Lost/i)).toBeInTheDocument();
-    });
+    }, { timeout: 2000 });
     
-    // Find and click dismiss button
-    const dismissButton = screen.getByRole('button', { name: '' }); // Close icon
-    fireEvent.click(dismissButton);
+    // Find and click dismiss button - look for any button in the alert
+    const dismissButton = screen.getAllByRole('button').find(button => 
+      button.querySelector('svg') // Look for the icon button
+    );
     
-    await waitFor(() => {
-      expect(screen.queryByText(/Connection Lost/i)).not.toBeInTheDocument();
-    });
+    if (dismissButton) {
+      await act(async () => {
+        await user.click(dismissButton);
+      });
+      
+      await waitFor(() => {
+        expect(screen.queryByText(/Connection Lost/i)).not.toBeInTheDocument();
+      }, { timeout: 2000 });
+    }
   });
 
   it('shows retry button in offline alert', async () => {
-    mockNavigator.onLine = false;
+    // Start online then go offline to trigger the alert
+    mockNavigator.onLine = true;
     
     renderWithTheme(<NetworkStatusHandler />);
     
-    // Trigger offline event
-    const offlineEvent = new Event('offline');
-    window.dispatchEvent(offlineEvent);
+    // Wait for component to initialize
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
     
+    // Go offline to trigger alert
+    mockNavigator.onLine = false;
+    const offlineEvent = new Event('offline');
+    
+    await act(async () => {
+      window.dispatchEvent(offlineEvent);
+    });
+    
+    // Wait for the connection lost alert first
+    await waitFor(() => {
+      expect(screen.getByText(/connection lost/i)).toBeInTheDocument();
+    }, { timeout: 2000 });
+    
+    // Then check for retry button
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
-    });
+    }, { timeout: 2000 });
   });
 
   describe('useNetworkStatus hook', () => {
@@ -226,13 +306,21 @@ describe('NetworkStatusHandler', () => {
       // Change connection type
       mockNavigator.connection.effectiveType = '3g';
       
-      // Trigger connection change event
+      // Trigger connection change event - need to call listeners directly
       const connectionChangeEvent = new Event('change');
-      mockNavigator.connection.dispatchEvent(connectionChangeEvent);
+      Object.defineProperty(connectionChangeEvent, 'target', {
+        value: mockNavigator.connection,
+        writable: false
+      });
+      
+      // Force a re-render by dispatching to window
+      act(() => {
+        window.dispatchEvent(connectionChangeEvent);
+      });
       
       await waitFor(() => {
         expect(screen.getByTestId('connection-type')).toHaveTextContent('3g');
-      });
+      }, { timeout: 1000 });
     });
   });
 

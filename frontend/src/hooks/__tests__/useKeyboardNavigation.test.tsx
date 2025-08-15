@@ -51,7 +51,10 @@ describe('useKeyboardNavigation', () => {
       const user = userEvent.setup();
       render(<TestKeyboardNavigation />);
 
-      await user.click(screen.getByTestId('focus-first'));
+      // Wait for component to be ready
+      await act(async () => {
+        await user.click(screen.getByTestId('focus-first'));
+      });
 
       expect(screen.getByTestId('button-1')).toHaveFocus();
     });
@@ -60,8 +63,11 @@ describe('useKeyboardNavigation', () => {
       const user = userEvent.setup();
       render(<TestKeyboardNavigation />);
 
-      await user.click(screen.getByTestId('focus-last'));
+      await act(async () => {
+        await user.click(screen.getByTestId('focus-last'));
+      });
 
+      // The last focusable element should be the "focus-last" button itself
       expect(screen.getByTestId('focus-last')).toHaveFocus();
     });
 
@@ -69,7 +75,9 @@ describe('useKeyboardNavigation', () => {
       const user = userEvent.setup();
       render(<TestKeyboardNavigation />);
 
-      await user.click(screen.getByTestId('focus-first'));
+      await act(async () => {
+        await user.click(screen.getByTestId('focus-first'));
+      });
 
       // Disabled button should not be focused
       expect(screen.getByTestId('disabled-button')).not.toHaveFocus();
@@ -94,9 +102,11 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation shortcuts={shortcuts} />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      await user.keyboard('{Control>}k{/Control}');
+      
+      await act(async () => {
+        container.focus();
+        await user.keyboard('{Control>}k{/Control}');
+      });
 
       expect(mockAction).toHaveBeenCalledTimes(1);
     });
@@ -118,9 +128,11 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation shortcuts={shortcuts} />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      await user.keyboard('{Control>}{Shift>}s{/Shift}{/Control}');
+      
+      await act(async () => {
+        container.focus();
+        await user.keyboard('{Control>}{Shift>}s{/Shift}{/Control}');
+      });
 
       expect(mockAction).toHaveBeenCalledTimes(1);
     });
@@ -141,9 +153,11 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation shortcuts={shortcuts} />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      await user.keyboard('{Alt>}d{/Alt}');
+      
+      await act(async () => {
+        container.focus();
+        await user.keyboard('{Alt>}d{/Alt}');
+      });
 
       expect(mockAction).toHaveBeenCalledTimes(1);
     });
@@ -164,10 +178,12 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation shortcuts={shortcuts} />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      // This would normally refresh the page, but should be prevented
-      await user.keyboard('{Control>}r{/Control}');
+      
+      await act(async () => {
+        container.focus();
+        // This would normally refresh the page, but should be prevented
+        await user.keyboard('{Control>}r{/Control}');
+      });
 
       expect(mockAction).toHaveBeenCalledTimes(1);
     });
@@ -189,9 +205,11 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation shortcuts={shortcuts} />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      await user.keyboard('{Control>}a{/Control}');
+      
+      await act(async () => {
+        container.focus();
+        await user.keyboard('{Control>}a{/Control}');
+      });
 
       expect(mockAction).toHaveBeenCalledTimes(1);
     });
@@ -212,10 +230,12 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation shortcuts={shortcuts} />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      // Type lowercase k
-      await user.keyboard('{Control>}k{/Control}');
+      
+      await act(async () => {
+        container.focus();
+        // Type lowercase k
+        await user.keyboard('{Control>}k{/Control}');
+      });
 
       expect(mockAction).toHaveBeenCalledTimes(1);
     });
@@ -229,9 +249,11 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation onEscape={mockOnEscape} />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      await user.keyboard('{Escape}');
+      
+      await act(async () => {
+        container.focus();
+        await user.keyboard('{Escape}');
+      });
 
       expect(mockOnEscape).toHaveBeenCalledTimes(1);
     });
@@ -242,10 +264,12 @@ describe('useKeyboardNavigation', () => {
       render(<TestKeyboardNavigation />);
 
       const container = screen.getByTestId('keyboard-container');
-      container.focus();
-
-      // Should not throw error
-      await user.keyboard('{Escape}');
+      
+      await act(async () => {
+        container.focus();
+        // Should not throw error
+        await user.keyboard('{Escape}');
+      });
     });
   });
 
