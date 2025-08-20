@@ -89,11 +89,12 @@ dependencies {
     implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.2.0'
     // OpenAPI (springdoc)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
-    // OpenTelemetry (OTLP exporter) and Spring Boot autoconfigure
-    implementation 'io.opentelemetry:opentelemetry-exporter-otlp:1.37.0'
-    implementation 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:1.37.0'
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter:2.6.0'
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-mdc-1.0:1.30.0-alpha'
+    // OpenTelemetry disabled temporarily due to version conflicts
+    // TODO: Re-enable OpenTelemetry with proper version compatibility
+    // implementation 'io.opentelemetry:opentelemetry-exporter-otlp:1.37.0'
+    // implementation 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:1.37.0'
+    // implementation 'io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter:2.6.0'
+    // implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-mdc-1.0:1.30.0-alpha'
     implementation 'org.reflections:reflections:0.10.2'
 }
 
