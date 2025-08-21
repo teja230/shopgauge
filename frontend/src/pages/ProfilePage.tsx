@@ -18,6 +18,7 @@ import useSessionLimit from '../hooks/useSessionLimit';
 import SessionLimitDialog from '../components/ui/SessionLimitDialog';
 
 import { getDeviceDisplay, getRelativeTime } from '../utils/deviceUtils';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 // Cache configuration for store stats - Enhanced to match Dashboard strategy
 const STORE_STATS_CACHE_DURATION = 120 * 60 * 1000; // 120 minutes (match Dashboard)
@@ -781,6 +782,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <DemoModeBanner />
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile & Settings</h1>
         <p className="text-gray-600">Manage your store connection, data privacy, and account settings</p>

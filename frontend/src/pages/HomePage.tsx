@@ -6,6 +6,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 const features = [
   'AI-Powered Revenue Forecasting with 7-60 day predictions and confidence intervals',
@@ -116,6 +117,43 @@ const HomePage = () => {
     }
     keysToRemove.forEach((k) => sessionStorage.removeItem(k));
     console.log('HomePage: Cleared all dashboard and unified analytics cache keys');
+  };
+
+  const handleDemoMode = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/demo/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Clear any existing cache before demo
+          sessionStorage.clear();
+          
+          // Navigate to dashboard with demo flag
+          window.location.href = data.redirectUrl || '/dashboard?demo=true';
+        } else {
+          throw new Error(data.message || 'Failed to start demo mode');
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Demo mode is currently unavailable');
+      }
+    } catch (error) {
+      console.error('Demo mode error:', error);
+      notifications.showError('Failed to start demo mode. Please try again.', {
+        persistent: true,
+        category: 'Demo'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -324,15 +362,54 @@ const HomePage = () => {
                   </div>
                 </form>
               ) : (
-                <button
-                  onClick={() => setShowConnectForm(true)}
-                  className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
-                >
-                  <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                  Connect Store
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 items-center">
+                  <button
+                    onClick={() => setShowConnectForm(true)}
+                    className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
+                  >
+                    <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Connect Store
+                  </button>
+                  
+                  {/* Demo Mode Button with Tooltip */}
+                  <div className="relative group">
+                    <button
+                      onClick={handleDemoMode}
+                      disabled={isLoading}
+                      className="inline-flex items-center px-6 py-4 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 hover:shadow-xl transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <span className="mr-2">🚀</span>
+                          Try Demo
+                        </>
+                      )}
+                    </button>
+                    
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      <div className="flex items-center mb-1">
+                        <span className="mr-1">🎯</span>
+                        <span className="font-medium">Want to explore first?</span>
+                      </div>
+                      <div className="text-xs opacity-90">
+                        Try our demo with realistic data - no signup required
+                      </div>
+                      {/* Tooltip arrow */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
               )
             )}
             <p className="text-sm opacity-90 mt-6 text-white">No credit card required for trial • Cancel anytime</p>

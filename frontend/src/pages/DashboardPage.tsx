@@ -27,6 +27,7 @@ import Joyride from 'react-joyride';
 import type { Step, CallBackProps } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 
 /**
@@ -1388,7 +1389,12 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('revenue', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
+        // Check if demo mode is active and use appropriate endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        const endpoint = isDemoMode ? '/api/demo/analytics/revenue' : '/api/analytics/revenue';
+        console.log('Dashboard: Revenue API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
+        const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
         return await response.json();
       }, forceRefresh);
       
@@ -1437,7 +1443,11 @@ const DashboardPage = () => {
       if (!timeseriesData.length && totalRevenue > 0) {
         try {
           console.log('Fetching timeseries data separately...');
-          const tsResp = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue/timeseries'));
+          const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                            new URLSearchParams(window.location.search).get('demo') === 'true';
+          const tsEndpoint = isDemoMode ? '/api/demo/analytics/revenue' : '/api/analytics/revenue/timeseries';
+          console.log('Dashboard: Revenue timeseries API call - using demo mode:', isDemoMode, 'endpoint:', tsEndpoint);
+          const tsResp = await retryWithBackoff(() => fetchWithAuth(tsEndpoint));
           const tsJson = await tsResp.json();
           timeseriesData = tsJson.timeseries || [];
           console.log('Separate timeseries fetch result:', timeseriesData.length, 'data points');
@@ -1492,8 +1502,12 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('products', async () => {
-        console.log('🔄 Dashboard: Making API call to /api/analytics/products');
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
+        // Check if demo mode is active and use appropriate endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        const endpoint = isDemoMode ? '/api/demo/analytics/products' : '/api/analytics/products';
+        console.log('🔄 Dashboard: Making API call to', endpoint, '- using demo mode:', isDemoMode);
+        const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
         const jsonData = await response.json();
         console.log('📊 Dashboard: Products API response:', jsonData);
         
@@ -1555,7 +1569,12 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('inventory', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/inventory/low'));
+        // Check if demo mode is active and use appropriate endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        const endpoint = isDemoMode ? '/api/demo/analytics/inventory' : '/api/analytics/inventory/low';
+        console.log('Dashboard: Inventory API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
+        const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
         return await response.json();
       }, forceRefresh);
       
@@ -1596,7 +1615,12 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('newProducts', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/new_products'));
+        // Check if demo mode is active and use appropriate endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        const endpoint = isDemoMode ? '/api/demo/analytics/products' : '/api/analytics/new_products';
+        console.log('Dashboard: New products API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
+        const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
         return await response.json();
       }, forceRefresh);
       
@@ -1637,7 +1661,12 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('insights', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/conversion'));
+        // Check if demo mode is active and use appropriate endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        const endpoint = isDemoMode ? '/api/demo/analytics/insights' : '/api/analytics/conversion';
+        console.log('Dashboard: Conversion API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
+        const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
         return await response.json();
       }, forceRefresh);
       
@@ -1693,7 +1722,12 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('abandonedCarts', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/abandoned_carts'));
+        // Check if demo mode is active and use appropriate endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        const endpoint = isDemoMode ? '/api/demo/analytics/insights' : '/api/analytics/abandoned_carts';
+        console.log('Dashboard: Abandoned carts API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
+        const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
         return await response.json();
       }, forceRefresh);
       
@@ -1756,7 +1790,12 @@ const DashboardPage = () => {
         console.log(`[Orders] Starting fetch for shop: ${shop}`);
         
         // Fetch orders sequentially to avoid overwhelming the API
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50&days=60'));
+        // Check if demo mode is active and use appropriate endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        const endpoint = isDemoMode ? '/api/demo/analytics/orders' : '/api/analytics/orders/timeseries?page=1&limit=50&days=60';
+        console.log('Dashboard: Orders API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
+        const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
         const initialData = await response.json();
         
         console.log('[Orders] Initial API response:', {
@@ -1800,6 +1839,10 @@ const DashboardPage = () => {
             for (let page = 2; page <= 5; page++) {
               await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
               
+              // Use demo endpoint if in demo mode, skip pagination for demo data
+              if (isDemoMode) {
+                break; // Demo data doesn't need pagination
+              }
               const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50&days=60`);
               const additionalData = await additionalResponse.json();
               
@@ -2619,6 +2662,7 @@ const DashboardPage = () => {
 
   return (
     <DashboardContainer>
+      <DemoModeBanner />
       <Box 
         sx={{ 
           display: 'flex', 

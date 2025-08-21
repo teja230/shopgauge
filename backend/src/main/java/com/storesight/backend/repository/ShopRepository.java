@@ -13,6 +13,9 @@ import org.springframework.stereotype.Repository;
 public interface ShopRepository extends JpaRepository<Shop, Long> {
   Optional<Shop> findByShopifyDomain(String shopifyDomain);
 
+  // Find active shop by domain
+  Optional<Shop> findByShopifyDomainAndIsActiveTrue(String shopifyDomain);
+
   // Soft delete queries
   List<Shop> findByIsActiveTrue();
 

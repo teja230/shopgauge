@@ -43,6 +43,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
 import { refreshCompetitorPrices, getPriceRefreshProgress } from '../api/index';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 // Tutorial step types
 interface TutorialStep {
@@ -70,6 +71,11 @@ interface DemoAnalytics {
   tutorialCompleted: boolean;
   lastUsed: Date;
 }
+
+// Helper function to detect if we're in a demo store
+const isDemoStore = (shop: string | null): boolean => {
+  return shop === 'demo-shopgauge.myshopify.com';
+};
 
 // Tutorial steps for guided tour (ordered and with precise targets)
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -2410,6 +2416,7 @@ export default function CompetitorsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+      <DemoModeBanner />
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Limit Display */}
         <LimitDisplay />
@@ -2496,27 +2503,31 @@ export default function CompetitorsPage() {
                       <PlusIcon className="h-4 w-4" />
                       Add
                     </button>
-                    <button
-                      onClick={() => {
-                        toggleDemoMode();
-                        trackDemoInteraction('switch_to_live_mode');
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-sm font-medium text-amber-700 shadow hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
-                    >
-                      Switch to Live Mode
-                    </button>
+                    {!isDemoStore(shop) && (
+                      <button
+                        onClick={() => {
+                          toggleDemoMode();
+                          trackDemoInteraction('switch_to_live_mode');
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-sm font-medium text-amber-700 shadow hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                      >
+                        Switch to Live Mode
+                      </button>
+                    )}
 
                     {/* Secondary options */}
-                    <button
-                      onClick={() => {
-                        setShowDemoSettings(true);
-                        trackDemoInteraction('demo_settings');
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 shadow hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                    >
-                      <CogIcon className="h-4 w-4" />
-                      Customize Demo
-                    </button>
+                    {!isDemoStore(shop) && (
+                      <button
+                        onClick={() => {
+                          setShowDemoSettings(true);
+                          trackDemoInteraction('demo_settings');
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 shadow hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                      >
+                        <CogIcon className="h-4 w-4" />
+                        Customize Demo
+                      </button>
+                    )}
                     {!demoAnalytics.tutorialCompleted && (
                       <button
                         onClick={() => {
@@ -2625,25 +2636,27 @@ export default function CompetitorsPage() {
 
             {/* Right side - Action buttons */}
             <div className="flex items-center gap-3 flex-wrap">
-              {/* Demo Mode Toggle */}
-              <button
-                onClick={() => {
-                  toggleDemoMode();
-                  trackDemoInteraction('demo_toggle');
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all demo-toggle-button ${
-                  isDemoMode 
-                    ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                title={isDemoMode 
-                  ? 'Switch to Live Mode to monitor real competitor data'
-                  : 'Switch to Demo Mode to see sample data'
-                }
-              >
-                {isDemoMode ? <PlayIcon className="h-4 w-4" /> : <StopIcon className="h-4 w-4" />}
-                {isDemoMode ? 'Demo' : 'Live'}
-              </button>
+              {/* Demo Mode Toggle - Only show if not in demo store */}
+              {!isDemoStore(shop) && (
+                <button
+                  onClick={() => {
+                    toggleDemoMode();
+                    trackDemoInteraction('demo_toggle');
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all demo-toggle-button ${
+                    isDemoMode 
+                      ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  title={isDemoMode 
+                    ? 'Switch to Live Mode to monitor real competitor data'
+                    : 'Switch to Demo Mode to see sample data'
+                  }
+                >
+                  {isDemoMode ? <PlayIcon className="h-4 w-4" /> : <StopIcon className="h-4 w-4" />}
+                  {isDemoMode ? 'Demo' : 'Live'}
+                </button>
+              )}
 
               {/* Manual Discovery Button with 24hr Cooldown */}
               <button
@@ -3186,7 +3199,7 @@ export default function CompetitorsPage() {
       />
 
       {/* Demo Settings Modal */}
-      {showDemoSettings && (
+      {showDemoSettings && !isDemoStore(shop) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
