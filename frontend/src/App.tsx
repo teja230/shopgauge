@@ -33,33 +33,44 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Check if this is a demo mode request
+  const urlParams = new URLSearchParams(location.search);
+  const isDemoMode = urlParams.get('demo') === 'true';
+  
   debugLog.debug('ProtectedRoute: Auth status', { 
     isAuthenticated, 
     authLoading, 
     hasInitiallyLoaded,
-    path: location.pathname
+    path: location.pathname,
+    isDemoMode
   }, 'ProtectedRoute');
   
-  // Handle redirect for unauthenticated users
+  // Handle redirect for unauthenticated users (but allow demo mode to proceed)
   useEffect(() => {
-    if (!isAuthenticated && !authLoading && hasInitiallyLoaded) {
-      debugLog.info('ProtectedRoute: Not authenticated, redirecting to home', {
+    if (!isAuthenticated && !authLoading && hasInitiallyLoaded && !isDemoMode) {
+      debugLog.info('ProtectedRoute: Not authenticated and not demo mode, redirecting to home', {
         currentPath: location.pathname + location.search + location.hash
       }, 'ProtectedRoute');
       const currentPath = location.pathname + location.search + location.hash;
       const redirectUrl = currentPath !== '/' ? `/?redirect=${encodeURIComponent(currentPath)}` : '/';
       navigate(redirectUrl, { replace: true });
     }
-  }, [isAuthenticated, authLoading, hasInitiallyLoaded, navigate, location.pathname, location.search, location.hash]);
+  }, [isAuthenticated, authLoading, hasInitiallyLoaded, isDemoMode, navigate, location.pathname, location.search, location.hash]);
   
   // Show loading state while auth is being checked
   if (authLoading || !hasInitiallyLoaded) {
     return <IntelligentLoadingScreen fastMode={true} message="Authenticating..." />;
   }
   
-  // Show loading state for redirect
-  if (!isAuthenticated) {
+  // Show loading state for redirect (but not for demo mode)
+  if (!isAuthenticated && !isDemoMode) {
     return <IntelligentLoadingScreen fastMode={true} message="Redirecting..." />;
+  }
+  
+  // For demo mode, allow the component to render even if not yet authenticated
+  // The AuthContext will handle demo authentication
+  if (isDemoMode && !isAuthenticated) {
+    return <IntelligentLoadingScreen fastMode={true} message="Setting up demo..." />;
   }
   
   // Render protected content

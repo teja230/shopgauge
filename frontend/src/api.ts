@@ -4,14 +4,14 @@ import { debugLog } from './components/ui/DebugPanel';
 // Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
 export const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
-) || 'https://api.shopgaugeai.com'; // Production fallback
+) || ''; // Empty string for development proxy
 
 if (!import.meta.env.VITE_API_BASE_URL) {
   // Warn during development so engineers remember to configure the variable in production builds
   // but avoid leaking details or crashing the app.
   // eslint-disable-next-line no-console
   console.warn(
-    'VITE_API_BASE_URL is not defined – using fallback backend URL. ' +
+    'VITE_API_BASE_URL is not defined – using relative URLs for development proxy. ' +
     'Set VITE_API_BASE_URL=https://api.shopgaugeai.com in production'
   );
 }
@@ -523,6 +523,26 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export async function getInsights(): Promise<Insight> {
+  // Check if demo mode is active
+  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  
+  console.log('API getInsights: Demo mode check:', {
+    localStorage: localStorage.getItem('demo_mode_active'),
+    urlParam: new URLSearchParams(window.location.search).get('demo'),
+    isDemoMode,
+    currentUrl: window.location.href
+  });
+  
+  if (isDemoMode) {
+    console.log('API: Using demo insights endpoint');
+    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/insights`, defaultOptions);
+    const result = await handleResponse<Insight>(res);
+    console.log('API: Demo insights result:', result);
+    return result;
+  }
+  
+  console.log('API: Using regular insights endpoint');
   const res = await fetch(`${API_BASE_URL}/api/insights`, defaultOptions);
   return handleResponse<Insight>(res);
 }
@@ -530,6 +550,81 @@ export async function getInsights(): Promise<Insight> {
 export async function getCompetitors(): Promise<Competitor[]> {
   const res = await fetch(`${API_BASE_URL}/api/competitors`, defaultOptions);
   return handleResponse<Competitor[]>(res);
+}
+
+export async function getProducts(): Promise<any[]> {
+  // Check if demo mode is active
+  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  
+  console.log('API getProducts: Demo mode check:', {
+    localStorage: localStorage.getItem('demo_mode_active'),
+    urlParam: new URLSearchParams(window.location.search).get('demo'),
+    isDemoMode,
+    currentUrl: window.location.href
+  });
+  
+  if (isDemoMode) {
+    console.log('API: Using demo products endpoint');
+    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/products`, defaultOptions);
+    const result = await handleResponse<any>(res);
+    console.log('API: Demo products result:', result);
+    return result.products || [];
+  }
+  
+  console.log('API: Using regular products endpoint');
+  const res = await fetch(`${API_BASE_URL}/api/products`, defaultOptions);
+  return handleResponse<any[]>(res);
+}
+
+export async function getOrders(): Promise<any[]> {
+  // Check if demo mode is active
+  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  
+  console.log('API getOrders: Demo mode check:', {
+    localStorage: localStorage.getItem('demo_mode_active'),
+    urlParam: new URLSearchParams(window.location.search).get('demo'),
+    isDemoMode,
+    currentUrl: window.location.href
+  });
+  
+  if (isDemoMode) {
+    console.log('API: Using demo orders endpoint');
+    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/orders`, defaultOptions);
+    const result = await handleResponse<any>(res);
+    console.log('API: Demo orders result:', result);
+    return result.orders || [];
+  }
+  
+  console.log('API: Using regular orders endpoint');
+  const res = await fetch(`${API_BASE_URL}/api/orders`, defaultOptions);
+  return handleResponse<any[]>(res);
+}
+
+export async function getRevenue(): Promise<any> {
+  // Check if demo mode is active
+  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  
+  console.log('API getRevenue: Demo mode check:', {
+    localStorage: localStorage.getItem('demo_mode_active'),
+    urlParam: new URLSearchParams(window.location.search).get('demo'),
+    isDemoMode,
+    currentUrl: window.location.href
+  });
+  
+  if (isDemoMode) {
+    console.log('API: Using demo revenue endpoint');
+    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/revenue`, defaultOptions);
+    const result = await handleResponse<any>(res);
+    console.log('API: Demo revenue result:', result);
+    return result;
+  }
+  
+  console.log('API: Using regular revenue endpoint');
+  const res = await fetch(`${API_BASE_URL}/api/revenue`, defaultOptions);
+  return handleResponse<any>(res);
 }
 
 // Get products from session storage first, then Redis fallback

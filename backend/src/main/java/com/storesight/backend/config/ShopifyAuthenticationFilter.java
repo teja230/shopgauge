@@ -1,5 +1,6 @@
 package com.storesight.backend.config;
 
+import com.storesight.backend.service.DemoModeService;
 import com.storesight.backend.service.RedisSessionService;
 import com.storesight.backend.service.SessionRecoveryService;
 import com.storesight.backend.service.SessionSecurityService;
@@ -30,18 +31,21 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
   private final SessionSecurityService sessionSecurityService;
   private final RedisSessionService redisSessionService;
   private final SessionRecoveryService sessionRecoveryService;
+  private final DemoModeService demoModeService;
 
   public ShopifyAuthenticationFilter(
       ShopService shopService,
       SessionSynchronizationService sessionSynchronizationService,
       SessionSecurityService sessionSecurityService,
       RedisSessionService redisSessionService,
-      SessionRecoveryService sessionRecoveryService) {
+      SessionRecoveryService sessionRecoveryService,
+      DemoModeService demoModeService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.sessionSecurityService = sessionSecurityService;
     this.redisSessionService = redisSessionService;
     this.sessionRecoveryService = sessionRecoveryService;
+    this.demoModeService = demoModeService;
   }
 
   @Override
@@ -60,6 +64,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
             "/api/admin/") // Skip admin endpoints - handled by AdminAuthenticationFilter
         || path.startsWith("/api/sessions/admin/") // Skip admin session endpoints - handled by
         // AdminAuthenticationFilter
+        || path.startsWith("/api/demo/") // Skip demo endpoints - handled by demo controller
         || path.equals("/")
         || path.equals("/health")
         || path.equals("/api/health")
@@ -78,6 +83,34 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       // Log request details for debugging (only in debug mode)
       if (logger.isDebugEnabled()) {
         logRequestDetails(request);
+      }
+
+      // Demo mode authentication bypass
+      if (demoModeService.isDemoModeEnabled()) {
+        // Check if this is a demo session
+        String shopFromCookie = getShopFromCookie(request);
+        logger.info("Demo mode check - shop from cookie: '{}', path: '{}'", shopFromCookie, path);
+
+        if (demoModeService.isDemoStore(shopFromCookie)) {
+
+          logger.info("Demo mode authentication bypass for path: {}", path);
+
+          // Set authentication context for demo store
+          UsernamePasswordAuthenticationToken authentication =
+              new UsernamePasswordAuthenticationToken(
+                  DemoModeService.DEMO_STORE_DOMAIN,
+                  null,
+                  AuthorityUtils.createAuthorityList("ROLE_SHOP", "ROLE_DEMO"));
+          SecurityContextHolder.getContext().setAuthentication(authentication);
+
+          // Ensure demo cookie is set
+          if (!demoModeService.isDemoStore(shopFromCookie)) {
+            setShopCookie(response, DemoModeService.DEMO_STORE_DOMAIN);
+          }
+
+          filterChain.doFilter(request, response);
+          return;
+        }
       }
 
       // Extract shop from cookie with fallback mechanisms

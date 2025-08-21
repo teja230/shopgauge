@@ -2,6 +2,7 @@ package com.storesight.backend;
 
 import com.storesight.backend.config.AdminAuthenticationFilter;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
+import com.storesight.backend.service.DemoModeService;
 import com.storesight.backend.service.RedisSessionService;
 import com.storesight.backend.service.SessionRecoveryService;
 import com.storesight.backend.service.SessionSecurityService;
@@ -54,6 +55,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   private final SessionSecurityService sessionSecurityService;
   private final RedisSessionService redisSessionService;
   private final SessionRecoveryService sessionRecoveryService;
+  private final DemoModeService demoModeService;
 
   @Value("${spring.profiles.active:dev}")
   private String activeProfile;
@@ -76,12 +78,14 @@ public class WebSecurityConfig implements WebMvcConfigurer {
       SessionSynchronizationService sessionSynchronizationService,
       SessionSecurityService sessionSecurityService,
       RedisSessionService redisSessionService,
-      SessionRecoveryService sessionRecoveryService) {
+      SessionRecoveryService sessionRecoveryService,
+      DemoModeService demoModeService) {
     this.shopService = shopService;
     this.sessionSynchronizationService = sessionSynchronizationService;
     this.sessionSecurityService = sessionSecurityService;
     this.redisSessionService = redisSessionService;
     this.sessionRecoveryService = sessionRecoveryService;
+    this.demoModeService = demoModeService;
   }
 
   // Rate limit info holder
@@ -266,7 +270,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                       "/health/**",
                       "/api/health/**",
                       "/",
-                      "/api/admin/login") // Allow admin login endpoint
+                      "/api/admin/login",
+                      "/api/demo/**") // Allow demo endpoints
                   .permitAll();
 
               auth.requestMatchers("/api/**")
@@ -280,7 +285,9 @@ public class WebSecurityConfig implements WebMvcConfigurer {
         // SessionRepositoryErrorFilter is now defined in SessionConfig.java to avoid bean conflicts
         .addFilterBefore(oAuthSessionFilter(), UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(adminAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-        .addFilterBefore(shopifyAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(
+            shopifyAuthenticationFilter(demoModeService),
+            UsernamePasswordAuthenticationFilter.class)
         // SessionErrorHandlingFilter is automatically registered by SessionConfig with @Order(1)
         .exceptionHandling(exceptions -> exceptions.accessDeniedHandler(accessDeniedHandler()));
 
@@ -288,13 +295,14 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   }
 
   @Bean
-  public ShopifyAuthenticationFilter shopifyAuthenticationFilter() {
+  public ShopifyAuthenticationFilter shopifyAuthenticationFilter(DemoModeService demoModeService) {
     return new ShopifyAuthenticationFilter(
         shopService,
         sessionSynchronizationService,
         sessionSecurityService,
         redisSessionService,
-        sessionRecoveryService);
+        sessionRecoveryService,
+        demoModeService);
   }
 
   @Bean

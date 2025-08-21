@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthReady: boolean;
   loading: boolean;
   hasInitiallyLoaded: boolean;
+  isDemoMode: boolean;
   logout: () => void;
 }
 
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   setShop: () => {},
   isAuthReady: false,
   hasInitiallyLoaded: false,
+  isDemoMode: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -43,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
 
 
@@ -56,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear authentication state
       setIsAuthenticated(false);
       setShop(null);
+      setIsDemoMode(false);
       setApiAuthState(false, null);
       
       // Mark auth as ready even when not authenticated
@@ -72,11 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error?.response?.status === 403 || error?.code === 'UNAUTHORIZED') {
       console.log('AuthContext: Handling 403/UNAUTHORIZED error');
       
-      // Clear auth state but don't redirect
-      setIsAuthenticated(false);
-      setShop(null);
-      setApiAuthState(false, null);
-      setIsAuthReady(true);
+              // Clear auth state but don't redirect
+        setIsAuthenticated(false);
+        setShop(null);
+        setIsDemoMode(false);
+        setApiAuthState(false, null);
+        setIsAuthReady(true);
       
       return true;
     }
@@ -116,6 +121,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
+    // Set demo mode flag immediately if URL contains demo=true
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDemoModeInUrl = urlParams.get('demo') === 'true';
+    
+    if (isDemoModeInUrl) {
+      console.log('AuthContext: Setting demo mode flag from URL parameter');
+      localStorage.setItem('demo_mode_active', 'true');
+      setIsDemoMode(true);
+    }
+    
     // Only run initial auth check on mount
     if (!hasInitiallyLoaded) {
       checkAuth();
@@ -124,6 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
+    console.log('AuthContext: Current URL:', window.location.href);
+    console.log('AuthContext: URL search params:', window.location.search);
     
     // Skip Shopify authentication on admin pages
     const currentPath = window.location.pathname;
@@ -131,14 +148,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('AuthContext: Skipping Shopify auth check on admin page');
       setShop(null);
       setIsAuthenticated(false);
+      setIsDemoMode(false);
       setIsAuthReady(true);
       setHasInitiallyLoaded(true);
       setApiAuthState(false, null);
       return;
     }
     
-    // Check if this is a post-OAuth redirect (user just completed OAuth)
+    // Check if this is a demo mode request
     const urlParams = new URLSearchParams(window.location.search);
+    const isDemoMode = urlParams.get('demo') === 'true';
+    
+    console.log('AuthContext: Demo mode check - URL params:', Object.fromEntries(urlParams.entries()));
+    console.log('AuthContext: Demo mode detected:', isDemoMode);
+    
+    if (isDemoMode) {
+      console.log('AuthContext: Detected demo mode request, validating demo session');
+      console.log('AuthContext: Making API call to validate demo session');
+      console.log('AuthContext: API_BASE_URL:', API_BASE_URL);
+      console.log('AuthContext: Full URL:', `${API_BASE_URL}/api/demo/validate`);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/demo/validate`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Correlation-ID': `demo-validate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          },
+          credentials: 'include',
+          cache: 'no-cache',
+        });
+
+        console.log('AuthContext: Demo validation response status:', response.status);
+        console.log('AuthContext: Demo validation response headers:', response.headers);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('AuthContext: Demo validation response data:', data);
+          if (data.isDemo && data.isValid) {
+            console.log('AuthContext: Demo session validated successfully');
+            setShop('demo-shopgauge.myshopify.com');
+            setIsAuthenticated(true);
+            setIsAuthReady(true);
+            setIsDemoMode(true);
+            setApiAuthState(true, 'demo-shopgauge.myshopify.com');
+            setHasInitiallyLoaded(true);
+            
+            // Set a global demo mode flag for the API layer
+            window.localStorage.setItem('demo_mode_active', 'true');
+            
+            // Clean up the demo URL parameter
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('demo');
+            window.history.replaceState({}, '', newUrl.toString());
+            return;
+          }
+        }
+        
+        console.log('AuthContext: Demo validation failed, falling back to regular auth');
+      } catch (error) {
+        console.error('AuthContext: Error during demo validation:', error);
+      }
+    }
+    
+    // Check if this is a post-OAuth redirect (user just completed OAuth)
     const isPostOAuth = urlParams.get('connected') === 'true';
     
     if (isPostOAuth) {
@@ -183,9 +256,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = await response.json();
             if (data.shop && data.authenticated) {
               console.log('AuthContext: Authentication successful, shop:', data.shop);
+              const isDemo = data.shop === 'demo-shopgauge.myshopify.com';
+              
               setShop(data.shop);
               setIsAuthenticated(true);
               setIsAuthReady(true);
+              setIsDemoMode(isDemo);
               
               // Sync API authentication state
               setApiAuthState(true, data.shop);
@@ -216,6 +292,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('AuthContext: All authentication attempts failed');
       setShop(null);
       setIsAuthenticated(false);
+      setIsDemoMode(false);
       setIsAuthReady(true);
       setHasInitiallyLoaded(true);
       
@@ -226,6 +303,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('AuthContext: Unexpected error during authentication check:', error);
       setShop(null);
       setIsAuthenticated(false);
+      setIsDemoMode(false);
       setIsAuthReady(true);
       setHasInitiallyLoaded(true);
       setApiAuthState(false, null);
@@ -303,7 +381,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear auth state
       setIsAuthenticated(false);
       setShop(null);
+      setIsDemoMode(false);
       setApiAuthState(false, null);
+      
+      // Clear demo mode flag
+      localStorage.removeItem('demo_mode_active');
+      sessionStorage.removeItem('demo_mode_active');
       setIsAuthReady(true);
       console.log('AuthContext: Logout completed');
     }
@@ -319,6 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShop,
       isAuthReady,
       hasInitiallyLoaded,
+      isDemoMode,
     }}>
       {children}
     </AuthContext.Provider>
