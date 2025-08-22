@@ -137,28 +137,28 @@ public class DemoApiController {
         Arrays.asList(
             Map.of(
                 "id", "Temporary-1",
-                "order_number", "#DM-1001", 
+                "order_number", "#DM-1001",
                 "total_price", "$180.00",
                 "created_at", "2024-08-20T10:30:00Z",
                 "financial_status", "paid",
                 "fulfillment_status", "fulfilled",
-                "customer", Map.of(
-                    "first_name", "John",
-                    "last_name", "Demo",
-                    "email", "demo.customer1@example.com"
-                )),
+                "customer",
+                    Map.of(
+                        "first_name", "John",
+                        "last_name", "Demo",
+                        "email", "demo.customer1@example.com")),
             Map.of(
                 "id", "Temporary-2",
                 "order_number", "#DM-1002",
-                "total_price", "$120.00", 
+                "total_price", "$120.00",
                 "created_at", "2024-08-20T14:15:00Z",
                 "financial_status", "paid",
                 "fulfillment_status", "pending",
-                "customer", Map.of(
-                    "first_name", "Jane",
-                    "last_name", "Demo",
-                    "email", "demo.customer2@example.com"
-                ))));
+                "customer",
+                    Map.of(
+                        "first_name", "Jane",
+                        "last_name", "Demo",
+                        "email", "demo.customer2@example.com"))));
 
     // Add timeseries data for orders chart - matching real store format
     response.put(
