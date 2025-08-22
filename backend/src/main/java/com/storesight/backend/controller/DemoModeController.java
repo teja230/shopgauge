@@ -148,55 +148,7 @@ public class DemoModeController {
     }
   }
 
-  /** Validate if current session is a demo session */
-  @GetMapping("/validate")
-  public ResponseEntity<?> validateDemoSession(HttpServletRequest request) {
-    try {
-      // Check if session indicates demo mode
-      HttpSession httpSession = request.getSession(false);
-      if (httpSession != null) {
-        Boolean isDemo = (Boolean) httpSession.getAttribute("demo_mode");
-        String demoSessionId = (String) httpSession.getAttribute("demo_session_id");
 
-        if (Boolean.TRUE.equals(isDemo) && demoSessionId != null) {
-          boolean isValid = demoModeService.isValidDemoSession(demoSessionId);
-          return ResponseEntity.ok(
-              Map.of(
-                  "isDemo",
-                  true,
-                  "isValid",
-                  isValid,
-                  "sessionId",
-                  demoSessionId,
-                  "shop",
-                  DemoModeService.DEMO_STORE_DOMAIN));
-        }
-      }
-
-      // Check cookies for shop domain
-      String shopFromCookie = getShopFromCookie(request);
-      if (demoModeService.isDemoStore(shopFromCookie)) {
-        return ResponseEntity.ok(
-            Map.of(
-                "isDemo", true,
-                "isValid", true,
-                "shop", DemoModeService.DEMO_STORE_DOMAIN));
-      }
-
-      return ResponseEntity.ok(
-          Map.of(
-              "isDemo", false,
-              "isValid", false));
-
-    } catch (Exception e) {
-      logger.error("Error validating demo session", e);
-      return ResponseEntity.ok(
-          Map.of(
-              "isDemo", false,
-              "isValid", false,
-              "error", e.getMessage()));
-    }
-  }
 
   /** End demo session */
   @PostMapping("/end")

@@ -30,6 +30,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 
+
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
  * ============================
@@ -644,7 +645,17 @@ const GraphLink = styled(MuiLink)(({ theme }) => ({
 }));
 
 const formatDate = (dateString: string) => {
-  return format(new Date(dateString), 'MMM d, yyyy');
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString);
+      return 'Invalid Date';
+    }
+    return format(date, 'MMM d, yyyy');
+  } catch (error) {
+    console.warn('Error formatting date:', dateString, error);
+    return 'Invalid Date';
+  }
 };
 
 // Add loading states for individual cards
@@ -738,6 +749,33 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
+  
+  // Enhanced demo mode detection
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const demoParam = urlParams.get('demo');
+    const localStorageFlag = localStorage.getItem('demo_mode_active');
+    
+    console.log('Dashboard: Demo mode detection', {
+      demoParam,
+      localStorageFlag,
+      shop,
+      currentUrl: window.location.href
+    });
+    
+    // Check if demo mode should be activated
+    const shouldActivateDemo = demoParam === 'true' || 
+                              shop === 'demo-shopgauge.myshopify.com' ||
+                              window.location.hostname.includes('demo');
+    
+    if (shouldActivateDemo && localStorageFlag !== 'true') {
+      console.log('Dashboard: Activating demo mode');
+      localStorage.setItem('demo_mode_active', 'true');
+      // Force a data refresh instead of page reload to avoid blank page issues
+      setDashboardDataInitialized(false);
+      setLoading(true);
+    }
+  }, [shop]);
   
   // Mobile detection
   const theme = useTheme();
@@ -1374,8 +1412,13 @@ const DashboardPage = () => {
 
   // Individual card data fetching functions with enhanced authentication checks
   const fetchRevenueData = useCallback(async (forceRefresh = false) => {
-    // Pre-flight authentication check
-    if (!isAuthenticated || !shop) {
+    // Check demo mode first
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
+    
+    // Pre-flight authentication check (skip for demo mode)
+    if (!isDemoMode && (!isAuthenticated || !shop)) {
       console.log('Dashboard: Skipping revenue fetch - not authenticated or no shop');
       setCardErrors(prev => ({ ...prev, revenue: 'Authentication required' }));
       setCardLoading(prev => ({ ...prev, revenue: false }));
@@ -1391,7 +1434,8 @@ const DashboardPage = () => {
       const data = await checkCacheAndFetch('revenue', async () => {
         // Check if demo mode is active and use appropriate endpoint
         const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
-                          new URLSearchParams(window.location.search).get('demo') === 'true';
+                          new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                          shop === 'demo-shopgauge.myshopify.com';
         const endpoint = isDemoMode ? '/api/demo/analytics/revenue' : '/api/analytics/revenue';
         console.log('Dashboard: Revenue API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
         const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
@@ -1488,8 +1532,13 @@ const DashboardPage = () => {
   }, [isAuthenticated, shop, checkCacheAndFetch]);
 
   const fetchProductsData = useCallback(async (forceRefresh = false) => {
-    // Pre-flight authentication check
-    if (!isAuthenticated || !shop) {
+    // Check demo mode first
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
+    
+    // Pre-flight authentication check (skip for demo mode)
+    if (!isDemoMode && (!isAuthenticated || !shop)) {
       console.log('Dashboard: Skipping products fetch - not authenticated or no shop');
       setCardErrors(prev => ({ ...prev, products: 'Authentication required' }));
       setCardLoading(prev => ({ ...prev, products: false }));
@@ -1504,7 +1553,8 @@ const DashboardPage = () => {
       const data = await checkCacheAndFetch('products', async () => {
         // Check if demo mode is active and use appropriate endpoint
         const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
-                          new URLSearchParams(window.location.search).get('demo') === 'true';
+                          new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                          shop === 'demo-shopgauge.myshopify.com';
         const endpoint = isDemoMode ? '/api/demo/analytics/products' : '/api/analytics/products';
         console.log('🔄 Dashboard: Making API call to', endpoint, '- using demo mode:', isDemoMode);
         const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
@@ -1773,9 +1823,13 @@ const DashboardPage = () => {
   }, [checkCacheAndFetch]);
 
   const fetchOrdersData = useCallback(async (forceRefresh = false) => {
+    // Check demo mode first
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
 
-    // Pre-flight authentication check
-    if (!isAuthenticated || !shop) {
+    // Pre-flight authentication check (skip for demo mode)
+    if (!isDemoMode && (!isAuthenticated || !shop)) {
       console.log('Dashboard: Skipping orders fetch - not authenticated or no shop');
       setCardErrors(prev => ({ ...prev, orders: 'Authentication required' }));
       setCardLoading(prev => ({ ...prev, orders: false }));
@@ -1792,7 +1846,8 @@ const DashboardPage = () => {
         // Fetch orders sequentially to avoid overwhelming the API
         // Check if demo mode is active and use appropriate endpoint
         const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
-                          new URLSearchParams(window.location.search).get('demo') === 'true';
+                          new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                          shop === 'demo-shopgauge.myshopify.com';
         const endpoint = isDemoMode ? '/api/demo/analytics/orders' : '/api/analytics/orders/timeseries?page=1&limit=50&days=60';
         console.log('Dashboard: Orders API call - using demo mode:', isDemoMode, 'endpoint:', endpoint);
         const response = await retryWithBackoff(() => fetchWithAuth(endpoint));
@@ -1998,18 +2053,42 @@ const DashboardPage = () => {
   const initialLoadTriggeredRef = useRef(false);
 
   useEffect(() => {
-    if (!isAuthReady || authLoading || !isAuthenticated || !shop || !isInitialLoad) {
-      return;
-    }
+    // Check if we're in demo mode
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
 
-    // Prevent multiple triggers
-    if (initialLoadTriggeredRef.current) {
-      console.log('🔒 Dashboard: Initial load already triggered, skipping');
-      return;
-    }
+    // For demo mode, skip authentication requirements
+    if (isDemoMode) {
+      // Set demo shop if not already set
+      const demoShop = shop || 'demo-shopgauge.myshopify.com';
+      
+      if (!isInitialLoad) {
+        return;
+      }
+      
+      if (initialLoadTriggeredRef.current) {
+        console.log('🔒 Dashboard (Demo): Initial load already triggered, skipping');
+        return;
+      }
 
-    console.log('🚀 DASHBOARD: Starting initial data load for shop:', shop);
-    initialLoadTriggeredRef.current = true;
+      console.log('🚀 DASHBOARD (DEMO): Starting initial data load for demo mode with shop:', demoShop);
+      initialLoadTriggeredRef.current = true;
+    } else {
+      // For live mode, require authentication
+      if (!isAuthReady || authLoading || !isAuthenticated || !shop || !isInitialLoad) {
+        return;
+      }
+
+      // Prevent multiple triggers
+      if (initialLoadTriggeredRef.current) {
+        console.log('🔒 Dashboard: Initial load already triggered, skipping');
+        return;
+      }
+
+      console.log('🚀 DASHBOARD: Starting initial data load for shop:', shop);
+      initialLoadTriggeredRef.current = true;
+    }
     
     // Initialize insights with empty structure to prevent null issues
     if (!insights) {
@@ -2127,7 +2206,7 @@ const DashboardPage = () => {
         console.error('Failed to save critical error to localStorage:', e);
       }
     }
-  }, [isAuthReady, authLoading, isAuthenticated, shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]); // Added fetch functions back since they're now stable
+  }, [isAuthReady, authLoading, isAuthenticated, shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData, dashboardDataInitialized]); // Added fetch functions back since they're now stable
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState, force: boolean = false) => {
@@ -2984,7 +3063,7 @@ const DashboardPage = () => {
                             )}
                           </OrderTitle>
                           <OrderDetails>
-                            {formatDate(order.created_at)} • ${order.total_price}
+                            {order.created_at ? formatDate(order.created_at) : 'Unknown Date'} • ${order.total_price}
                           </OrderDetails>
                         </OrderInfo>
                       </OrderItem>
