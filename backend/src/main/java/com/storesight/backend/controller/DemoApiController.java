@@ -1,6 +1,7 @@
 package com.storesight.backend.controller;
 
 import com.storesight.backend.service.DemoModeService;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +26,17 @@ public class DemoApiController {
   private static final Logger logger = LoggerFactory.getLogger(DemoApiController.class);
 
   @Autowired private DemoModeService demoModeService;
+
+  /** Generate relative date string for demo data */
+  private String getRelativeDate(int daysAgo) {
+    return LocalDate.now().minusDays(daysAgo).toString();
+  }
+
+  /** Generate relative datetime string for demo data */
+  private String getRelativeDateTime(int daysAgo, int hour, int minute) {
+    return LocalDate.now().minusDays(daysAgo).toString()
+        + String.format("T%02d:%02d:00Z", hour, minute);
+  }
 
   /** Validate demo session */
   @GetMapping("/validate")
@@ -139,7 +151,7 @@ public class DemoApiController {
                 "id", "Temporary-1",
                 "order_number", "#DM-1001",
                 "total_price", "$180.00",
-                "created_at", "2024-08-20T10:30:00Z",
+                "created_at", getRelativeDateTime(1, 10, 30),
                 "financial_status", "paid",
                 "fulfillment_status", "fulfilled",
                 "customer",
@@ -151,7 +163,7 @@ public class DemoApiController {
                 "id", "Temporary-2",
                 "order_number", "#DM-1002",
                 "total_price", "$120.00",
-                "created_at", "2024-08-20T14:15:00Z",
+                "created_at", getRelativeDateTime(2, 14, 15),
                 "financial_status", "paid",
                 "fulfillment_status", "pending",
                 "customer",
@@ -164,26 +176,26 @@ public class DemoApiController {
     response.put(
         "timeseries",
         Arrays.asList(
-            Map.of("total_price", 850.0, "created_at", "2024-08-01"),
-            Map.of("total_price", 920.0, "created_at", "2024-08-02"),
-            Map.of("total_price", 780.0, "created_at", "2024-08-03"),
-            Map.of("total_price", 1150.0, "created_at", "2024-08-04"),
-            Map.of("total_price", 1050.0, "created_at", "2024-08-05"),
-            Map.of("total_price", 890.0, "created_at", "2024-08-06"),
-            Map.of("total_price", 1200.0, "created_at", "2024-08-07"),
-            Map.of("total_price", 950.0, "created_at", "2024-08-08"),
-            Map.of("total_price", 1080.0, "created_at", "2024-08-09"),
-            Map.of("total_price", 940.0, "created_at", "2024-08-10"),
-            Map.of("total_price", 1150.0, "created_at", "2024-08-11"),
-            Map.of("total_price", 1300.0, "created_at", "2024-08-12"),
-            Map.of("total_price", 1100.0, "created_at", "2024-08-13"),
-            Map.of("total_price", 980.0, "created_at", "2024-08-14"),
-            Map.of("total_price", 1250.0, "created_at", "2024-08-15"),
-            Map.of("total_price", 1180.0, "created_at", "2024-08-16"),
-            Map.of("total_price", 1050.0, "created_at", "2024-08-17"),
-            Map.of("total_price", 1400.0, "created_at", "2024-08-18"),
-            Map.of("total_price", 1350.0, "created_at", "2024-08-19"),
-            Map.of("total_price", 1450.0, "created_at", "2024-08-20")));
+            Map.of("total_price", 850.0, "created_at", getRelativeDate(20)),
+            Map.of("total_price", 920.0, "created_at", getRelativeDate(19)),
+            Map.of("total_price", 780.0, "created_at", getRelativeDate(18)),
+            Map.of("total_price", 1150.0, "created_at", getRelativeDate(17)),
+            Map.of("total_price", 1050.0, "created_at", getRelativeDate(16)),
+            Map.of("total_price", 890.0, "created_at", getRelativeDate(15)),
+            Map.of("total_price", 1200.0, "created_at", getRelativeDate(14)),
+            Map.of("total_price", 950.0, "created_at", getRelativeDate(13)),
+            Map.of("total_price", 1080.0, "created_at", getRelativeDate(12)),
+            Map.of("total_price", 940.0, "created_at", getRelativeDate(11)),
+            Map.of("total_price", 1150.0, "created_at", getRelativeDate(10)),
+            Map.of("total_price", 1300.0, "created_at", getRelativeDate(9)),
+            Map.of("total_price", 1100.0, "created_at", getRelativeDate(8)),
+            Map.of("total_price", 980.0, "created_at", getRelativeDate(7)),
+            Map.of("total_price", 1250.0, "created_at", getRelativeDate(6)),
+            Map.of("total_price", 1180.0, "created_at", getRelativeDate(5)),
+            Map.of("total_price", 1050.0, "created_at", getRelativeDate(4)),
+            Map.of("total_price", 1400.0, "created_at", getRelativeDate(3)),
+            Map.of("total_price", 1350.0, "created_at", getRelativeDate(2)),
+            Map.of("total_price", 1450.0, "created_at", getRelativeDate(1))));
 
     return ResponseEntity.ok(response);
   }
@@ -210,26 +222,26 @@ public class DemoApiController {
     response.put(
         "timeseries",
         Arrays.asList(
-            Map.of("total_price", 850.0, "created_at", "2024-08-01"),
-            Map.of("total_price", 920.0, "created_at", "2024-08-02"),
-            Map.of("total_price", 780.0, "created_at", "2024-08-03"),
-            Map.of("total_price", 1150.0, "created_at", "2024-08-04"),
-            Map.of("total_price", 1050.0, "created_at", "2024-08-05"),
-            Map.of("total_price", 890.0, "created_at", "2024-08-06"),
-            Map.of("total_price", 1200.0, "created_at", "2024-08-07"),
-            Map.of("total_price", 950.0, "created_at", "2024-08-08"),
-            Map.of("total_price", 1080.0, "created_at", "2024-08-09"),
-            Map.of("total_price", 940.0, "created_at", "2024-08-10"),
-            Map.of("total_price", 1150.0, "created_at", "2024-08-11"),
-            Map.of("total_price", 1300.0, "created_at", "2024-08-12"),
-            Map.of("total_price", 1100.0, "created_at", "2024-08-13"),
-            Map.of("total_price", 980.0, "created_at", "2024-08-14"),
-            Map.of("total_price", 1250.0, "created_at", "2024-08-15"),
-            Map.of("total_price", 1180.0, "created_at", "2024-08-16"),
-            Map.of("total_price", 1050.0, "created_at", "2024-08-17"),
-            Map.of("total_price", 1400.0, "created_at", "2024-08-18"),
-            Map.of("total_price", 1350.0, "created_at", "2024-08-19"),
-            Map.of("total_price", 1450.0, "created_at", "2024-08-20")));
+            Map.of("total_price", 850.0, "created_at", getRelativeDate(20)),
+            Map.of("total_price", 920.0, "created_at", getRelativeDate(19)),
+            Map.of("total_price", 780.0, "created_at", getRelativeDate(18)),
+            Map.of("total_price", 1150.0, "created_at", getRelativeDate(17)),
+            Map.of("total_price", 1050.0, "created_at", getRelativeDate(16)),
+            Map.of("total_price", 890.0, "created_at", getRelativeDate(15)),
+            Map.of("total_price", 1200.0, "created_at", getRelativeDate(14)),
+            Map.of("total_price", 950.0, "created_at", getRelativeDate(13)),
+            Map.of("total_price", 1080.0, "created_at", getRelativeDate(12)),
+            Map.of("total_price", 940.0, "created_at", getRelativeDate(11)),
+            Map.of("total_price", 1150.0, "created_at", getRelativeDate(10)),
+            Map.of("total_price", 1300.0, "created_at", getRelativeDate(9)),
+            Map.of("total_price", 1100.0, "created_at", getRelativeDate(8)),
+            Map.of("total_price", 980.0, "created_at", getRelativeDate(7)),
+            Map.of("total_price", 1250.0, "created_at", getRelativeDate(6)),
+            Map.of("total_price", 1180.0, "created_at", getRelativeDate(5)),
+            Map.of("total_price", 1050.0, "created_at", getRelativeDate(4)),
+            Map.of("total_price", 1400.0, "created_at", getRelativeDate(3)),
+            Map.of("total_price", 1350.0, "created_at", getRelativeDate(2)),
+            Map.of("total_price", 1450.0, "created_at", getRelativeDate(1))));
 
     return ResponseEntity.ok(response);
   }

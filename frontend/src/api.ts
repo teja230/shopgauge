@@ -2,9 +2,11 @@ import axios from 'axios';
 import { debugLog } from './components/ui/DebugPanel';
 
 // Enterprise-grade: never hard-code hostnames. Prefer environment config and, in dev, fallback to relative API proxy.
+// In development: Empty string allows Vite proxy to handle requests (configured in vite.config.ts)
+// In production: VITE_API_BASE_URL should be set to the full API domain (e.g., https://api.shopgaugeai.com)
 export const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL as string | undefined
-) || ''; // Empty string for development proxy
+) || ''; // Empty string for development proxy - routes through Vite dev server proxy
 
 if (!import.meta.env.VITE_API_BASE_URL) {
   // Warn during development so engineers remember to configure the variable in production builds
