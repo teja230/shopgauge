@@ -644,17 +644,20 @@ const GraphLink = styled(MuiLink)(({ theme }) => ({
   },
 }));
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string | null | undefined) => {
   try {
+    if (!dateString) {
+      return '--';
+    }
     const date = new Date(dateString);
     if (isNaN(date.getTime())) {
       console.warn('Invalid date string:', dateString);
-      return 'Invalid Date';
+      return '--';
     }
     return format(date, 'MMM d, yyyy');
   } catch (error) {
     console.warn('Error formatting date:', dateString, error);
-    return 'Invalid Date';
+    return '--';
   }
 };
 
@@ -3063,7 +3066,7 @@ const DashboardPage = () => {
                             )}
                           </OrderTitle>
                           <OrderDetails>
-                            {order.created_at ? formatDate(order.created_at) : 'Unknown Date'} • ${order.total_price}
+                            {formatDate(order.created_at)} • ${order.total_price}
                           </OrderDetails>
                         </OrderInfo>
                       </OrderItem>

@@ -122,7 +122,7 @@ const HomePage = () => {
   const handleDemoMode = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/demo/start`, {
+      const response = await fetch(`${API_BASE_URL}/api/demo/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
