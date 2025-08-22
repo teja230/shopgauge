@@ -148,8 +148,6 @@ public class DemoModeController {
     }
   }
 
-
-
   /** End demo session */
   @PostMapping("/end")
   public ResponseEntity<?> endDemo(HttpServletRequest request, HttpServletResponse response) {
