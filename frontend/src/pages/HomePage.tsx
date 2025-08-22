@@ -362,10 +362,11 @@ const HomePage = () => {
                   </div>
                 </form>
               ) : (
-                <div className="flex flex-col sm:flex-row gap-3 items-center">
+                                <div className="flex flex-col items-center">
+                  {/* Primary CTA - Connect Store */}
                   <button
                     onClick={() => setShowConnectForm(true)}
-                    className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
+                    className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95 mb-3"
                   >
                     <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -373,16 +374,16 @@ const HomePage = () => {
                     Connect Store
                   </button>
                   
-                  {/* Demo Mode Button with Tooltip */}
+                  {/* Secondary CTA - Try Demo */}
                   <div className="relative group">
                     <button
                       onClick={handleDemoMode}
                       disabled={isLoading}
-                      className="inline-flex items-center px-6 py-4 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 hover:shadow-xl transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 bg-transparent border border-white/30 text-white hover:bg-white/10 hover:border-white/50 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? (
                         <>
-                          <svg className="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>

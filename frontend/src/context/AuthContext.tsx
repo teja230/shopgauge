@@ -163,52 +163,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthContext: Demo mode detected:', isDemoMode);
     
     if (isDemoMode) {
-      console.log('AuthContext: Detected demo mode request, validating demo session');
-      console.log('AuthContext: Making API call to validate demo session');
-      console.log('AuthContext: API_BASE_URL:', API_BASE_URL);
-      console.log('AuthContext: Full URL:', `${API_BASE_URL}/api/demo/validate`);
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/demo/validate`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-Correlation-ID': `demo-validate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          },
-          credentials: 'include',
-          cache: 'no-cache',
-        });
-
-        console.log('AuthContext: Demo validation response status:', response.status);
-        console.log('AuthContext: Demo validation response headers:', response.headers);
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('AuthContext: Demo validation response data:', data);
-          if (data.isDemo && data.isValid) {
-            console.log('AuthContext: Demo session validated successfully');
-            setShop('demo-shopgauge.myshopify.com');
-            setIsAuthenticated(true);
-            setIsAuthReady(true);
-            setIsDemoMode(true);
-            setApiAuthState(true, 'demo-shopgauge.myshopify.com');
-            setHasInitiallyLoaded(true);
-            
-            // Set a global demo mode flag for the API layer
-            window.localStorage.setItem('demo_mode_active', 'true');
-            
-            // Clean up the demo URL parameter
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.delete('demo');
-            window.history.replaceState({}, '', newUrl.toString());
-            return;
-          }
-        }
-        
-        console.log('AuthContext: Demo validation failed, falling back to regular auth');
-      } catch (error) {
-        console.error('AuthContext: Error during demo validation:', error);
-      }
+      console.log('AuthContext: Detected demo mode request, setting up demo session directly');
+      
+      // Set up demo mode directly without backend validation
+      const demoShop = 'demo-shopgauge.myshopify.com';
+      console.log('AuthContext: Setting up demo session for shop:', demoShop);
+      
+      setShop(demoShop);
+      setIsAuthenticated(true);
+      setIsAuthReady(true);
+      setIsDemoMode(true);
+      setApiAuthState(true, demoShop);
+      setHasInitiallyLoaded(true);
+      
+      // Set a global demo mode flag for the API layer
+      window.localStorage.setItem('demo_mode_active', 'true');
+      
+      console.log('AuthContext: Demo mode setup complete');
+      return;
     }
     
     // Check if this is a post-OAuth redirect (user just completed OAuth)
