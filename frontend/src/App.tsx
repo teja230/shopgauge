@@ -69,8 +69,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   
   // For demo mode, allow the component to render even if not yet authenticated
   // The AuthContext will handle demo authentication
-  if (isDemoMode && !isAuthenticated) {
-    return <IntelligentLoadingScreen fastMode={true} message="Setting up demo..." />;
+  if (isDemoMode) {
+    // Allow demo mode to proceed regardless of authentication status
+    // The AuthContext will set up demo authentication automatically
+    return <>{children}</>;
   }
   
   // Render protected content
