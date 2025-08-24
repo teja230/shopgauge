@@ -179,7 +179,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set a global demo mode flag for the API layer
       window.localStorage.setItem('demo_mode_active', 'true');
       
-      console.log('AuthContext: Demo mode setup complete');
+      console.log('AuthContext: Demo mode setup complete', {
+        shop: demoShop,
+        isAuthenticated: true,
+        isDemoMode: true,
+        isAuthReady: true,
+        hasInitiallyLoaded: true
+      });
       return;
     }
     
