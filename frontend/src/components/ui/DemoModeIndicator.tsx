@@ -158,6 +158,8 @@ export const DemoModeBanner: React.FC = () => {
           <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 space-y-2">
             <button
               onClick={() => {
+                console.log('DemoModeIndicator: Restarting tutorial');
+                
                 // Clear tutorial completion flags to allow restart
                 const demoShop = 'demo-shopgauge.myshopify.com';
                 localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
@@ -165,8 +167,23 @@ export const DemoModeBanner: React.FC = () => {
                 sessionStorage.removeItem('demo_dashboard_tutorial_shown');
                 sessionStorage.removeItem('demo_competitors_tutorial_shown');
                 
-                // Refresh the current page to trigger tutorial
-                window.location.reload();
+                // Ensure demo mode flags are maintained
+                localStorage.setItem('demo_mode_active', 'true');
+                sessionStorage.setItem('demo_session_started', new Date().toISOString());
+                
+                // Instead of refreshing, redirect to dashboard with demo=true to ensure proper demo mode setup
+                const currentPath = window.location.pathname;
+                if (currentPath === '/dashboard' || currentPath === '/') {
+                  // For dashboard, redirect with demo parameter to ensure proper setup
+                  window.location.href = '/dashboard?demo=true';
+                } else if (currentPath === '/competitors') {
+                  // For competitors page, first go to dashboard, then navigate to competitors
+                  // This ensures the tutorial flow works properly (dashboard first, then competitors)
+                  window.location.href = '/dashboard?demo=true';
+                } else {
+                  // For any other page, go to dashboard first
+                  window.location.href = '/dashboard?demo=true';
+                }
               }}
               className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
             >
