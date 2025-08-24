@@ -144,6 +144,10 @@ const HomePage = () => {
           localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
           localStorage.removeItem(`tutorialCompleted_${demoShop}`);
           
+          // Set demo mode flags BEFORE redirect to prevent race condition
+          localStorage.setItem('demo_mode_active', 'true');
+          localStorage.setItem('isAuthenticated', 'true');
+          
           // Navigate to dashboard with demo flag
           window.location.href = data.redirectUrl || '/dashboard?demo=true';
         } else {
