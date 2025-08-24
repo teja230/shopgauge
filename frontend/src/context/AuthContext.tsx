@@ -121,44 +121,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
-    // Set demo mode flag immediately if URL contains demo=true
+    // Check for demo mode from multiple sources
     const urlParams = new URLSearchParams(window.location.search);
     const isDemoModeInUrl = urlParams.get('demo') === 'true';
+    const isDemoModeInLocalStorage = localStorage.getItem('demo_mode_active') === 'true';
+    const shouldSetupDemo = isDemoModeInUrl || isDemoModeInLocalStorage;
     
-    if (isDemoModeInUrl) {
-      console.log('AuthContext: Setting demo mode flag from URL parameter');
-      localStorage.setItem('demo_mode_active', 'true');
-      setIsDemoMode(true);
+    if (shouldSetupDemo && !isAuthenticated) {
+      console.log('AuthContext: Demo mode detected, setting up demo session', {
+        isDemoModeInUrl,
+        isDemoModeInLocalStorage,
+        isAuthenticated
+      });
       
-      // If we're in demo mode and not authenticated, set up demo session
-      if (!isAuthenticated) {
-        console.log('AuthContext: Setting up demo session from URL parameter');
-        const demoShop = 'demo-shopgauge.myshopify.com';
-        setShop(demoShop);
-        setIsAuthenticated(true);
-        setIsAuthReady(true);
-        setApiAuthState(true, demoShop);
-        setHasInitiallyLoaded(true);
-        
-        // Set authentication flag for session heartbeat compatibility
-        window.localStorage.setItem('isAuthenticated', 'true');
-        
-        console.log('AuthContext: Demo mode setup complete from URL parameter', {
-          shop: demoShop,
-          isAuthenticated: true,
-          isDemoMode: true,
-          isAuthReady: true,
-          hasInitiallyLoaded: true
-        });
-        return;
-      }
+      // Set up demo session immediately
+      const demoShop = 'demo-shopgauge.myshopify.com';
+      
+      // Set all demo flags
+      localStorage.setItem('demo_mode_active', 'true');
+      localStorage.setItem('isAuthenticated', 'true');
+      sessionStorage.setItem('shop', demoShop);
+      
+      // Update state
+      setShop(demoShop);
+      setIsAuthenticated(true);
+      setIsAuthReady(true);
+      setIsDemoMode(true);
+      setApiAuthState(true, demoShop);
+      setHasInitiallyLoaded(true);
+      setAuthLoading(false);
+      setLoading(false);
+      
+      console.log('AuthContext: Demo mode setup complete', {
+        shop: demoShop,
+        isAuthenticated: true,
+        isDemoMode: true,
+        isAuthReady: true,
+        hasInitiallyLoaded: true
+      });
+      return;
     }
     
-    // Only run initial auth check on mount
-    if (!hasInitiallyLoaded) {
+    // Only run initial auth check on mount if not in demo mode
+    if (!hasInitiallyLoaded && !shouldSetupDemo) {
       checkAuth();
     }
-  }, [hasInitiallyLoaded, isAuthenticated]);
+  }, [hasInitiallyLoaded]);
 
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
