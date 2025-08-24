@@ -136,6 +136,14 @@ const HomePage = () => {
           // Clear any existing cache before demo
           sessionStorage.clear();
           
+          // Set up demo session for tutorial system
+          sessionStorage.setItem('demo_session_started', new Date().toISOString());
+          
+          // Clear any previous tutorial completion for fresh demo experience
+          const demoShop = 'demo-shopgauge.myshopify.com';
+          localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
+          localStorage.removeItem(`tutorialCompleted_${demoShop}`);
+          
           // Navigate to dashboard with demo flag
           window.location.href = data.redirectUrl || '/dashboard?demo=true';
         } else {

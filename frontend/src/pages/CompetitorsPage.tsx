@@ -2747,6 +2747,42 @@ export default function CompetitorsPage() {
     }
   }, [isDemoMode, demoStartTime, startDemoSession, endDemoSession]);
 
+  // Auto-trigger tutorial for demo mode users
+  useEffect(() => {
+    if (isDemoMode && shop && !authLoading && isAuthReady && competitors.length > 0) {
+      const tutorialCompleted = localStorage.getItem(`tutorialCompleted_${shop}`);
+      const demoTutorialShown = sessionStorage.getItem('demo_competitors_tutorial_shown');
+      const dashboardTutorialShown = sessionStorage.getItem('demo_dashboard_tutorial_shown');
+      
+      console.log('Competitors: Auto-tutorial check', {
+        isDemoMode,
+        shop,
+        authLoading,
+        isAuthReady,
+        competitorsCount: competitors.length,
+        tutorialCompleted,
+        demoTutorialShown,
+        dashboardTutorialShown
+      });
+      
+      // Auto-trigger tutorial for first-time demo users, but only if they've seen the dashboard tutorial
+      // or if they landed directly on competitors page
+      if (tutorialCompleted !== 'true' && !demoTutorialShown && !showTutorial && 
+          (dashboardTutorialShown || window.location.pathname === '/competitors')) {
+        console.log('Competitors: Auto-triggering tutorial for demo user');
+        // Small delay to let the page fully load and data populate
+        setTimeout(() => {
+          setShowTutorial(true);
+          sessionStorage.setItem('demo_competitors_tutorial_shown', 'true');
+          notifications.showInfo('Welcome to Market Intelligence! Let\'s explore how to monitor your competitors.', {
+            category: 'Tutorial',
+            duration: 4000
+          });
+        }, 1500); // 1.5-second delay for better UX
+      }
+    }
+  }, [isDemoMode, shop, authLoading, isAuthReady, competitors.length, showTutorial, notifications]);
+
   // Cleanup demo session on unmount
   useEffect(() => {
     return () => {
