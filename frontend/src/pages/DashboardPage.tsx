@@ -848,7 +848,7 @@ const DashboardPage = () => {
         }, 2000); // 2-second delay for better UX
       }
     }
-  }, [isDemoMode, shop, authLoading, isAuthReady, loading, showTutorial, notifications]);
+  }, [shop, authLoading, isAuthReady, loading, showTutorial, notifications]);
 
   // =====================================
   // Polling management refs (typed)
