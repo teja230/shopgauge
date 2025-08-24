@@ -155,7 +155,23 @@ export const DemoModeBanner: React.FC = () => {
           </div>
 
           {/* Actions */}
-          <div className="bg-gray-50 px-4 py-3 border-t border-gray-100">
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 space-y-2">
+            <button
+              onClick={() => {
+                // Clear tutorial completion flags to allow restart
+                const demoShop = 'demo-shopgauge.myshopify.com';
+                localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
+                localStorage.removeItem(`tutorialCompleted_${demoShop}`);
+                sessionStorage.removeItem('demo_dashboard_tutorial_shown');
+                sessionStorage.removeItem('demo_competitors_tutorial_shown');
+                
+                // Refresh the current page to trigger tutorial
+                window.location.reload();
+              }}
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+            >
+              🎯 Restart Tutorial
+            </button>
             <button
               onClick={handleExitDemo}
               className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"

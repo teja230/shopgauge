@@ -814,6 +814,42 @@ const DashboardPage = () => {
     }
   }, [showTutorial]);
 
+  // Auto-trigger tutorial for demo mode users
+  useEffect(() => {
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
+    
+    if (isDemoMode && shop && !authLoading && isAuthReady && !loading) {
+      const tutorialCompleted = localStorage.getItem(`dashboard_tutorial_completed_${shop}`);
+      const demoTutorialShown = sessionStorage.getItem('demo_dashboard_tutorial_shown');
+      
+      console.log('Dashboard: Auto-tutorial check', {
+        isDemoMode,
+        shop,
+        authLoading,
+        isAuthReady,
+        loading,
+        tutorialCompleted,
+        demoTutorialShown
+      });
+      
+      // Auto-trigger tutorial for first-time demo users
+      if (tutorialCompleted !== 'true' && !demoTutorialShown && !showTutorial) {
+        console.log('Dashboard: Auto-triggering tutorial for demo user');
+        // Small delay to let the page fully load and data populate
+        setTimeout(() => {
+          setShowTutorial(true);
+          sessionStorage.setItem('demo_dashboard_tutorial_shown', 'true');
+          notifications.showInfo('Welcome to your demo dashboard! Let\'s take a quick tour of the key features.', {
+            category: 'Tutorial',
+            duration: 4000
+          });
+        }, 2000); // 2-second delay for better UX
+      }
+    }
+  }, [isDemoMode, shop, authLoading, isAuthReady, loading, showTutorial, notifications]);
+
   // =====================================
   // Polling management refs (typed)
   // =====================================
@@ -2683,6 +2719,10 @@ const DashboardPage = () => {
     if (status === 'finished') {
       setShowTutorial(false);
       tutorialNotificationShownRef.current = true;
+      // Mark tutorial as completed for this shop
+      if (shop) {
+        localStorage.setItem(`dashboard_tutorial_completed_${shop}`, 'true');
+      }
       notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
         category: 'Tutorial',
         duration: 4000
@@ -2690,6 +2730,10 @@ const DashboardPage = () => {
     } else if (status === 'skipped') {
       setShowTutorial(false);
       tutorialNotificationShownRef.current = true;
+      // Mark tutorial as completed for this shop (even if skipped)
+      if (shop) {
+        localStorage.setItem(`dashboard_tutorial_completed_${shop}`, 'true');
+      }
       notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
         category: 'Tutorial',
         duration: 3000
@@ -2697,6 +2741,10 @@ const DashboardPage = () => {
     } else if (action === 'close') {
       setShowTutorial(false);
       tutorialNotificationShownRef.current = true;
+      // Mark tutorial as completed for this shop (even if closed)
+      if (shop) {
+        localStorage.setItem(`dashboard_tutorial_completed_${shop}`, 'true');
+      }
       // Don't show notification for close action to avoid duplicates
     }
     // Handle step navigation - let Joyride handle navigation internally
