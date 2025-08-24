@@ -835,8 +835,9 @@ const DashboardPage = () => {
       });
       
       // Auto-trigger tutorial for first-time demo users
-      if (tutorialCompleted !== 'true' && !demoTutorialShown && !showTutorial) {
+      if (tutorialCompleted !== 'true' && !demoTutorialShown && !showTutorial && !tutorialNotificationShownRef.current) {
         console.log('Dashboard: Auto-triggering tutorial for demo user');
+        tutorialNotificationShownRef.current = true; // Prevent multiple triggers
         // Small delay to let the page fully load and data populate
         setTimeout(() => {
           setShowTutorial(true);
@@ -848,7 +849,7 @@ const DashboardPage = () => {
         }, 2000); // 2-second delay for better UX
       }
     }
-  }, [shop, authLoading, isAuthReady, loading, showTutorial, notifications]);
+  }, [shop, authLoading, isAuthReady, loading, showTutorial]); // Removed 'notifications' to prevent re-triggering
 
   // =====================================
   // Polling management refs (typed)
