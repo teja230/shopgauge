@@ -9,28 +9,32 @@ const redirectsPlugin = () => {
   return {
     name: 'spa-fallback',
     configureServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: any) => {
+      // Ensure Vite's React preamble and HMR scripts are injected via transformIndexHtml
+      server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
-        
+
         // Only handle exact route matches, not partial matches or query parameters
         const cleanUrl = url.split('?')[0]; // Remove query parameters
-        
+
         // Skip API routes, static assets, and development files
-        if (cleanUrl.startsWith('/api') || 
-            cleanUrl.startsWith('/@') || 
-            cleanUrl.includes('.') ||
-            cleanUrl === '/') {
+        if (
+          cleanUrl.startsWith('/api') ||
+          cleanUrl.startsWith('/@') ||
+          cleanUrl.includes('.') ||
+          cleanUrl === '/'
+        ) {
           next();
           return;
         }
-        
+
         console.log(`[SPA Fallback] Serving index.html for route: ${cleanUrl}`);
-        
+
         // For all other routes, serve the main index.html to let React Router handle routing
         try {
           const indexHtml = readFileSync(resolve(__dirname, 'index.html'), 'utf-8');
+          const transformed = await server.transformIndexHtml(url, indexHtml);
           res.setHeader('Content-Type', 'text/html');
-          res.end(indexHtml);
+          res.end(transformed);
           return;
         } catch (err) {
           console.error('Error serving index.html:', err);
