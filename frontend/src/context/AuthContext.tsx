@@ -129,13 +129,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('AuthContext: Setting demo mode flag from URL parameter');
       localStorage.setItem('demo_mode_active', 'true');
       setIsDemoMode(true);
+      
+      // If we're in demo mode and not authenticated, set up demo session
+      if (!isAuthenticated) {
+        console.log('AuthContext: Setting up demo session from URL parameter');
+        const demoShop = 'demo-shopgauge.myshopify.com';
+        setShop(demoShop);
+        setIsAuthenticated(true);
+        setIsAuthReady(true);
+        setApiAuthState(true, demoShop);
+        setHasInitiallyLoaded(true);
+        
+        // Set authentication flag for session heartbeat compatibility
+        window.localStorage.setItem('isAuthenticated', 'true');
+        
+        console.log('AuthContext: Demo mode setup complete from URL parameter', {
+          shop: demoShop,
+          isAuthenticated: true,
+          isDemoMode: true,
+          isAuthReady: true,
+          hasInitiallyLoaded: true
+        });
+        return;
+      }
     }
     
     // Only run initial auth check on mount
     if (!hasInitiallyLoaded) {
       checkAuth();
     }
-  }, [hasInitiallyLoaded]);
+  }, [hasInitiallyLoaded, isAuthenticated]);
 
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
