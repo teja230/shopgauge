@@ -1066,6 +1066,8 @@ export default function CompetitorsPage() {
   const [showTutorial, setShowTutorial] = useState(false);
   // Add a ref to prevent duplicate notifications
   const notificationShownRef = useRef(false);
+  // Add a ref to prevent duplicate tutorial auto-triggers
+  const tutorialAutoTriggerRef = useRef(false);
 
   const [showDemoSettings, setShowDemoSettings] = useState(false);
   const [demoPreferences, setDemoPreferences] = useState<DemoPreferences>(DEFAULT_DEMO_PREFERENCES);
@@ -2768,8 +2770,10 @@ export default function CompetitorsPage() {
       // Auto-trigger tutorial for first-time demo users, but only if they've seen the dashboard tutorial
       // or if they landed directly on competitors page
       if (tutorialCompleted !== 'true' && !demoTutorialShown && !showTutorial && 
+          !tutorialAutoTriggerRef.current &&
           (dashboardTutorialShown || window.location.pathname === '/competitors')) {
         console.log('Competitors: Auto-triggering tutorial for demo user');
+        tutorialAutoTriggerRef.current = true; // Prevent multiple triggers
         // Small delay to let the page fully load and data populate
         setTimeout(() => {
           setShowTutorial(true);
@@ -2781,7 +2785,7 @@ export default function CompetitorsPage() {
         }, 1500); // 1.5-second delay for better UX
       }
     }
-  }, [isDemoMode, shop, authLoading, isAuthReady, competitors.length, showTutorial, notifications]);
+  }, [isDemoMode, shop, authLoading, isAuthReady, competitors.length, showTutorial]); // Removed 'notifications' to prevent re-triggering
 
   // Cleanup demo session on unmount
   useEffect(() => {
