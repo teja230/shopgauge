@@ -178,6 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Set a global demo mode flag for the API layer
       window.localStorage.setItem('demo_mode_active', 'true');
+      // Set authentication flag for session heartbeat compatibility
+      window.localStorage.setItem('isAuthenticated', 'true');
       
       console.log('AuthContext: Demo mode setup complete', {
         shop: demoShop,
@@ -362,8 +364,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsDemoMode(false);
       setApiAuthState(false, null);
       
-      // Clear demo mode flag
+      // Clear demo mode flag and authentication state
       localStorage.removeItem('demo_mode_active');
+      localStorage.removeItem('isAuthenticated');
       sessionStorage.removeItem('demo_mode_active');
       setIsAuthReady(true);
       console.log('AuthContext: Logout completed');
