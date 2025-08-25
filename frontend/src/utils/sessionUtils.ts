@@ -146,14 +146,24 @@ class SessionManager {
   }
 
   private async sendHeartbeat(): Promise<void> {
-    // Only send heartbeat if authenticated
+    // Demo mode: short-circuit and simulate success to avoid backend checks/cookies
+    try {
+      const isDemoMode =
+        localStorage.getItem('demo_mode_active') === 'true' ||
+        new URLSearchParams(window.location.search).get('demo') === 'true';
+      if (isDemoMode) {
+        console.log('💓 Demo mode heartbeat - simulated success');
+        this.retryCount = 0;
+        return;
+      }
+    } catch (_) { /* ignore demo detection errors */ }
+
+    // Only send heartbeat if authenticated (non-demo mode)
     let isAuthenticated = false;
     try {
-      // Try to read from localStorage or a global variable (adjust as needed for your app)
       isAuthenticated = JSON.parse(localStorage.getItem('isAuthenticated') || 'false');
     } catch (e) { /* ignore - fallback to unauthenticated */ }
     if (!isAuthenticated) {
-      // Suppress heartbeat if not authenticated
       console.log('🔕 Skipping heartbeat: user not authenticated');
       return;
     }
