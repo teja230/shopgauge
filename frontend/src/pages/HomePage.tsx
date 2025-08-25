@@ -149,7 +149,7 @@ const HomePage = () => {
           localStorage.setItem('isAuthenticated', 'true');
           sessionStorage.setItem('shop', 'demo-shopgauge.myshopify.com');
           
-          // Navigate to dashboard with demo flag
+          // Navigate to dashboard with demo flag (URL will be cleaned by AuthContext)
           window.location.href = data.redirectUrl || '/dashboard?demo=true';
         } else {
           throw new Error(data.message || 'Failed to start demo mode');
