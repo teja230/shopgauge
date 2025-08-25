@@ -402,7 +402,7 @@ const HomePage = () => {
                         </svg>
                       ) : (
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          <path d="M8 5v14l11-7z"/>
                         </svg>
                       )}
                     </button>
@@ -410,11 +410,11 @@ const HomePage = () => {
                     {/* Enhanced Tooltip */}
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-4 py-3 bg-gray-900/95 backdrop-blur-sm text-white text-sm rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-10 shadow-2xl border border-gray-700">
                       <div className="flex items-center mb-2">
-                        <span className="mr-2 text-lg">🎯</span>
+                        <span className="mr-2 text-lg">▶️</span>
                         <span className="font-semibold">Try Demo</span>
                       </div>
                       <div className="text-xs opacity-90 leading-relaxed">
-                        Explore our platform with<br/>realistic sample data
+                        Start exploring with<br/>realistic sample data
                       </div>
                       {/* Tooltip arrow */}
                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
