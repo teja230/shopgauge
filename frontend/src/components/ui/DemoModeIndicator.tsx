@@ -172,6 +172,7 @@ export const DemoModeBanner: React.FC = () => {
                 sessionStorage.setItem('demo_session_started', new Date().toISOString());
                 
                 // Instead of refreshing, redirect to dashboard with demo=true to ensure proper demo mode setup
+                // The URL will be cleaned by AuthContext after demo mode is detected
                 const currentPath = window.location.pathname;
                 if (currentPath === '/dashboard' || currentPath === '/') {
                   // For dashboard, redirect with demo parameter to ensure proper setup

@@ -152,6 +152,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthLoading(false);
       setLoading(false);
       
+      // Clean up URL by removing demo parameter for security and UX
+      if (isDemoModeInUrl) {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('demo');
+        window.history.replaceState({}, '', cleanUrl.toString());
+        console.log('AuthContext: Cleaned demo parameter from URL for security');
+      }
+      
       console.log('AuthContext: Demo mode setup complete', {
         shop: demoShop,
         isAuthenticated: true,
