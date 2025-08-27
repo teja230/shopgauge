@@ -64,8 +64,7 @@ SELECT
 FROM demo_shop ds, generate_series(1, 8)
 ON CONFLICT (shop_id, shopify_product_id) DO UPDATE SET
     title = EXCLUDED.title,
-    price = EXCLUDED.price,
-    updated_at = CURRENT_TIMESTAMP;
+    price = EXCLUDED.price;
 
 -- Create demo competitor URLs with realistic competitors
 WITH demo_shop AS (
@@ -199,8 +198,7 @@ SELECT
     CURRENT_TIMESTAMP - (generate_series || ' days')::INTERVAL + (random() * INTERVAL '24 hours')
 FROM demo_shop ds, generate_series(1, 45) -- 45 orders over 45 days
 ON CONFLICT (shop_id, shopify_order_id) DO UPDATE SET
-    total_price = EXCLUDED.total_price,
-    updated_at = CURRENT_TIMESTAMP;
+    total_price = EXCLUDED.total_price;
 
 -- Create demo price alerts
 WITH demo_competitors AS (
