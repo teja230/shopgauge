@@ -61,7 +61,11 @@ SELECT
         WHEN 8 THEN 69.99
     END,
     CURRENT_TIMESTAMP - INTERVAL '30 days' + (generate_series || ' days')::INTERVAL
-FROM demo_shop ds, generate_series(1, 8);
+FROM demo_shop ds, generate_series(1, 8)
+ON CONFLICT (shop_id, shopify_product_id) DO UPDATE SET
+    title = EXCLUDED.title,
+    price = EXCLUDED.price,
+    updated_at = CURRENT_TIMESTAMP;
 
 -- Create demo competitor URLs with realistic competitors
 WITH demo_shop AS (
@@ -193,7 +197,10 @@ SELECT
         WHEN generate_series % 8 = 0 THEN 69.99
     END + (random() - 0.5) * 20, -- Add some variation
     CURRENT_TIMESTAMP - (generate_series || ' days')::INTERVAL + (random() * INTERVAL '24 hours')
-FROM demo_shop ds, generate_series(1, 45); -- 45 orders over 45 days
+FROM demo_shop ds, generate_series(1, 45) -- 45 orders over 45 days
+ON CONFLICT (shop_id, shopify_order_id) DO UPDATE SET
+    total_price = EXCLUDED.total_price,
+    updated_at = CURRENT_TIMESTAMP;
 
 -- Create demo price alerts
 WITH demo_competitors AS (
@@ -236,7 +243,12 @@ SELECT
         )
     ),
     CURRENT_TIMESTAMP - (generate_series || ' days')::INTERVAL
-FROM demo_shop ds, generate_series(0, 89); -- 90 days of metrics
+FROM demo_shop ds, generate_series(0, 89) -- 90 days of metrics
+ON CONFLICT (shop_id, date) DO UPDATE SET
+    conversion_rate = EXCLUDED.conversion_rate,
+    abandoned_cart_count = EXCLUDED.abandoned_cart_count,
+    top_selling_products = EXCLUDED.top_selling_products,
+    updated_at = CURRENT_TIMESTAMP;
 
 -- Create demo competitor suggestions
 WITH demo_shop AS (
