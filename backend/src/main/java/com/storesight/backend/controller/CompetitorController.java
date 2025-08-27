@@ -9,6 +9,7 @@ import com.storesight.backend.service.AdminRateLimitingService;
 import com.storesight.backend.service.CompetitorAuditService;
 import com.storesight.backend.service.CompetitorLimitService;
 import com.storesight.backend.service.DashboardCacheService;
+import com.storesight.backend.service.DemoModeService;
 import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.PriceChangeCalculationService;
@@ -16,7 +17,6 @@ import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.RedisPriceRefreshQueueService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
-import com.storesight.backend.service.DemoModeService;
 import com.storesight.backend.service.SmartSnapshotService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
@@ -604,14 +604,19 @@ public class CompetitorController {
     // DEMO MODE PROTECTION: Prevent write operations in demo mode
     String demoShopDomain = getShopDomainFromRequest(httpRequest);
     if (demoShopDomain != null && demoModeService.isDemoStore(demoShopDomain)) {
-      logger.info("Demo mode detected - simulating competitor addition for shop: {}", demoShopDomain);
+      logger.info(
+          "Demo mode detected - simulating competitor addition for shop: {}", demoShopDomain);
       // Return a simulated success response without actually writing to database
-      return ResponseEntity.ok(Map.of(
-        "success", true,
-        "message", "Competitor added successfully (demo mode)",
-        "isDemoMode", true,
-        "competitorId", "demo_comp_" + System.currentTimeMillis()
-      ));
+      return ResponseEntity.ok(
+          Map.of(
+              "success",
+              true,
+              "message",
+              "Competitor added successfully (demo mode)",
+              "isDemoMode",
+              true,
+              "competitorId",
+              "demo_comp_" + System.currentTimeMillis()));
     }
 
     // Check rate limits for competitor addition
@@ -1111,13 +1116,14 @@ public class CompetitorController {
     // DEMO MODE PROTECTION: Prevent write operations in demo mode
     String demoShopDomain = getShopDomainFromRequest(request);
     if (demoShopDomain != null && demoModeService.isDemoStore(demoShopDomain)) {
-      logger.info("Demo mode detected - simulating competitor deletion for shop: {}", demoShopDomain);
+      logger.info(
+          "Demo mode detected - simulating competitor deletion for shop: {}", demoShopDomain);
       // Return a simulated success response without actually deleting from database
-      return ResponseEntity.ok(Map.of(
-        "success", true,
-        "message", "Competitor deleted successfully (demo mode)",
-        "isDemoMode", true
-      ));
+      return ResponseEntity.ok(
+          Map.of(
+              "success", true,
+              "message", "Competitor deleted successfully (demo mode)",
+              "isDemoMode", true));
     }
 
     try {
