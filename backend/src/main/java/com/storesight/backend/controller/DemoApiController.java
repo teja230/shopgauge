@@ -74,7 +74,7 @@ public class DemoApiController {
             Map.of("title", "Premium Wireless Headphones", "sales", 145, "delta", 23),
             Map.of("title", "Smart Fitness Tracker", "sales", 98, "delta", 15),
             Map.of("title", "Bluetooth Speaker", "sales", 76, "delta", 8)));
-    insights.put("abandonedCartCount", 12);
+    insights.put("abandonedCartCount", 24);
     insights.put(
         "insightText",
         "Your conversion rate increased by 0.3% this week. "
@@ -93,7 +93,7 @@ public class DemoApiController {
     logger.info("Serving demo products data");
 
     Map<String, Object> response = new HashMap<>();
-    response.put("total_products", 3);
+    response.put("total_products", 24);
     response.put("shopify_products_url", "https://demo-shopgauge.myshopify.com/admin/products");
     response.put("note", "Demo data with realistic sample products");
     response.put("total_revenue", "$26,900");
@@ -261,9 +261,10 @@ public class DemoApiController {
         Arrays.asList(
             Map.of("title", "Premium Wireless Headphones", "currentStock", 5, "threshold", 10),
             Map.of("title", "Smart Fitness Tracker", "currentStock", 3, "threshold", 8)));
-    response.put("outOfStockCount", 2);
-    response.put("lowStockCount", 2);
-    response.put("totalProducts", 25);
+    response.put("outOfStockCount", 3);
+    response.put("lowStockCount", 8);
+    response.put("totalProducts", 24);
+    response.put("newProductsThisMonth", 5);
 
     return ResponseEntity.ok(response);
   }

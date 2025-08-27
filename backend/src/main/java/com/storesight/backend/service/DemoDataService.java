@@ -53,21 +53,49 @@ public class DemoDataService {
     try {
       String productsKey = REDIS_DEMO_PREFIX + REDIS_PRODUCTS_KEY + DEMO_STORE_DOMAIN;
 
-      // Create demo product data
+      // Create demo product data - more diverse and realistic product catalog
       Map<String, Object> products = new HashMap<>();
+      // Electronics Category
       products.put(
           "demo_prod_1", createDemoProduct("Premium Wireless Headphones", 149.99, "Electronics"));
-      products.put("demo_prod_2", createDemoProduct("Smart Fitness Tracker", 89.99, "Fitness"));
-      products.put("demo_prod_3", createDemoProduct("Ergonomic Office Chair", 299.99, "Furniture"));
+      products.put("demo_prod_2", createDemoProduct("Smart Fitness Tracker", 89.99, "Electronics"));
       products.put(
           "demo_prod_4", createDemoProduct("Portable Power Bank 20000mAh", 39.99, "Electronics"));
       products.put(
-          "demo_prod_5", createDemoProduct("Professional Coffee Maker", 189.99, "Appliances"));
+          "demo_prod_7", createDemoProduct("Bluetooth Speaker Waterproof", 79.99, "Electronics"));
+      products.put("demo_prod_9", createDemoProduct("Wireless Charging Pad", 34.99, "Electronics"));
+      products.put("demo_prod_10", createDemoProduct("USB-C Hub 7-in-1", 59.99, "Electronics"));
+      products.put("demo_prod_11", createDemoProduct("Smart Home Camera", 129.99, "Electronics"));
+      products.put("demo_prod_12", createDemoProduct("Gaming Mouse RGB", 79.99, "Electronics"));
+
+      // Furniture & Home
+      products.put("demo_prod_3", createDemoProduct("Ergonomic Office Chair", 299.99, "Furniture"));
       products.put("demo_prod_6", createDemoProduct("LED Desk Lamp with USB", 49.99, "Lighting"));
       products.put(
-          "demo_prod_7", createDemoProduct("Bluetooth Speaker Waterproof", 79.99, "Electronics"));
-      products.put(
           "demo_prod_8", createDemoProduct("Laptop Stand Adjustable", 69.99, "Accessories"));
+      products.put(
+          "demo_prod_13", createDemoProduct("Standing Desk Converter", 199.99, "Furniture"));
+      products.put(
+          "demo_prod_14", createDemoProduct("Decorative Wall Art Set", 89.99, "Home Decor"));
+      products.put("demo_prod_15", createDemoProduct("Memory Foam Pillow", 49.99, "Bedding"));
+
+      // Kitchen & Appliances
+      products.put(
+          "demo_prod_5", createDemoProduct("Professional Coffee Maker", 189.99, "Appliances"));
+      products.put(
+          "demo_prod_16", createDemoProduct("Stainless Steel Water Bottle", 24.99, "Kitchen"));
+      products.put("demo_prod_17", createDemoProduct("Air Fryer 6-Quart", 149.99, "Appliances"));
+      products.put("demo_prod_18", createDemoProduct("Bamboo Cutting Board Set", 39.99, "Kitchen"));
+
+      // Fitness & Health
+      products.put("demo_prod_19", createDemoProduct("Yoga Mat Extra Thick", 34.99, "Fitness"));
+      products.put("demo_prod_20", createDemoProduct("Resistance Bands Set", 29.99, "Fitness"));
+      products.put("demo_prod_21", createDemoProduct("Foam Roller Massage", 44.99, "Fitness"));
+
+      // Fashion & Accessories
+      products.put("demo_prod_22", createDemoProduct("Premium Leather Wallet", 79.99, "Fashion"));
+      products.put("demo_prod_23", createDemoProduct("Sunglasses Polarized", 119.99, "Fashion"));
+      products.put("demo_prod_24", createDemoProduct("Crossbody Travel Bag", 89.99, "Fashion"));
 
       // Store in Redis
       redisTemplate.opsForHash().putAll(productsKey, convertToStringMap(products));
@@ -89,11 +117,16 @@ public class DemoDataService {
       Map<String, Object> analytics = new HashMap<>();
 
       // Revenue data for last 30 days
-      analytics.put("total_revenue", 12450.75);
-      analytics.put("total_orders", 87);
-      analytics.put("average_order_value", 143.11);
-      analytics.put("conversion_rate", 3.42);
-      analytics.put("returning_customers", 34);
+      analytics.put("total_revenue", 26900.0);
+      analytics.put("total_orders", 187);
+      analytics.put("average_order_value", 143.85);
+      analytics.put("conversion_rate", 2.50);
+      analytics.put("returning_customers", 67);
+
+      // Dashboard card metrics - non-zero values
+      analytics.put("abandoned_carts", 24);
+      analytics.put("low_inventory_items", 8);
+      analytics.put("new_products_this_month", 5);
 
       // Daily revenue trend (last 30 days)
       analytics.put("daily_revenue", generateDemoRevenueTrend());
