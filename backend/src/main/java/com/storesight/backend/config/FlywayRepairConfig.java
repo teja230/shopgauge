@@ -27,7 +27,7 @@ public class FlywayRepairConfig {
   public FlywayMigrationStrategy flywayMigrationStrategy() {
     return flyway -> {
       try {
-        logger.info("Starting Flyway migration...");
+        logger.info("Starting Flyway migration with optimized settings...");
         flyway.migrate();
         logger.info("Flyway migration completed successfully");
       } catch (FlywayValidateException e) {
