@@ -1,7 +1,7 @@
 -- CLEAN DUPLICATE DEMO DATA: Remove duplicate competitor URLs and related data
 -- This migration fixes duplicates created by multiple runs of V45 before ON CONFLICT was added
 
--- First, identify duplicate competitor URLs
+-- First, delete dependent records (price_snapshots and price_alerts) for duplicate competitor URLs
 WITH demo_shop AS (
     SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
 ),
@@ -15,18 +15,44 @@ duplicate_competitors AS (
     FROM competitor_urls cu
     JOIN demo_shop ds ON cu.shop_id = ds.id
 )
--- First, delete dependent records (price_snapshots and price_alerts) for duplicate competitor URLs
 DELETE FROM price_snapshots 
 WHERE competitor_url_id IN (
     SELECT id FROM duplicate_competitors WHERE row_num > 1
 );
 
+-- Delete price_alerts for duplicate competitor URLs
+WITH demo_shop AS (
+    SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
+),
+duplicate_competitors AS (
+    SELECT 
+        cu.id,
+        ROW_NUMBER() OVER (
+            PARTITION BY cu.shop_id, cu.shopify_product_id, cu.url 
+            ORDER BY cu.created_at ASC
+        ) as row_num
+    FROM competitor_urls cu
+    JOIN demo_shop ds ON cu.shop_id = ds.id
+)
 DELETE FROM price_alerts 
 WHERE competitor_url_id IN (
     SELECT id FROM duplicate_competitors WHERE row_num > 1
 );
 
 -- Now delete the duplicate competitor URLs (foreign key constraints are satisfied)
+WITH demo_shop AS (
+    SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
+),
+duplicate_competitors AS (
+    SELECT 
+        cu.id,
+        ROW_NUMBER() OVER (
+            PARTITION BY cu.shop_id, cu.shopify_product_id, cu.url 
+            ORDER BY cu.created_at ASC
+        ) as row_num
+    FROM competitor_urls cu
+    JOIN demo_shop ds ON cu.shop_id = ds.id
+)
 DELETE FROM competitor_urls 
 WHERE id IN (
     SELECT id FROM duplicate_competitors WHERE row_num > 1
