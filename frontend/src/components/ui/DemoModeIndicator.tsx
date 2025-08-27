@@ -36,8 +36,12 @@ const DemoModeIndicator: React.FC<DemoModeIndicatorProps> = ({
 export const DemoModeBanner: React.FC = () => {
   const { isDemoMode, logout } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
+  const [isPanelHovered, setIsPanelHovered] = useState(false);
 
   if (!isDemoMode) return null;
+
+  // Keep overlay open if either button or panel is hovered
+  const shouldShowOverlay = isHovered || isPanelHovered;
 
   const handleExitDemo = async () => {
     console.log('DemoModeIndicator: Starting demo exit process');
@@ -72,14 +76,17 @@ export const DemoModeBanner: React.FC = () => {
       <div 
         className="relative"
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => {
+          // Use a small delay to prevent flicker when moving between button and panel
+          setTimeout(() => setIsHovered(false), 100);
+        }}
       >
         {/* Main Demo Button - Compact Version */}
         <button className="group flex items-center space-x-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-full shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 backdrop-blur-sm">
           <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
           <span className="font-medium text-xs">Demo</span>
           <svg 
-            className={`w-3 h-3 transition-transform duration-200 ${isHovered ? 'rotate-180' : ''}`} 
+            className={`w-3 h-3 transition-transform duration-200 ${shouldShowOverlay ? 'rotate-180' : ''}`} 
             fill="none" 
             viewBox="0 0 24 24" 
             stroke="currentColor"
@@ -89,9 +96,16 @@ export const DemoModeBanner: React.FC = () => {
         </button>
 
         {/* Dropdown Menu */}
-        <div className={`absolute bottom-full left-0 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-300 transform origin-bottom-left ${
-          isHovered ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'
-        }`}>
+        <div 
+          className={`absolute bottom-full left-0 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-300 transform origin-bottom-left ${
+            shouldShowOverlay ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'
+          }`}
+          onMouseEnter={() => setIsPanelHovered(true)}
+          onMouseLeave={() => {
+            // Small delay to allow smooth transitions
+            setTimeout(() => setIsPanelHovered(false), 100);
+          }}
+        >
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-gray-100">
             <div className="flex items-center space-x-2">
@@ -136,7 +150,7 @@ export const DemoModeBanner: React.FC = () => {
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <span className="text-gray-500">Products:</span>
-                  <span className="font-semibold text-gray-900 ml-1">3</span>
+                  <span className="font-semibold text-gray-900 ml-1">24</span>
                 </div>
                 <div>
                   <span className="text-gray-500">Revenue:</span>
