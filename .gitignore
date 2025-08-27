@@ -2,6 +2,7 @@
 *.class
 .idea/
 .vscode/
+.cursor/
 .kiro/
 logs
 node_modules
