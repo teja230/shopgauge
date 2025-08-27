@@ -18,7 +18,7 @@ COPY backend/gradle.properties ./gradle.properties
 RUN chmod +x ./gradlew && ls -la ./gradlew
 
 # Pre-download dependencies (cached layer)
-RUN ./gradlew dependencies --no-daemon --offline || true
+RUN ./gradlew dependencies --no-daemon || true
 
 # Copy source code
 COPY backend/src ./src
