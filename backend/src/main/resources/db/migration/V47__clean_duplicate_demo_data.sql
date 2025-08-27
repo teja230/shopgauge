@@ -1,8 +1,7 @@
 -- CLEAN DUPLICATE DEMO DATA: Remove duplicate competitor URLs and related data
 -- This migration fixes duplicates created by multiple runs of V45 before ON CONFLICT was added
 
--- First, identify and keep only one copy of each unique competitor URL
--- Delete duplicates based on shop_id, shopify_product_id, and url combination
+-- First, identify duplicate competitor URLs
 WITH demo_shop AS (
     SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
 ),
@@ -16,21 +15,21 @@ duplicate_competitors AS (
     FROM competitor_urls cu
     JOIN demo_shop ds ON cu.shop_id = ds.id
 )
-DELETE FROM competitor_urls 
-WHERE id IN (
+-- First, delete dependent records (price_snapshots and price_alerts) for duplicate competitor URLs
+DELETE FROM price_snapshots 
+WHERE competitor_url_id IN (
     SELECT id FROM duplicate_competitors WHERE row_num > 1
 );
 
--- Clean up orphaned price snapshots (those pointing to deleted competitor URLs)
-DELETE FROM price_snapshots 
-WHERE competitor_url_id NOT IN (
-    SELECT id FROM competitor_urls
+DELETE FROM price_alerts 
+WHERE competitor_url_id IN (
+    SELECT id FROM duplicate_competitors WHERE row_num > 1
 );
 
--- Clean up orphaned price alerts (those pointing to deleted competitor URLs)
-DELETE FROM price_alerts 
-WHERE competitor_url_id NOT IN (
-    SELECT id FROM competitor_urls
+-- Now delete the duplicate competitor URLs (foreign key constraints are satisfied)
+DELETE FROM competitor_urls 
+WHERE id IN (
+    SELECT id FROM duplicate_competitors WHERE row_num > 1
 );
 
 -- Clean up duplicate competitor suggestions
