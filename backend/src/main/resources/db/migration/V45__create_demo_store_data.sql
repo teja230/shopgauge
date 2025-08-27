@@ -228,7 +228,14 @@ SELECT
     'ai_discovery'
 FROM demo_shop ds
 CROSS JOIN demo_product_data dp 
-CROSS JOIN generate_series(1, 10);
+CROSS JOIN generate_series(1, 10)
+ON CONFLICT (shop_id, product_id, suggested_url) DO UPDATE SET
+    title = EXCLUDED.title,
+    platform = EXCLUDED.platform,
+    relevance_score = EXCLUDED.relevance_score,
+    status = EXCLUDED.status,
+    discovered_at = EXCLUDED.discovered_at,
+    source = EXCLUDED.source;
 
 -- Create demo audit logs
 WITH demo_shop AS (
