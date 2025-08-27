@@ -32,48 +32,16 @@ ON CONFLICT (session_id) DO UPDATE SET
     last_accessed_at = CURRENT_TIMESTAMP,
     is_active = true;
 
--- Create demo products with realistic e-commerce data
-WITH demo_shop AS (
-    SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
-)
-INSERT INTO products (shop_id, shopify_product_id, title, price, created_at) 
-SELECT 
-    ds.id,
-    'demo_prod_' || generate_series,
-    CASE generate_series
-        WHEN 1 THEN 'Premium Wireless Headphones'
-        WHEN 2 THEN 'Smart Fitness Tracker'
-        WHEN 3 THEN 'Ergonomic Office Chair'
-        WHEN 4 THEN 'Portable Power Bank 20000mAh'
-        WHEN 5 THEN 'Professional Coffee Maker'
-        WHEN 6 THEN 'LED Desk Lamp with USB'
-        WHEN 7 THEN 'Bluetooth Speaker Waterproof'
-        WHEN 8 THEN 'Laptop Stand Adjustable'
-    END,
-    CASE generate_series
-        WHEN 1 THEN 149.99
-        WHEN 2 THEN 89.99
-        WHEN 3 THEN 299.99
-        WHEN 4 THEN 39.99
-        WHEN 5 THEN 189.99
-        WHEN 6 THEN 49.99
-        WHEN 7 THEN 79.99
-        WHEN 8 THEN 69.99
-    END,
-    CURRENT_TIMESTAMP - INTERVAL '30 days' + (generate_series || ' days')::INTERVAL
-FROM demo_shop ds, generate_series(1, 8)
-ON CONFLICT (shop_id, shopify_product_id) DO UPDATE SET
-    title = EXCLUDED.title,
-    price = EXCLUDED.price;
+-- Note: Demo products are now managed via Redis cache by DemoDataService
+-- This migration no longer needs to insert into a products table since the backend
+-- uses Redis for product caching (see V37/V38 migrations and DemoDataService)
 
 -- Create demo competitor URLs with realistic competitors
 WITH demo_shop AS (
     SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
 ),
-demo_products AS (
-    SELECT p.id, p.shopify_product_id, p.title
-    FROM products p 
-    JOIN demo_shop ds ON p.shop_id = ds.id
+demo_product_ids AS (
+    SELECT unnest(ARRAY['demo_prod_1', 'demo_prod_2', 'demo_prod_3', 'demo_prod_4', 'demo_prod_5', 'demo_prod_6', 'demo_prod_7', 'demo_prod_8']) AS shopify_product_id
 )
 INSERT INTO competitor_urls (shop_id, shopify_product_id, url, label, domain, platform, status, created_at)
 SELECT 
@@ -113,7 +81,8 @@ SELECT
     END,
     'active',
     CURRENT_TIMESTAMP - INTERVAL '25 days'
-FROM demo_shop ds, demo_products dp;
+FROM demo_shop ds
+CROSS JOIN demo_product_ids dp;
 
 -- Create additional competitor URLs for better demo data
 WITH demo_shop AS (
@@ -177,28 +146,9 @@ SELECT
     (random() * 2000 + 500)::INTEGER -- Response time between 500-2500ms
 FROM base_prices bp, generate_series(1, 72); -- 72 hours of data (3 days)
 
--- Create demo orders for analytics
-WITH demo_shop AS (
-    SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
-)
-INSERT INTO orders (shop_id, shopify_order_id, total_price, created_at)
-SELECT 
-    ds.id,
-    'demo_order_' || generate_series,
-    CASE 
-        WHEN generate_series % 8 = 1 THEN 149.99
-        WHEN generate_series % 8 = 2 THEN 89.99
-        WHEN generate_series % 8 = 3 THEN 299.99
-        WHEN generate_series % 8 = 4 THEN 39.99
-        WHEN generate_series % 8 = 5 THEN 189.99
-        WHEN generate_series % 8 = 6 THEN 49.99
-        WHEN generate_series % 8 = 7 THEN 79.99
-        WHEN generate_series % 8 = 0 THEN 69.99
-    END + (random() - 0.5) * 20, -- Add some variation
-    CURRENT_TIMESTAMP - (generate_series || ' days')::INTERVAL + (random() * INTERVAL '24 hours')
-FROM demo_shop ds, generate_series(1, 45) -- 45 orders over 45 days
-ON CONFLICT (shop_id, shopify_order_id) DO UPDATE SET
-    total_price = EXCLUDED.total_price;
+-- Note: Demo orders are now managed via Redis cache and API responses by DemoDataService
+-- This migration no longer needs to insert into an orders table since the backend
+-- uses Redis for order caching (see analytics endpoints and DemoDataService)
 
 -- Create demo price alerts
 WITH demo_competitors AS (
@@ -252,16 +202,14 @@ ON CONFLICT (shop_id, date) DO UPDATE SET
 WITH demo_shop AS (
     SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com'
 ),
-demo_products AS (
-    SELECT p.id, p.shopify_product_id
-    FROM products p 
-    JOIN demo_shop ds ON p.shop_id = ds.id
-    LIMIT 8
+demo_product_data AS (
+    SELECT unnest(ARRAY[1, 2, 3, 4, 5, 6, 7, 8]) AS product_id,
+           unnest(ARRAY['demo_prod_1', 'demo_prod_2', 'demo_prod_3', 'demo_prod_4', 'demo_prod_5', 'demo_prod_6', 'demo_prod_7', 'demo_prod_8']) AS shopify_product_id
 )
 INSERT INTO competitor_suggestions (shop_id, product_id, suggested_url, title, platform, relevance_score, status, discovered_at, source)
 SELECT 
     ds.id,
-    dp.id,
+    dp.product_id,
     'https://example-competitor-' || generate_series || '.com/product',
     'Suggested Competitor ' || generate_series,
     CASE generate_series % 4
@@ -278,7 +226,9 @@ SELECT
     END,
     CURRENT_TIMESTAMP - (generate_series || ' days')::INTERVAL,
     'ai_discovery'
-FROM demo_shop ds, demo_products dp, generate_series(1, 10);
+FROM demo_shop ds
+CROSS JOIN demo_product_data dp 
+CROSS JOIN generate_series(1, 10);
 
 -- Create demo audit logs
 WITH demo_shop AS (
@@ -310,12 +260,13 @@ COMMENT ON COLUMN shops.shopify_domain IS 'Special domain demo-shopgauge.myshopi
 DO $$
 DECLARE
     demo_shop_count INTEGER;
-    demo_products_count INTEGER;
     demo_competitors_count INTEGER;
+    demo_metrics_count INTEGER;
 BEGIN
     SELECT COUNT(*) INTO demo_shop_count FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com';
-    SELECT COUNT(*) INTO demo_products_count FROM products WHERE shop_id = (SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com');
     SELECT COUNT(*) INTO demo_competitors_count FROM competitor_urls WHERE shop_id = (SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com');
+    SELECT COUNT(*) INTO demo_metrics_count FROM daily_metrics WHERE shop_id = (SELECT id FROM shops WHERE shopify_domain = 'demo-shopgauge.myshopify.com');
     
-    RAISE NOTICE 'Demo data verification: Shop: %, Products: %, Competitors: %', demo_shop_count, demo_products_count, demo_competitors_count;
+    RAISE NOTICE 'Demo data verification: Shop: %, Competitors: %, Metrics: %', demo_shop_count, demo_competitors_count, demo_metrics_count;
+    RAISE NOTICE 'Note: Demo products are managed via Redis cache by DemoDataService';
 END $$;
