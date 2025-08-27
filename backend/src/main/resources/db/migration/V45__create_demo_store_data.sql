@@ -82,7 +82,13 @@ SELECT
     'active',
     CURRENT_TIMESTAMP - INTERVAL '25 days'
 FROM demo_shop ds
-CROSS JOIN demo_product_ids dp;
+CROSS JOIN demo_product_ids dp
+ON CONFLICT (shop_id, shopify_product_id, url) DO UPDATE SET
+    label = EXCLUDED.label,
+    domain = EXCLUDED.domain,
+    platform = EXCLUDED.platform,
+    status = EXCLUDED.status,
+    updated_at = CURRENT_TIMESTAMP;
 
 -- Create additional competitor URLs for better demo data
 WITH demo_shop AS (
@@ -109,7 +115,13 @@ SELECT
     'other',
     'active',
     CURRENT_TIMESTAMP - INTERVAL '18 days'
-FROM demo_shop ds;
+FROM demo_shop ds
+ON CONFLICT (shop_id, shopify_product_id, url) DO UPDATE SET
+    label = EXCLUDED.label,
+    domain = EXCLUDED.domain,
+    platform = EXCLUDED.platform,
+    status = EXCLUDED.status,
+    updated_at = CURRENT_TIMESTAMP;
 
 -- Create realistic price snapshots with trending data
 WITH demo_competitors AS (
