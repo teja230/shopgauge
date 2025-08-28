@@ -61,7 +61,7 @@ export const DemoModeBanner: React.FC = () => {
 
         // Get current strategy and performance stats
         const strategy = demoManager.getStrategy();
-        const stats = getDemoPerformanceStats(5 * 60 * 1000); // Last 5 minutes
+        const stats = getDemoPerformanceStats(); // Last 5 minutes
         const health = await getDemoSystemHealth();
 
         setCurrentStrategy(strategy);

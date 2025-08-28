@@ -48,7 +48,7 @@ const DemoPerformanceConsole: React.FC<PerformanceConsoleProps> = ({ className =
         ]);
 
         const strategy = demoManager.getStrategy();
-        const stats = getDemoPerformanceStats(5 * 60 * 1000);
+        const stats = getDemoPerformanceStats();
         const health = await getDemoSystemHealth();
 
         setCurrentStrategy(strategy);
@@ -228,7 +228,7 @@ const DemoPerformanceConsole: React.FC<PerformanceConsoleProps> = ({ className =
                   {Object.entries(performanceStats.strategyCounts).map(([strategy, count]) => (
                     <div key={strategy} className="flex items-center justify-between text-xs font-mono">
                       <span className="text-gray-400 capitalize">{strategy}:</span>
-                      <span className="text-blue-400">{count}</span>
+                      <span className="text-blue-400">{String(count)}</span>
                     </div>
                   ))}
                 </div>

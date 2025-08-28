@@ -54,7 +54,7 @@ export class IntelligentDemoManager {
   private fallbackConfig: FallbackConfig;
   private backendHealthy: boolean = true;
   private requestQueue: Map<string, Promise<any>> = new Map();
-  private browserFingerprint: string;
+  private browserFingerprint: string = '';
 
   private constructor() {
     this.initializeFingerprint();
