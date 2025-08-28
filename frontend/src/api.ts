@@ -526,22 +526,53 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export async function getInsights(): Promise<Insight> {
   // Check if demo mode is active
-  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
-                    new URLSearchParams(window.location.search).get('demo') === 'true';
-  
-  console.log('API getInsights: Demo mode check:', {
+  const demoModeLocalStorage = localStorage.getItem('demo_mode_active') === 'true';
+  const demoModeURL = new URLSearchParams(window.location.search).get('demo') === 'true';
+  const isDemoMode = demoModeLocalStorage || demoModeURL;
+
+  console.log('🔍 API getInsights: Demo mode check:', {
     localStorage: localStorage.getItem('demo_mode_active'),
     urlParam: new URLSearchParams(window.location.search).get('demo'),
     isDemoMode,
     currentUrl: window.location.href
   });
-  
+
   if (isDemoMode) {
-    console.log('API: Using demo insights endpoint');
-    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/insights`, defaultOptions);
-    const result = await handleResponse<Insight>(res);
-    console.log('API: Demo insights result:', result);
-    return result;
+    console.log('API: Using embedded demo data for insights');
+    
+    try {
+      // Use direct embedded demo data for fastest, most reliable performance
+      const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
+      const data = DEMO_DATA_BUNDLE.analytics;
+      
+      const insight = {
+        conversionRate: data.orders.conversion_rate,
+        conversionRateDelta: 0.3, // Demo delta value
+        topSellingProducts: [
+          { title: 'Premium Wireless Headphones', sales: 24, delta: 5 },
+          { title: 'Smart Fitness Tracker', sales: 18, delta: 3 },
+          { title: 'Ergonomic Office Chair', sales: 12, delta: -2 }
+        ],
+        abandonedCartCount: data.inventory.abandoned_cart_count,
+        insightText: `Your conversion rate is ${data.orders.conversion_rate}% with ${data.orders.total_orders} total orders and ${data.revenue.total_revenue.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 })} in revenue.`
+      };
+      
+      console.log('✅ API: Demo insights loaded from embedded data:', insight);
+      return insight;
+    } catch (error) {
+      console.error('❌ API: Failed to load demo data bundle, using minimal fallback:', error);
+      // Minimal fallback data with non-zero values
+      return {
+        conversionRate: 2.5,
+        conversionRateDelta: 0.2,
+        topSellingProducts: [
+          { title: 'Premium Wireless Headphones', sales: 24, delta: 5 },
+          { title: 'Smart Fitness Tracker', sales: 18, delta: 3 }
+        ],
+        abandonedCartCount: 24,
+        insightText: 'Your conversion rate is 2.5% with 187 total orders and $26,900 in revenue.'
+      };
+    }
   }
   
   console.log('API: Using regular insights endpoint');
@@ -550,6 +581,35 @@ export async function getInsights(): Promise<Insight> {
 }
 
 export async function getCompetitors(): Promise<Competitor[]> {
+  // Check if demo mode is active
+  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  
+  if (isDemoMode) {
+    console.log('API: Using embedded demo data for competitors');
+    
+    try {
+      const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
+      const competitors = DEMO_DATA_BUNDLE.competitors.map(comp => ({
+        id: comp.id,
+        url: comp.url,
+        label: comp.name,
+        price: comp.current_price,
+        inStock: comp.status === 'active',
+        percentDiff: Math.round((comp.price_difference / comp.our_price) * 100),
+        lastChecked: comp.last_checked,
+        productTitle: comp.name.split(' - ')[1] || 'Demo Product'
+      }));
+      
+      console.log(`✅ API: Demo competitors loaded - ${competitors.length} competitors from embedded data`);
+      return competitors;
+    } catch (error) {
+      console.error('❌ API: Failed to load demo data bundle, using minimal fallback:', error);
+      return [];
+    }
+  }
+  
+  console.log('API: Using regular competitors endpoint');
   const res = await fetch(`${API_BASE_URL}/api/competitors`, defaultOptions);
   return handleResponse<Competitor[]>(res);
 }
@@ -559,19 +619,63 @@ export async function getProducts(): Promise<any[]> {
   const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
                     new URLSearchParams(window.location.search).get('demo') === 'true';
   
-  console.log('API getProducts: Demo mode check:', {
+  console.log('🔍 API: getProducts - Demo mode check:', {
     localStorage: localStorage.getItem('demo_mode_active'),
     urlParam: new URLSearchParams(window.location.search).get('demo'),
-    isDemoMode,
-    currentUrl: window.location.href
+    isDemoMode
   });
   
   if (isDemoMode) {
-    console.log('API: Using demo products endpoint');
-    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/products`, defaultOptions);
-    const result = await handleResponse<any>(res);
-    console.log('API: Demo products result:', result);
-    return result.products || [];
+    console.log('API: Using embedded demo data for products');
+    
+    try {
+      const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
+      const products = DEMO_DATA_BUNDLE.products;
+      
+      // Convert demo products to match backend API format
+      const convertedProducts = products.map(product => ({
+        id: product.id,
+        title: product.title,
+        handle: product.handle,
+        price: `$${product.price.toFixed(2)}`,
+        inventory: product.inventory_quantity, // Map inventory_quantity to inventory
+        status: product.status,
+        shopify_url: `https://demo-shopgauge.myshopify.com/admin/products/${product.id}`,
+        sales: `${Math.floor(Math.random() * 100) + 20} units`, // Demo sales data
+        revenue: `$${(product.price * (Math.floor(Math.random() * 100) + 20)).toFixed(0)}` // Demo revenue
+      }));
+      
+      console.log(`✅ API: Demo products loaded - ${convertedProducts.length} products from embedded data`);
+      console.log('📝 Sample product:', convertedProducts[0]);
+      return convertedProducts;
+    } catch (error) {
+      console.error('❌ API: Failed to load demo data bundle, using minimal fallback:', error);
+      // Return basic embedded product data in backend API format
+      return [
+        {
+          id: '1',
+          title: 'Premium Wireless Headphones',
+          handle: 'premium-wireless-headphones',
+          price: '$149.99',
+          inventory: 45, // Use 'inventory' instead of 'inventory_quantity'
+          status: 'active',
+          shopify_url: 'https://demo-shopgauge.myshopify.com/admin/products/1',
+          sales: '145 units',
+          revenue: '$21,743'
+        },
+        {
+          id: '2', 
+          title: 'Smart Fitness Tracker',
+          handle: 'smart-fitness-tracker',
+          price: '$89.99',
+          inventory: 32, // Use 'inventory' instead of 'inventory_quantity'
+          status: 'active',
+          shopify_url: 'https://demo-shopgauge.myshopify.com/admin/products/2',
+          sales: '98 units',
+          revenue: '$8,819'
+        }
+      ];
+    }
   }
   
   console.log('API: Using regular products endpoint');
@@ -579,37 +683,100 @@ export async function getProducts(): Promise<any[]> {
   return handleResponse<any[]>(res);
 }
 
-export async function getOrders(): Promise<any[]> {
+export async function getOrders(): Promise<any> {
   // Check if demo mode is active
   const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
                     new URLSearchParams(window.location.search).get('demo') === 'true';
   
-  console.log('API getOrders: Demo mode check:', {
-    localStorage: localStorage.getItem('demo_mode_active'),
-    urlParam: new URLSearchParams(window.location.search).get('demo'),
-    isDemoMode,
-    currentUrl: window.location.href
-  });
-  
   if (isDemoMode) {
-    console.log('API: Using demo orders endpoint');
-    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/orders`, defaultOptions);
-    const result = await handleResponse<any>(res);
-    console.log('API: Demo orders result:', result);
-    return result.orders || [];
+    console.log('API: Using embedded demo data for orders');
+    
+    try {
+      const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
+      
+      // Convert daily_orders analytics data to individual order records
+      const dailyOrders = DEMO_DATA_BUNDLE.analytics.orders.daily_orders;
+      const individualOrders = dailyOrders.map((dayData, index) => ({
+        id: dayData.order_id || `demo_order_${1000 + index}`,
+        order_number: `#SO-${1000 + index}`,
+        created_at: dayData.created_at,
+        total_price: dayData.total_price,
+        customer: {
+          first_name: 'Demo',
+          last_name: `Customer ${index + 1}`,
+          email: `customer${index + 1}@demo.com`
+        },
+        status: 'fulfilled',
+        financial_status: 'paid',
+        fulfillment_status: 'fulfilled'
+      }));
+      
+      // Sort by date (newest first)
+      individualOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      // Return in the same format as backend API
+      const result = {
+        orders: individualOrders, // Individual order objects
+        timeseries: individualOrders, // Same data for timeseries charts
+        count: individualOrders.length,
+        has_more: false,
+        page: 1,
+        limit: individualOrders.length
+      };
+      
+      console.log(`✅ API: Demo orders loaded - ${individualOrders.length} individual orders from embedded data`);
+      console.log('📝 Sample order:', individualOrders[0]);
+      console.log('📊 API Response Structure:', Object.keys(result));
+      return result;
+    } catch (error) {
+      console.error('❌ API: Failed to load demo data bundle, using minimal fallback:', error);
+      // Return basic embedded orders data in backend API format
+      const fallbackOrders = [
+        {
+          id: '1001',
+          order_number: '#SO-1001',
+          created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+          total_price: 299.99,
+          customer: { first_name: 'John', last_name: 'Smith', email: 'john@example.com' },
+          status: 'fulfilled',
+          financial_status: 'paid',
+          fulfillment_status: 'fulfilled'
+        },
+        {
+          id: '1002',
+          order_number: '#SO-1002', 
+          created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+          total_price: 149.99,
+          customer: { first_name: 'Sarah', last_name: 'Wilson', email: 'sarah@example.com' },
+          status: 'fulfilled',
+          financial_status: 'paid',
+          fulfillment_status: 'fulfilled'
+        }
+      ];
+      
+      return {
+        orders: fallbackOrders,
+        timeseries: fallbackOrders,
+        count: fallbackOrders.length,
+        has_more: false,
+        page: 1,
+        limit: fallbackOrders.length
+      };
+    }
   }
   
   console.log('API: Using regular orders endpoint');
   const res = await fetch(`${API_BASE_URL}/api/orders`, defaultOptions);
-  return handleResponse<any[]>(res);
+  return handleResponse<any>(res);
 }
 
 export async function getRevenue(): Promise<any> {
   // Check if demo mode is active
-  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
-                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  const demoModeLocalStorage = localStorage.getItem('demo_mode_active') === 'true';
+  const demoModeURL = new URLSearchParams(window.location.search).get('demo') === 'true';
+  const isDemoMode = demoModeLocalStorage || demoModeURL;
   
-  console.log('API getRevenue: Demo mode check:', {
+  console.log('🔍 API getRevenue: Demo mode check:', {
     localStorage: localStorage.getItem('demo_mode_active'),
     urlParam: new URLSearchParams(window.location.search).get('demo'),
     isDemoMode,
@@ -617,11 +784,61 @@ export async function getRevenue(): Promise<any> {
   });
   
   if (isDemoMode) {
-    console.log('API: Using demo revenue endpoint');
-    const res = await fetch(`${API_BASE_URL}/api/demo/analytics/revenue`, defaultOptions);
-    const result = await handleResponse<any>(res);
-    console.log('API: Demo revenue result:', result);
-    return result;
+    console.log('API: Using embedded demo data for revenue');
+    
+    try {
+      const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
+      const revenueData = DEMO_DATA_BUNDLE.analytics.revenue;
+      
+      // Convert daily_revenue format to match backend API format
+      const timeseriesData = revenueData.daily_revenue.map(day => ({
+        created_at: day.date, // Backend uses 'created_at' instead of 'date'
+        total_price: day.revenue // Backend uses 'total_price' instead of 'revenue'
+      }));
+      
+      const result = {
+        current_period: revenueData.total_revenue,
+        previous_period: revenueData.total_revenue / (1 + revenueData.revenue_growth / 100),
+        growth_rate: revenueData.revenue_growth,
+        daily_data: timeseriesData,
+        // Add dashboard-expected properties
+        totalRevenue: revenueData.total_revenue,
+        revenue: revenueData.total_revenue,
+        timeseries: timeseriesData, // Use converted format
+        recentRevenue: revenueData.total_revenue * 0.3, // ~30% of total as recent
+        recentOrders: 45,
+        recentConversionRate: 2.8,
+        orders_count: 187,
+        period_days: 30
+      };
+      
+      console.log('✅ API: Demo revenue loaded from embedded data:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ API: Failed to load demo data bundle, using minimal fallback:', error);
+      // Return basic embedded revenue data
+      return {
+        current_period: 26900.0,
+        previous_period: 23947.20,
+        growth_rate: 12.3,
+        daily_data: [
+          { created_at: '2024-01-01', total_price: 895.50 },
+          { created_at: '2024-01-02', total_price: 1150.25 },
+          { created_at: '2024-01-03', total_price: 780.75 }
+        ],
+        // Add dashboard-expected properties
+        totalRevenue: 26900.0,
+        revenue: 26900.0,
+        timeseries: [
+          { created_at: '2024-01-01', total_price: 895.50 },
+          { created_at: '2024-01-02', total_price: 1150.25 },
+          { created_at: '2024-01-03', total_price: 780.75 }
+        ],
+        recentRevenue: 8070.0, // ~30% of total
+        recentOrders: 45,
+        recentConversionRate: 2.8
+      };
+    }
   }
   
   console.log('API: Using regular revenue endpoint');

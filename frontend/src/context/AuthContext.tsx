@@ -407,6 +407,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('demo_mode_active');
       localStorage.removeItem('isAuthenticated');
       sessionStorage.removeItem('demo_mode_active');
+      
+      // Clear ALL demo-related session storage
+      const demoKeys = [
+        'demo_dashboard_tutorial_shown',
+        'demo_competitors_tutorial_shown',
+        'demo_session_started',
+        'demo_performance_metrics'
+      ];
+      
+      // Clear all demo cache keys
+      const allKeys = Object.keys(sessionStorage);
+      allKeys.forEach(key => {
+        if (key.includes('demo') || key.includes('cache') || key.includes('products_cache') || key.includes('orders_cache') || key.includes('revenue_cache')) {
+          sessionStorage.removeItem(key);
+          console.log(`AuthContext: Cleared demo session key: ${key}`);
+        }
+      });
+      
+      // Clear demo shop from sessionStorage
+      sessionStorage.removeItem('shop');
+      
+      // Force clear any remaining demo data
+      console.log('AuthContext: Final cleanup - clearing all demo-related data');
+      localStorage.clear();
+      sessionStorage.clear();
+      
       setIsAuthReady(true);
       console.log('AuthContext: Logout completed');
     }

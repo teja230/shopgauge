@@ -122,42 +122,30 @@ const HomePage = () => {
   const handleDemoMode = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/demo/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          // Clear any existing cache before demo
-          sessionStorage.clear();
-          
-          // Set up demo session for tutorial system
-          sessionStorage.setItem('demo_session_started', new Date().toISOString());
-          
-          // Clear any previous tutorial completion for fresh demo experience
-          const demoShop = 'demo-shopgauge.myshopify.com';
-          localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
-          localStorage.removeItem(`tutorialCompleted_${demoShop}`);
-          
-          // Set demo mode flags BEFORE redirect to prevent race condition
-          localStorage.setItem('demo_mode_active', 'true');
-          localStorage.setItem('isAuthenticated', 'true');
-          sessionStorage.setItem('shop', 'demo-shopgauge.myshopify.com');
-          
-          // Navigate to dashboard with demo flag (URL will be cleaned by AuthContext)
-          window.location.href = data.redirectUrl || '/dashboard?demo=true';
-        } else {
-          throw new Error(data.message || 'Failed to start demo mode');
-        }
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Demo mode is currently unavailable');
-      }
+      console.log('🚀 HomePage: Starting frontend-only demo mode activation');
+      
+      // Clear any existing cache before demo
+      sessionStorage.clear();
+      localStorage.clear();
+      
+      // Set up demo session for tutorial system
+      sessionStorage.setItem('demo_session_started', new Date().toISOString());
+      
+      // Clear any previous tutorial completion for fresh demo experience
+      const demoShop = 'demo-shopgauge.myshopify.com';
+      localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
+      localStorage.removeItem(`tutorialCompleted_${demoShop}`);
+      
+      // Set demo mode flags BEFORE redirect to prevent race condition
+      localStorage.setItem('demo_mode_active', 'true');
+      localStorage.setItem('isAuthenticated', 'true');
+      sessionStorage.setItem('shop', 'demo-shopgauge.myshopify.com');
+      
+      console.log('✅ HomePage: Demo mode activated, navigating to dashboard');
+      
+      // Navigate to dashboard with demo flag
+      window.location.href = '/dashboard?demo=true';
+      
     } catch (error) {
       console.error('Demo mode error:', error);
       notifications.showError('Failed to start demo mode. Please try again.', {
