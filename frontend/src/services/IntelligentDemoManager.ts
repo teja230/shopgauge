@@ -353,21 +353,94 @@ export class IntelligentDemoManager {
   }
 
   /**
-   * Initialize browser fingerprint for security
+   * Initialize browser fingerprint for security with privacy-conscious fallbacks
    */
   private initializeFingerprint(): void {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    ctx!.textBaseline = 'top';
-    ctx!.font = '14px Arial';
-    ctx!.fillText('Demo fingerprint', 2, 2);
-    
-    this.browserFingerprint = btoa(
-      navigator.userAgent + 
-      screen.width + 
-      screen.height + 
-      canvas.toDataURL()
-    ).substr(0, 16);
+    try {
+      // Collect basic browser characteristics (privacy-conscious approach)
+      const characteristics = [
+        navigator.userAgent,
+        screen.width + 'x' + screen.height,
+        screen.colorDepth,
+        navigator.language,
+        navigator.platform,
+        new Date().getTimezoneOffset().toString(),
+        navigator.hardwareConcurrency?.toString() || '0',
+        navigator.maxTouchPoints?.toString() || '0'
+      ];
+
+      // Try canvas fingerprinting with fallback for privacy concerns
+      let canvasFingerprint = '';
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.textBaseline = 'top';
+          ctx.font = '14px Arial';
+          ctx.fillText('Demo fingerprint', 2, 2);
+          canvasFingerprint = canvas.toDataURL();
+          characteristics.push(canvasFingerprint);
+        }
+      } catch (canvasError) {
+        console.warn('⚠️ Demo Manager: Canvas fingerprinting blocked or failed, using alternative method');
+        // Fallback: Use WebGL renderer info if available
+        try {
+          const gl = document.createElement('canvas').getContext('webgl');
+          if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+              characteristics.push(
+                gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || 'unknown',
+                gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || 'unknown'
+              );
+            }
+          }
+        } catch (webglError) {
+          // Final fallback: Use additional browser features
+          characteristics.push(
+            navigator.cookieEnabled.toString(),
+            navigator.doNotTrack || 'unknown',
+            window.devicePixelRatio?.toString() || '1',
+            (window.screen as any).availWidth?.toString() || '0',
+            (window.screen as any).availHeight?.toString() || '0'
+          );
+        }
+      }
+
+      // Generate hash from collected characteristics
+      const combined = characteristics.join('|');
+      this.browserFingerprint = this.simpleHash(combined).substr(0, 16);
+
+      console.log('🔍 Demo Manager: Browser fingerprint generated:', this.browserFingerprint);
+    } catch (error) {
+      console.warn('⚠️ Demo Manager: All fingerprinting methods failed, using random fallback');
+      // Ultimate fallback: random identifier with some persistence
+      const fallbackKey = 'demo_manager_fingerprint_fallback';
+      let fallbackId = localStorage.getItem(fallbackKey);
+      if (!fallbackId) {
+        fallbackId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`;
+        try {
+          localStorage.setItem(fallbackKey, fallbackId);
+        } catch (storageError) {
+          // If even localStorage fails, use session-only ID
+          fallbackId = `session_${Math.random().toString(36).substr(2, 16)}`;
+        }
+      }
+      this.browserFingerprint = fallbackId.substr(0, 16);
+    }
+  }
+
+  /**
+   * Simple hash function for fingerprinting
+   */
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
   }
 
   /**
