@@ -37,6 +37,7 @@ public class ShopService {
   private final RedisSessionService redisSessionService; // Added RedisSessionService
   private final SseService sseService; // Added for SSE operations
   private final SessionSynchronizationService sessionSynchronizationService;
+  private final DemoModeService demoModeService;
 
   // Redis key patterns for backward compatibility and caching
   private static final String SHOP_TOKEN_PREFIX = "shop_token:";
@@ -63,8 +64,10 @@ public class ShopService {
       TransactionMonitoringService transactionMonitoringService,
       RedisSessionService redisSessionService,
       SseService sseService,
-      SessionSynchronizationService
-          sessionSynchronizationService) { // Added SessionSynchronizationService to constructor
+      SessionSynchronizationService sessionSynchronizationService,
+      DemoModeService
+          demoModeService) { // Added SessionSynchronizationService and DemoModeService to
+    // constructor
     this.shopRepository = shopRepository;
     this.shopSessionRepository = shopSessionRepository;
     this.redisTemplate = redisTemplate;
@@ -74,6 +77,7 @@ public class ShopService {
     this.sseService = sseService; // Initialize SseService
     this.sessionSynchronizationService =
         sessionSynchronizationService; // Initialize SessionSynchronizationService
+    this.demoModeService = demoModeService; // Initialize DemoModeService
   }
 
   @PostConstruct
@@ -190,6 +194,13 @@ public class ShopService {
    */
   private void enforceSessionLimitSync(Shop shop, String currentSessionId) {
     try {
+      // DEMO MODE EXEMPTION: Demo stores are exempt from session limits
+      if (demoModeService.isDemoStore(shop.getShopifyDomain())) {
+        logger.debug(
+            "Demo mode detected for shop: {} - skipping session limit enforcement",
+            shop.getShopifyDomain());
+        return;
+      }
       List<ShopSession> activeSessions =
           shopSessionRepository.findByShopAndIsActiveTrueOrderByLastAccessedAtDesc(shop);
 

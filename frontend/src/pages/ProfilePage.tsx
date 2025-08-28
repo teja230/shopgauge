@@ -18,6 +18,7 @@ import useSessionLimit from '../hooks/useSessionLimit';
 import SessionLimitDialog from '../components/ui/SessionLimitDialog';
 
 import { getDeviceDisplay, getRelativeTime } from '../utils/deviceUtils';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 // Cache configuration for store stats - Enhanced to match Dashboard strategy
 const STORE_STATS_CACHE_DURATION = 120 * 60 * 1000; // 120 minutes (match Dashboard)
@@ -312,8 +313,11 @@ export default function ProfilePage() {
     }, 1000);
     
     try {
-      // Clear backend Redis cache first (if available)
-      if (shop) {
+      // Clear backend Redis cache first (if available) - skip for demo mode
+      const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                        new URLSearchParams(window.location.search).get('demo') === 'true';
+      
+      if (shop && !isDemoMode) {
         try {
           console.log('🗑️ Clearing backend cache for store stats:', shop);
           const response = await fetch('/api/analytics/cache/invalidate', {
@@ -334,6 +338,8 @@ export default function ProfilePage() {
         } catch (error) {
           console.warn('⚠️ Backend cache clearing failed:', error, 'continuing with frontend refresh');
         }
+      } else if (isDemoMode) {
+        console.log('🔄 Demo mode: Skipping backend cache invalidation');
       }
       
       // Clear frontend cache and load fresh data
@@ -781,6 +787,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <DemoModeBanner />
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile & Settings</h1>
         <p className="text-gray-600">Manage your store connection, data privacy, and account settings</p>

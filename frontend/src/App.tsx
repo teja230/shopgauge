@@ -26,38 +26,55 @@ import SessionLimitDialog from './components/ui/SessionLimitDialog';
 import useSessionLimit from './hooks/useSessionLimit';
 import SessionExtensionPrompt from './components/ui/SessionExtensionPrompt';
 import { useNotifications } from './hooks/useNotifications';
+import DemoPerformanceConsole from './components/dev/DemoPerformanceConsole';
 
 // Simple Protected Route for shop authentication
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, authLoading, hasInitiallyLoaded } = useAuth();
+  const { isAuthenticated, authLoading, hasInitiallyLoaded, isDemoMode: contextDemoMode } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // Check if this is a demo mode request from multiple sources
+  const urlParams = new URLSearchParams(location.search);
+  const isDemoInUrl = urlParams.get('demo') === 'true';
+  const isDemoInLocalStorage = localStorage.getItem('demo_mode_active') === 'true';
+  const isDemoMode = isDemoInUrl || isDemoInLocalStorage || contextDemoMode;
   
   debugLog.debug('ProtectedRoute: Auth status', { 
     isAuthenticated, 
     authLoading, 
     hasInitiallyLoaded,
-    path: location.pathname
+    path: location.pathname,
+    isDemoInUrl,
+    isDemoInLocalStorage,
+    contextDemoMode,
+    isDemoMode
   }, 'ProtectedRoute');
   
-  // Handle redirect for unauthenticated users
+  // Handle redirect for unauthenticated users (but allow demo mode to proceed)
   useEffect(() => {
-    if (!isAuthenticated && !authLoading && hasInitiallyLoaded) {
-      debugLog.info('ProtectedRoute: Not authenticated, redirecting to home', {
+    if (!isAuthenticated && !authLoading && hasInitiallyLoaded && !isDemoMode) {
+      debugLog.info('ProtectedRoute: Not authenticated and not demo mode, redirecting to home', {
         currentPath: location.pathname + location.search + location.hash
       }, 'ProtectedRoute');
       const currentPath = location.pathname + location.search + location.hash;
       const redirectUrl = currentPath !== '/' ? `/?redirect=${encodeURIComponent(currentPath)}` : '/';
       navigate(redirectUrl, { replace: true });
     }
-  }, [isAuthenticated, authLoading, hasInitiallyLoaded, navigate, location.pathname, location.search, location.hash]);
+  }, [isAuthenticated, authLoading, hasInitiallyLoaded, isDemoMode, navigate, location.pathname, location.search, location.hash]);
   
-  // Show loading state while auth is being checked
+  // For demo mode, immediately render without waiting for auth checks
+  if (isDemoMode) {
+    debugLog.debug('ProtectedRoute: Demo mode detected, rendering immediately', { isDemoMode });
+    return <>{children}</>;
+  }
+  
+  // Show loading state while auth is being checked (non-demo mode)
   if (authLoading || !hasInitiallyLoaded) {
     return <IntelligentLoadingScreen fastMode={true} message="Authenticating..." />;
   }
   
-  // Show loading state for redirect
+  // Show loading state for redirect (non-demo mode)
   if (!isAuthenticated) {
     return <IntelligentLoadingScreen fastMode={true} message="Redirecting..." />;
   }
@@ -350,6 +367,7 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <CommandPalette />
       <RouteErrorCleaner />
+      <DemoPerformanceConsole />
             <NavBar />
       <PrivacyBanner />
       <DebugPanel 

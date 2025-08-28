@@ -43,6 +43,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
 import { refreshCompetitorPrices, getPriceRefreshProgress } from '../api/index';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 // Tutorial step types
 interface TutorialStep {
@@ -70,6 +71,11 @@ interface DemoAnalytics {
   tutorialCompleted: boolean;
   lastUsed: Date;
 }
+
+// Helper function to detect if we're in a demo store
+const isDemoStore = (shop: string | null): boolean => {
+  return shop === 'demo-shopgauge.myshopify.com';
+};
 
 // Tutorial steps for guided tour (ordered and with precise targets)
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -261,6 +267,204 @@ const DEMO_DATA_BY_CATEGORY = {
         source: 'GOOGLE_SHOPPING',
         discoveredAt: '2024-01-15T07:30:00Z',
         status: 'NEW'
+      },
+      {
+        id: 3,
+        suggestedUrl: 'https://amazon.com/dp/B08N5WRWNW',
+        title: 'Amazon - Echo Dot (4th Gen) Smart Speaker',
+        price: 39.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T09:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 4,
+        suggestedUrl: 'https://bestbuy.com/site/samsung-65-class-4k-uhd-qled-tizen-smart-tv/6509650.p',
+        title: 'Best Buy - Samsung 65" 4K QLED Smart TV',
+        price: 899.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T08:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 5,
+        suggestedUrl: 'https://walmart.com/ip/sony-wh-1000xm4-wireless-noise-canceling-headphones/123456789',
+        title: 'Walmart - Sony WH-1000XM4 Wireless Noise-Canceling Headphones',
+        price: 349.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T07:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 6,
+        suggestedUrl: 'https://target.com/p/apple-ipad-air-10-9-inch-tablet-64gb/123456789',
+        title: 'Target - Apple iPad Air (10.9-inch, 64GB)',
+        price: 599.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T06:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 7,
+        suggestedUrl: 'https://amazon.com/dp/B08C7W5L7D',
+        title: 'Amazon - Fire TV Stick 4K Max',
+        price: 39.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T05:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 8,
+        suggestedUrl: 'https://bestbuy.com/site/macbook-air-13-3-laptop-apple-m1-chip-8gb-memory-256gb-ssd/123456789',
+        title: 'Best Buy - MacBook Air 13.3" Laptop (Apple M1 Chip, 8GB Memory, 256GB SSD)',
+        price: 999.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T04:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 9,
+        suggestedUrl: 'https://walmart.com/ip/dell-xps-13-laptop-13-4-inch-4k-ultra-hd-touchscreen/123456789',
+        title: 'Walmart - Dell XPS 13 Laptop (13.4-inch, 4K Ultra HD Touchscreen)',
+        price: 1299.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T03:20:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 10,
+        suggestedUrl: 'https://target.com/p/samsung-galaxy-tab-s7-fe-12-4-inch-tablet-128gb/123456789',
+        title: 'Target - Samsung Galaxy Tab S7 FE (12.4-inch, 128GB)',
+        price: 529.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T02:10:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 11,
+        suggestedUrl: 'https://amazon.com/dp/B08N5WRWNW',
+        title: 'Amazon - Echo Show 8 (2nd Gen) Smart Display',
+        price: 89.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T01:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 12,
+        suggestedUrl: 'https://bestbuy.com/site/apple-watch-series-7-gps-45mm-aluminum-case/123456789',
+        title: 'Best Buy - Apple Watch Series 7 (GPS, 45mm, Aluminum Case)',
+        price: 399.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T00:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 13,
+        suggestedUrl: 'https://walmart.com/ip/fitbit-versa-3-fitness-smartwatch/123456789',
+        title: 'Walmart - Fitbit Versa 3 Fitness Smartwatch',
+        price: 229.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T23:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 14,
+        suggestedUrl: 'https://target.com/p/google-nest-mini-2nd-gen-smart-speaker/123456789',
+        title: 'Target - Google Nest Mini (2nd Gen) Smart Speaker',
+        price: 49.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T22:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 15,
+        suggestedUrl: 'https://amazon.com/dp/B08N5WRWNW',
+        title: 'Amazon - Ring Video Doorbell (2nd Gen)',
+        price: 99.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T21:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 16,
+        suggestedUrl: 'https://bestbuy.com/site/sony-playstation-5-console/123456789',
+        title: 'Best Buy - Sony PlayStation 5 Console',
+        price: 499.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T20:20:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 17,
+        suggestedUrl: 'https://walmart.com/ip/microsoft-xbox-series-x-console/123456789',
+        title: 'Walmart - Microsoft Xbox Series X Console',
+        price: 499.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T19:10:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 18,
+        suggestedUrl: 'https://target.com/p/nintendo-switch-console-gray-joy-con/123456789',
+        title: 'Target - Nintendo Switch Console (Gray Joy-Con)',
+        price: 299.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T18:25:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 19,
+        suggestedUrl: 'https://amazon.com/dp/B08N5WRWNW',
+        title: 'Amazon - DJI Mini 2 Drone',
+        price: 449.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T17:40:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 20,
+        suggestedUrl: 'https://bestbuy.com/site/gopro-hero10-black-action-camera/123456789',
+        title: 'Best Buy - GoPro HERO10 Black Action Camera',
+        price: 399.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T16:55:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 21,
+        suggestedUrl: 'https://walmart.com/ip/canon-eos-r6-mirrorless-camera/123456789',
+        title: 'Walmart - Canon EOS R6 Mirrorless Camera',
+        price: 2499.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T15:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 22,
+        suggestedUrl: 'https://target.com/p/sony-a7-iii-mirrorless-camera/123456789',
+        title: 'Target - Sony A7 III Mirrorless Camera',
+        price: 1999.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T14:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 23,
+        suggestedUrl: 'https://amazon.com/dp/B08N5WRWNW',
+        title: 'Amazon - DJI Pocket 2 Creator Combo',
+        price: 349.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T13:20:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 24,
+        suggestedUrl: 'https://bestbuy.com/site/insta360-one-x2-360-degree-camera/123456789',
+        title: 'Best Buy - Insta360 ONE X2 360-Degree Camera',
+        price: 429.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T12:35:00Z',
+        status: 'NEW'
       }
     ]
   },
@@ -320,6 +524,204 @@ const DEMO_DATA_BY_CATEGORY = {
         price: 100.00,
         source: 'GOOGLE_SHOPPING',
         discoveredAt: '2024-01-15T09:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 3,
+        suggestedUrl: 'https://nike.com/t/air-force-1-07-shoe-GjGXSP',
+        title: 'Nike - Air Force 1 07 Sneaker',
+        price: 100.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T08:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 4,
+        suggestedUrl: 'https://adidas.com/us/ultraboost-22-shoes/GZ0127.html',
+        title: 'Adidas - Ultraboost 22 Running Shoes',
+        price: 190.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T07:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 5,
+        suggestedUrl: 'https://zara.com/us/en/oversized-blazer-p01234567.html',
+        title: 'Zara - Oversized Blazer',
+        price: 89.90,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T07:00:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 6,
+        suggestedUrl: 'https://h&m.com/us/en/product/relaxed-fit-t-shirt-12345678',
+        title: 'H&M - Relaxed Fit T-Shirt',
+        price: 19.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T06:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 7,
+        suggestedUrl: 'https://uniqlo.com/us/en/men/ultra-light-down-jacket-123456789',
+        title: 'Uniqlo - Ultra Light Down Jacket',
+        price: 69.90,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T05:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 8,
+        suggestedUrl: 'https://gap.com/us/en/product/1969-denim-jacket-123456789',
+        title: 'Gap - 1969 Denim Jacket',
+        price: 79.95,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T04:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 9,
+        suggestedUrl: 'https://oldnavy.com/us/en/product/relaxed-fit-jeans-123456789',
+        title: 'Old Navy - Relaxed Fit Jeans',
+        price: 34.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T04:00:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 10,
+        suggestedUrl: 'https://bananarepublic.com/us/en/product/slim-fit-oxford-shirt-123456789',
+        title: 'Banana Republic - Slim Fit Oxford Shirt',
+        price: 89.50,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T03:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 11,
+        suggestedUrl: 'https://jcrew.com/us/en/product/merino-wool-sweater-123456789',
+        title: 'J.Crew - Merino Wool Sweater',
+        price: 89.50,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T02:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 12,
+        suggestedUrl: 'https://anthropologie.com/us/en/product/embroidered-blouse-123456789',
+        title: 'Anthropologie - Embroidered Blouse',
+        price: 128.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T01:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 13,
+        suggestedUrl: 'https://freepeople.com/us/en/product/bohemian-dress-123456789',
+        title: 'Free People - Bohemian Dress',
+        price: 158.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T01:00:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 14,
+        suggestedUrl: 'https://urbanoutfitters.com/us/en/product/oversized-sweater-123456789',
+        title: 'Urban Outfitters - Oversized Sweater',
+        price: 69.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-15T00:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 15,
+        suggestedUrl: 'https://asos.com/us/product/denim-skirt-123456789',
+        title: 'ASOS - Denim Skirt',
+        price: 45.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T23:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 16,
+        suggestedUrl: 'https://revolve.com/us/en/product/leather-jacket-123456789',
+        title: 'Revolve - Leather Jacket',
+        price: 298.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T22:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 17,
+        suggestedUrl: 'https://shopbop.com/us/en/product/silk-blouse-123456789',
+        title: 'Shopbop - Silk Blouse',
+        price: 198.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T22:00:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 18,
+        suggestedUrl: 'https://nordstrom.com/us/en/product/wool-coat-123456789',
+        title: 'Nordstrom - Wool Coat',
+        price: 298.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T21:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 19,
+        suggestedUrl: 'https://bloomingdales.com/us/en/product/cashmere-scarf-123456789',
+        title: 'Bloomingdale\'s - Cashmere Scarf',
+        price: 98.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T20:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 20,
+        suggestedUrl: 'https://macys.com/us/en/product/evening-dress-123456789',
+        title: 'Macy\'s - Evening Dress',
+        price: 198.00,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T19:45:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 21,
+        suggestedUrl: 'https://kohls.com/us/en/product/casual-shoes-123456789',
+        title: 'Kohl\'s - Casual Shoes',
+        price: 59.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T19:00:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 22,
+        suggestedUrl: 'https://tjmaxx.com/us/en/product/designer-handbag-123456789',
+        title: 'TJ Maxx - Designer Handbag',
+        price: 89.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T18:15:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 23,
+        suggestedUrl: 'https://marshalls.com/us/en/product/sunglasses-123456789',
+        title: 'Marshalls - Sunglasses',
+        price: 29.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T17:30:00Z',
+        status: 'NEW'
+      },
+      {
+        id: 24,
+        suggestedUrl: 'https://ross.com/us/en/product/jewelry-set-123456789',
+        title: 'Ross - Jewelry Set',
+        price: 19.99,
+        source: 'GOOGLE_SHOPPING',
+        discoveredAt: '2024-01-14T16:45:00Z',
         status: 'NEW'
       }
     ]
@@ -570,6 +972,32 @@ export default function CompetitorsPage() {
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
+  // Enhanced demo mode detection
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const demoParam = urlParams.get('demo');
+    const localStorageFlag = localStorage.getItem('demo_mode_active');
+    
+    console.log('CompetitorsPage: Demo mode detection', {
+      demoParam,
+      localStorageFlag,
+      shop,
+      currentUrl: window.location.href
+    });
+    
+    // Check if demo mode should be activated
+    const shouldActivateDemo = demoParam === 'true' || 
+                              shop === 'demo-shopgauge.myshopify.com' ||
+                              window.location.hostname.includes('demo');
+    
+    if (shouldActivateDemo && !isDemoMode) {
+      console.log('CompetitorsPage: Activating demo mode');
+      setIsDemoMode(true);
+      setCompetitors(getDemoData(DEFAULT_DEMO_PREFERENCES.category).competitors);
+      setSuggestionCount(getDemoData(DEFAULT_DEMO_PREFERENCES.category).suggestions.length);
+    }
+  }, [shop, isDemoMode]);
+
   const [isAdding, setIsAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
@@ -638,6 +1066,8 @@ export default function CompetitorsPage() {
   const [showTutorial, setShowTutorial] = useState(false);
   // Add a ref to prevent duplicate notifications
   const notificationShownRef = useRef(false);
+  // Add a ref to prevent duplicate tutorial auto-triggers
+  const tutorialAutoTriggerRef = useRef(false);
 
   const [showDemoSettings, setShowDemoSettings] = useState(false);
   const [demoPreferences, setDemoPreferences] = useState<DemoPreferences>(DEFAULT_DEMO_PREFERENCES);
@@ -2319,6 +2749,44 @@ export default function CompetitorsPage() {
     }
   }, [isDemoMode, demoStartTime, startDemoSession, endDemoSession]);
 
+  // Auto-trigger tutorial for demo mode users
+  useEffect(() => {
+    if (isDemoMode && shop && !authLoading && isAuthReady && competitors.length > 0) {
+      const tutorialCompleted = localStorage.getItem(`tutorialCompleted_${shop}`);
+      const demoTutorialShown = sessionStorage.getItem('demo_competitors_tutorial_shown');
+      const dashboardTutorialShown = sessionStorage.getItem('demo_dashboard_tutorial_shown');
+      
+      console.log('Competitors: Auto-tutorial check', {
+        isDemoMode,
+        shop,
+        authLoading,
+        isAuthReady,
+        competitorsCount: competitors.length,
+        tutorialCompleted,
+        demoTutorialShown,
+        dashboardTutorialShown
+      });
+      
+      // Auto-trigger tutorial for first-time demo users, but only if they've seen the dashboard tutorial
+      // or if they landed directly on competitors page
+      if (tutorialCompleted !== 'true' && demoTutorialShown !== 'true' && !showTutorial && 
+          !tutorialAutoTriggerRef.current &&
+          (dashboardTutorialShown === 'true' || window.location.pathname === '/competitors')) {
+        console.log('Competitors: Auto-triggering tutorial for demo user');
+        tutorialAutoTriggerRef.current = true; // Prevent multiple triggers
+        // Small delay to let the page fully load and data populate
+        setTimeout(() => {
+          setShowTutorial(true);
+          sessionStorage.setItem('demo_competitors_tutorial_shown', 'true');
+          notifications.showInfo('Welcome to Market Intelligence! Let\'s explore how to monitor your competitors.', {
+            category: 'Tutorial',
+            duration: 4000
+          });
+        }, 1500); // 1.5-second delay for better UX
+      }
+    }
+  }, [isDemoMode, shop, authLoading, isAuthReady, competitors.length, showTutorial]); // Removed 'notifications' to prevent re-triggering
+
   // Cleanup demo session on unmount
   useEffect(() => {
     return () => {
@@ -2410,6 +2878,7 @@ export default function CompetitorsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+      <DemoModeBanner />
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Limit Display */}
         <LimitDisplay />
@@ -2468,73 +2937,7 @@ export default function CompetitorsPage() {
         </div>
 
         {/* Demo Mode Notice */}
-        {isDemoMode && (
-          <div className="relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-amber-50 p-6 shadow-md">
-            <span className="absolute top-0 right-0 mt-2 mr-2 px-2 py-0.5 text-xs font-semibold bg-amber-600 text-white rounded-full shadow">DEMO</span>
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
-                <InformationCircleIcon className="h-6 w-6 text-amber-600" aria-hidden="true" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-amber-800 leading-6">Demo Mode Active</h3>
-                <p className="mt-1 text-sm text-amber-700">
-                  {isAuthenticated 
-                    ? "Showing sample competitor data because no competitors have been added yet. Add your first competitor to start monitoring real market data."
-                    : "Showing sample competitor data. Configure your search API to enable live competitor discovery and price monitoring."
-                  }
-                </p>
-                {isAuthenticated && (
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {/* Primary CTAs */}
-                    <button
-                      onClick={() => {
-                        setShowAddForm(true);
-                        trackDemoInteraction('add_competitor_button');
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1 text-sm font-medium text-white shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                    >
-                      <PlusIcon className="h-4 w-4" />
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        toggleDemoMode();
-                        trackDemoInteraction('switch_to_live_mode');
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-sm font-medium text-amber-700 shadow hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
-                    >
-                      Switch to Live Mode
-                    </button>
 
-                    {/* Secondary options */}
-                    <button
-                      onClick={() => {
-                        setShowDemoSettings(true);
-                        trackDemoInteraction('demo_settings');
-                      }}
-                      className="inline-flex items-center gap-1 rounded-lg bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 shadow hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                    >
-                      <CogIcon className="h-4 w-4" />
-                      Customize Demo
-                    </button>
-                    {!demoAnalytics.tutorialCompleted && (
-                      <button
-                        onClick={() => {
-                          startTutorial();
-                          trackDemoInteraction('start_tutorial');
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1 text-sm font-medium text-green-700 shadow hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
-                      >
-                        <AcademicCapIcon className="h-4 w-4" />
-                        Start Tutorial
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Control Panel */}
         <div className="bg-white rounded-xl shadow p-4">
@@ -2625,25 +3028,27 @@ export default function CompetitorsPage() {
 
             {/* Right side - Action buttons */}
             <div className="flex items-center gap-3 flex-wrap">
-              {/* Demo Mode Toggle */}
-              <button
-                onClick={() => {
-                  toggleDemoMode();
-                  trackDemoInteraction('demo_toggle');
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all demo-toggle-button ${
-                  isDemoMode 
-                    ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                title={isDemoMode 
-                  ? 'Switch to Live Mode to monitor real competitor data'
-                  : 'Switch to Demo Mode to see sample data'
-                }
-              >
-                {isDemoMode ? <PlayIcon className="h-4 w-4" /> : <StopIcon className="h-4 w-4" />}
-                {isDemoMode ? 'Demo' : 'Live'}
-              </button>
+              {/* Demo Mode Toggle - Only show if not in demo store */}
+              {!isDemoStore(shop) && (
+                <button
+                  onClick={() => {
+                    toggleDemoMode();
+                    trackDemoInteraction('demo_toggle');
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all demo-toggle-button ${
+                    isDemoMode 
+                      ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  title={isDemoMode 
+                    ? 'Switch to Live Mode to monitor real competitor data'
+                    : 'Switch to Demo Mode to see sample data'
+                  }
+                >
+                  {isDemoMode ? <PlayIcon className="h-4 w-4" /> : <StopIcon className="h-4 w-4" />}
+                  {isDemoMode ? 'Demo' : 'Live'}
+                </button>
+              )}
 
               {/* Manual Discovery Button with 24hr Cooldown */}
               <button
@@ -3186,7 +3591,7 @@ export default function CompetitorsPage() {
       />
 
       {/* Demo Settings Modal */}
-      {showDemoSettings && (
+      {showDemoSettings && !isDemoStore(shop) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
