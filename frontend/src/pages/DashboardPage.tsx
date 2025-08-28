@@ -1397,7 +1397,7 @@ const DashboardPage = () => {
     if (diffHours === 1) return '1 hour ago';
     if (diffHours < 24) return `${diffHours} hours ago`;
     
-    return format(lastUpdate, 'MMM d, h:mm a');
+    return formatDate(lastUpdate.toISOString(), 'MMM d, h:mm a');
   }, [getMostRecentUpdateTime]);
 
   // Handle URL parameters from OAuth callback and Profile page redirects
