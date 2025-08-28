@@ -1192,6 +1192,48 @@ export const logoutShop = async () => {
 
 // Profile and privacy-related API functions
 export const getStoreStats = async () => {
+  // Check if demo mode is active
+  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  
+  if (isDemoMode) {
+    console.log('API: Using demo data for store stats');
+    
+    try {
+      const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
+      const data = DEMO_DATA_BUNDLE.analytics;
+      
+      // Return demo store stats that match the expected format
+      const demoStats = {
+        total_orders: data.orders.total_orders,
+        total_revenue: data.revenue.total_revenue,
+        total_products: data.inventory.total_products,
+        conversion_rate: data.orders.conversion_rate,
+        average_order_value: data.revenue.total_revenue / data.orders.total_orders,
+        last_sync: new Date().toISOString(),
+        shop_domain: 'demo-shopgauge.myshopify.com',
+        is_demo: true
+      };
+      
+      console.log('✅ API: Demo store stats loaded:', demoStats);
+      return demoStats;
+    } catch (error) {
+      console.error('❌ API: Failed to load demo data bundle, using fallback:', error);
+      // Fallback demo data
+      return {
+        total_orders: 187,
+        total_revenue: 26900,
+        total_products: 24,
+        conversion_rate: 2.5,
+        average_order_value: 143.85,
+        last_sync: new Date().toISOString(),
+        shop_domain: 'demo-shopgauge.myshopify.com',
+        is_demo: true
+      };
+    }
+  }
+  
+  console.log('API: Using regular store stats endpoint');
   const response = await fetchWithAuth('/api/analytics/store-stats');
   return handleResponse<any>(response);
 };
