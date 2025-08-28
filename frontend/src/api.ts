@@ -1059,6 +1059,27 @@ export async function getCompetitorSuggestions(page: number = 0, size: number = 
 }
 
 export async function getSuggestionCount(): Promise<{ newSuggestions: number }> {
+  // Check if demo mode is active
+  const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                    new URLSearchParams(window.location.search).get('demo') === 'true';
+  
+  if (isDemoMode) {
+    console.log('API: Using demo data for suggestion count');
+    
+    try {
+      const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
+      const demoCount = DEMO_DATA_BUNDLE.competitors.length;
+      
+      console.log('✅ API: Demo suggestion count loaded:', demoCount);
+      return { newSuggestions: demoCount };
+    } catch (error) {
+      console.error('❌ API: Failed to load demo data bundle, using fallback:', error);
+      // Fallback demo count
+      return { newSuggestions: 24 };
+    }
+  }
+  
+  console.log('API: Using regular suggestion count endpoint');
   const res = await fetchWithAuth(`/api/competitors/suggestions/count`);
   return handleResponse<{ newSuggestions: number }>(res);
 }

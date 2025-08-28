@@ -348,8 +348,16 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       return true;
     })();
 
-    // Store persistent notifications in backend
+    // Store persistent notifications in backend (skip in demo mode)
     if (shouldStore) {
+      const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                        new URLSearchParams(window.location.search).get('demo') === 'true';
+      
+      if (isDemoMode) {
+        console.log('🧪 useNotifications: Demo mode detected, skipping backend notification storage');
+        return id;
+      }
+      
       try {
         const response = await fetchWithAuth('/api/auth/shopify/notifications', {
           method: 'POST',
@@ -472,6 +480,18 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
 
   // Enhanced fetchNotifications with better error handling
   const fetchNotifications = useCallback(async () => {
+    // Check if demo mode is active first
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true';
+    
+    if (isDemoMode) {
+      console.log('🧪 useNotifications: Demo mode detected, skipping notification fetch');
+      // Demo mode doesn't need to fetch notifications from backend
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     // Skip if not authenticated to prevent 401 errors and infinite loops
     if (!isAuthenticated) {
       console.log('useNotifications: Skipping fetch - user not authenticated');
