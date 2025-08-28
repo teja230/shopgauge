@@ -94,16 +94,15 @@ export interface DemoCompetitor {
 
 /**
  * Helper function to generate relative dates
+ * Creates a new Date object to avoid potential side effects
  */
 const getRelativeDate = (daysAgo: number): string => {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
+  const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
   return date.toISOString().split('T')[0];
 };
 
 const getRelativeDateTime = (daysAgo: number, hour: number = 12, minute: number = 0): string => {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
+  const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
   date.setHours(hour, minute, 0, 0);
   return date.toISOString();
 };

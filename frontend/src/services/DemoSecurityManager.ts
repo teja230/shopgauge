@@ -238,24 +238,64 @@ export class DemoSecurityManager {
         navigator.maxTouchPoints?.toString() || '0'
       ];
 
-      // Create canvas fingerprint (optional, more unique but privacy-invasive)
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.textBaseline = 'top';
-        ctx.font = '14px Arial';
-        ctx.fillText('Demo Security Fingerprint', 2, 2);
-        characteristics.push(canvas.toDataURL());
+      // Try canvas fingerprinting with fallback for privacy concerns
+      let canvasFingerprint = '';
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.textBaseline = 'top';
+          ctx.font = '14px Arial';
+          ctx.fillText('Demo Security Fingerprint', 2, 2);
+          canvasFingerprint = canvas.toDataURL();
+          characteristics.push(canvasFingerprint);
+        }
+      } catch (canvasError) {
+        console.warn('⚠️ Demo Security: Canvas fingerprinting blocked or failed, using alternative method');
+        // Fallback: Use WebGL renderer info if available
+        try {
+          const gl = document.createElement('canvas').getContext('webgl');
+          if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+              characteristics.push(
+                gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || 'unknown',
+                gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || 'unknown'
+              );
+            }
+          }
+        } catch (webglError) {
+          // Final fallback: Use additional browser features
+          characteristics.push(
+            navigator.cookieEnabled.toString(),
+            navigator.doNotTrack || 'unknown',
+            window.devicePixelRatio?.toString() || '1',
+            (window.screen as any).availWidth?.toString() || '0',
+            (window.screen as any).availHeight?.toString() || '0'
+          );
+        }
       }
 
-      // Generate hash
+      // Generate hash from collected characteristics
       const combined = characteristics.join('|');
       this.browserFingerprint = this.simpleHash(combined).substr(0, 16);
 
       console.log('🔍 Demo Security: Browser fingerprint generated:', this.browserFingerprint);
     } catch (error) {
-      console.warn('⚠️ Demo Security: Error generating fingerprint, using fallback');
-      this.browserFingerprint = `fallback_${Math.random().toString(36).substr(2, 16)}`;
+      console.warn('⚠️ Demo Security: All fingerprinting methods failed, using random fallback');
+      // Ultimate fallback: random identifier with some persistence
+      const fallbackKey = 'demo_fingerprint_fallback';
+      let fallbackId = localStorage.getItem(fallbackKey);
+      if (!fallbackId) {
+        fallbackId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`;
+        try {
+          localStorage.setItem(fallbackKey, fallbackId);
+        } catch (storageError) {
+          // If even localStorage fails, use session-only ID
+          fallbackId = `session_${Math.random().toString(36).substr(2, 16)}`;
+        }
+      }
+      this.browserFingerprint = fallbackId.substr(0, 16);
     }
   }
 

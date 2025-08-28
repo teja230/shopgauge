@@ -29,11 +29,14 @@ echo "📁 Build artifacts:"
 ls -la build/libs/
 
 # Copy the built jar to the expected location
-if [ -f "build/libs/*-SNAPSHOT.jar" ]; then
-    echo "📋 Copying built jar..."
-    cp build/libs/*-SNAPSHOT.jar app.jar
+JAR_FILE=$(find build/libs -name "*-SNAPSHOT.jar" -type f 2>/dev/null | head -n1)
+if [ -n "$JAR_FILE" ] && [ -f "$JAR_FILE" ]; then
+    echo "📋 Copying built jar: $JAR_FILE"
+    cp "$JAR_FILE" app.jar
     echo "✅ Jar copied successfully"
 else
-    echo "❌ Error: Built jar not found"
+    echo "❌ Error: Built jar not found in build/libs/"
+    echo "Available files:"
+    ls -la build/libs/ 2>/dev/null || echo "No build/libs directory found"
     exit 1
 fi

@@ -103,12 +103,8 @@ export class HybridDemoBootstrap {
         enabledServices.push('SecurityManager');
       }
 
-      // 4. Register Service Worker - DISABLED to prevent conflicts with main SW
-      // The main service worker (/sw.js) already handles demo mode caching
-      // if (this.config.enableServiceWorker) {
-      //   await this.registerServiceWorker();
-      //   enabledServices.push('ServiceWorker');
-      // }
+      // 4. Service Worker Registration - REMOVED
+      // Demo service worker was removed as the main service worker (/sw.js) handles all caching
 
       // 5. Setup performance monitoring
       this.setupPerformanceMonitoring();
