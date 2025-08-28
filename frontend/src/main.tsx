@@ -16,6 +16,22 @@ const initializeHybridDemo = async () => {
     currentUrl: window.location.href
   });
   
+  // Clean up any existing demo service workers to prevent conflicts
+  if ('serviceWorker' in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        if (registration.scope.includes('demo-service-worker') || 
+            (registration.active && registration.active.scriptURL.includes('demo-service-worker'))) {
+          console.log('🧹 Main: Unregistering conflicting demo service worker');
+          await registration.unregister();
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Main: Failed to cleanup demo service workers:', error);
+    }
+  }
+  
   if (isDemoMode) {
     try {
       console.log('🚀 ShopGauge: Initializing hybrid demo system...');
@@ -25,7 +41,7 @@ const initializeHybridDemo = async () => {
       
       const result = await initializeHybridDemo({
         strategy: 'hybrid',
-        enableServiceWorker: true,
+        enableServiceWorker: false, // Disabled to prevent conflicts with main SW
         enablePerformanceMonitoring: true,
         enableSecurity: true,
         enableAnalytics: false, // Privacy-conscious default
