@@ -9,6 +9,7 @@ import com.storesight.backend.service.AdminRateLimitingService;
 import com.storesight.backend.service.CompetitorAuditService;
 import com.storesight.backend.service.CompetitorLimitService;
 import com.storesight.backend.service.DashboardCacheService;
+import com.storesight.backend.service.DemoModeService;
 import com.storesight.backend.service.EnhancedRedisService;
 import com.storesight.backend.service.InputValidationService;
 import com.storesight.backend.service.PriceChangeCalculationService;
@@ -70,6 +71,8 @@ public class CompetitorController {
   @Autowired private DashboardCacheService dashboardCacheService;
 
   @Autowired private ShopService shopService;
+
+  @Autowired private DemoModeService demoModeService;
 
   @Autowired private RedisTemplate<String, Object> redisTemplate;
   @Autowired private EnhancedRedisService enhancedRedisService;
@@ -598,6 +601,24 @@ public class CompetitorController {
           .body(Map.of("error", "Authentication required"));
     }
 
+    // DEMO MODE PROTECTION: Prevent write operations in demo mode
+    String demoShopDomain = getShopDomainFromRequest(httpRequest);
+    if (demoShopDomain != null && demoModeService.isDemoStore(demoShopDomain)) {
+      logger.info(
+          "Demo mode detected - simulating competitor addition for shop: {}", demoShopDomain);
+      // Return a simulated success response without actually writing to database
+      return ResponseEntity.ok(
+          Map.of(
+              "success",
+              true,
+              "message",
+              "Competitor added successfully (demo mode)",
+              "isDemoMode",
+              true,
+              "competitorId",
+              "demo_comp_" + System.currentTimeMillis()));
+    }
+
     // Check rate limits for competitor addition
     AdminRateLimitingService.RateLimitResult addRateLimit =
         rateLimitingService.checkCompetitorAddition(shopId);
@@ -1090,6 +1111,19 @@ public class CompetitorController {
     if (shopId == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .body(Map.of("error", "Authentication required"));
+    }
+
+    // DEMO MODE PROTECTION: Prevent write operations in demo mode
+    String demoShopDomain = getShopDomainFromRequest(request);
+    if (demoShopDomain != null && demoModeService.isDemoStore(demoShopDomain)) {
+      logger.info(
+          "Demo mode detected - simulating competitor deletion for shop: {}", demoShopDomain);
+      // Return a simulated success response without actually deleting from database
+      return ResponseEntity.ok(
+          Map.of(
+              "success", true,
+              "message", "Competitor deleted successfully (demo mode)",
+              "isDemoMode", true));
     }
 
     try {
@@ -2930,6 +2964,18 @@ public class CompetitorController {
     public String getErrorMessage() {
       return errorMessage;
     }
+  }
+
+  /** Extract shop domain from session cookie */
+  private String getShopDomainFromRequest(HttpServletRequest request) {
+    if (request.getCookies() != null) {
+      for (Cookie cookie : request.getCookies()) {
+        if ("shop".equals(cookie.getName())) {
+          return cookie.getValue();
+        }
+      }
+    }
+    return null;
   }
 
   /** Extract shop ID from session cookie with caching */

@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthReady: boolean;
   loading: boolean;
   hasInitiallyLoaded: boolean;
+  isDemoMode: boolean;
   logout: () => void;
 }
 
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   setShop: () => {},
   isAuthReady: false,
   hasInitiallyLoaded: false,
+  isDemoMode: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -43,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
 
 
@@ -56,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear authentication state
       setIsAuthenticated(false);
       setShop(null);
+      setIsDemoMode(false);
       setApiAuthState(false, null);
       
       // Mark auth as ready even when not authenticated
@@ -72,11 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error?.response?.status === 403 || error?.code === 'UNAUTHORIZED') {
       console.log('AuthContext: Handling 403/UNAUTHORIZED error');
       
-      // Clear auth state but don't redirect
-      setIsAuthenticated(false);
-      setShop(null);
-      setApiAuthState(false, null);
-      setIsAuthReady(true);
+              // Clear auth state but don't redirect
+        setIsAuthenticated(false);
+        setShop(null);
+        setIsDemoMode(false);
+        setApiAuthState(false, null);
+        setIsAuthReady(true);
       
       return true;
     }
@@ -116,14 +121,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
-    // Only run initial auth check on mount
-    if (!hasInitiallyLoaded) {
+    // Check for demo mode from multiple sources
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDemoModeInUrl = urlParams.get('demo') === 'true';
+    const isDemoModeInLocalStorage = localStorage.getItem('demo_mode_active') === 'true';
+    const shouldSetupDemo = isDemoModeInUrl || isDemoModeInLocalStorage;
+    
+    if (shouldSetupDemo && !isAuthenticated) {
+      console.log('AuthContext: Demo mode detected, setting up demo session', {
+        isDemoModeInUrl,
+        isDemoModeInLocalStorage,
+        isAuthenticated
+      });
+      
+      // Set up demo session immediately
+      const demoShop = 'demo-shopgauge.myshopify.com';
+      
+      // Set all demo flags
+      localStorage.setItem('demo_mode_active', 'true');
+      localStorage.setItem('isAuthenticated', 'true');
+      sessionStorage.setItem('shop', demoShop);
+      
+      // Update state
+      setShop(demoShop);
+      setIsAuthenticated(true);
+      setIsAuthReady(true);
+      setIsDemoMode(true);
+      setApiAuthState(true, demoShop);
+      setHasInitiallyLoaded(true);
+      setAuthLoading(false);
+      setLoading(false);
+      
+      // Clean up URL by removing demo parameter for security and UX
+      if (isDemoModeInUrl) {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('demo');
+        window.history.replaceState({}, '', cleanUrl.toString());
+        console.log('AuthContext: Cleaned demo parameter from URL for security');
+      }
+      
+      console.log('AuthContext: Demo mode setup complete', {
+        shop: demoShop,
+        isAuthenticated: true,
+        isDemoMode: true,
+        isAuthReady: true,
+        hasInitiallyLoaded: true
+      });
+      return;
+    }
+    
+    // Only run initial auth check on mount if not in demo mode
+    if (!hasInitiallyLoaded && !shouldSetupDemo) {
       checkAuth();
     }
   }, [hasInitiallyLoaded]);
 
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
+    console.log('AuthContext: Current URL:', window.location.href);
+    console.log('AuthContext: URL search params:', window.location.search);
     
     // Skip Shopify authentication on admin pages
     const currentPath = window.location.pathname;
@@ -131,14 +187,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('AuthContext: Skipping Shopify auth check on admin page');
       setShop(null);
       setIsAuthenticated(false);
+      setIsDemoMode(false);
       setIsAuthReady(true);
       setHasInitiallyLoaded(true);
       setApiAuthState(false, null);
       return;
     }
     
-    // Check if this is a post-OAuth redirect (user just completed OAuth)
+    // Check if this is a demo mode request
     const urlParams = new URLSearchParams(window.location.search);
+    const isDemoMode = urlParams.get('demo') === 'true';
+    
+    console.log('AuthContext: Demo mode check - URL params:', Object.fromEntries(urlParams.entries()));
+    console.log('AuthContext: Demo mode detected:', isDemoMode);
+    
+    if (isDemoMode) {
+      console.log('AuthContext: Detected demo mode request, setting up demo session directly');
+      
+      // Set up demo mode directly without backend validation
+      const demoShop = 'demo-shopgauge.myshopify.com';
+      console.log('AuthContext: Setting up demo session for shop:', demoShop);
+      
+      setShop(demoShop);
+      setIsAuthenticated(true);
+      setIsAuthReady(true);
+      setIsDemoMode(true);
+      setApiAuthState(true, demoShop);
+      setHasInitiallyLoaded(true);
+      
+      // Set a global demo mode flag for the API layer
+      window.localStorage.setItem('demo_mode_active', 'true');
+      // Set authentication flag for session heartbeat compatibility
+      window.localStorage.setItem('isAuthenticated', 'true');
+      
+      console.log('AuthContext: Demo mode setup complete', {
+        shop: demoShop,
+        isAuthenticated: true,
+        isDemoMode: true,
+        isAuthReady: true,
+        hasInitiallyLoaded: true
+      });
+      return;
+    }
+    
+    // Check if this is a post-OAuth redirect (user just completed OAuth)
     const isPostOAuth = urlParams.get('connected') === 'true';
     
     if (isPostOAuth) {
@@ -183,9 +275,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = await response.json();
             if (data.shop && data.authenticated) {
               console.log('AuthContext: Authentication successful, shop:', data.shop);
+              const isDemo = data.shop === 'demo-shopgauge.myshopify.com';
+              
               setShop(data.shop);
               setIsAuthenticated(true);
               setIsAuthReady(true);
+              setIsDemoMode(isDemo);
               
               // Sync API authentication state
               setApiAuthState(true, data.shop);
@@ -216,6 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('AuthContext: All authentication attempts failed');
       setShop(null);
       setIsAuthenticated(false);
+      setIsDemoMode(false);
       setIsAuthReady(true);
       setHasInitiallyLoaded(true);
       
@@ -226,6 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('AuthContext: Unexpected error during authentication check:', error);
       setShop(null);
       setIsAuthenticated(false);
+      setIsDemoMode(false);
       setIsAuthReady(true);
       setHasInitiallyLoaded(true);
       setApiAuthState(false, null);
@@ -303,7 +400,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear auth state
       setIsAuthenticated(false);
       setShop(null);
+      setIsDemoMode(false);
       setApiAuthState(false, null);
+      
+      // Clear demo mode flag and authentication state
+      localStorage.removeItem('demo_mode_active');
+      localStorage.removeItem('isAuthenticated');
+      sessionStorage.removeItem('demo_mode_active');
+      
+      // Clear ALL demo-related session storage
+      const demoKeys = [
+        'demo_dashboard_tutorial_shown',
+        'demo_competitors_tutorial_shown',
+        'demo_session_started',
+        'demo_performance_metrics'
+      ];
+      
+      // Clear all demo cache keys
+      const allKeys = Object.keys(sessionStorage);
+      allKeys.forEach(key => {
+        if (key.includes('demo') || key.includes('cache') || key.includes('products_cache') || key.includes('orders_cache') || key.includes('revenue_cache')) {
+          sessionStorage.removeItem(key);
+          console.log(`AuthContext: Cleared demo session key: ${key}`);
+        }
+      });
+      
+      // Clear demo shop from sessionStorage
+      sessionStorage.removeItem('shop');
+      
+      // Force clear any remaining demo data
+      console.log('AuthContext: Final cleanup - clearing all demo-related data');
+      localStorage.clear();
+      sessionStorage.clear();
+      
       setIsAuthReady(true);
       console.log('AuthContext: Logout completed');
     }
@@ -319,6 +448,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShop,
       isAuthReady,
       hasInitiallyLoaded,
+      isDemoMode,
     }}>
       {children}
     </AuthContext.Provider>

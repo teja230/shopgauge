@@ -519,35 +519,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
 
   return (
     <Box>
-      {/* Demo Mode Indicator */}
-      {shopId === 'demo' && (
-        <Box sx={{ 
-          mb: 2, 
-          p: 2, 
-          backgroundColor: '#fef3c7', 
-          border: '1px solid #f59e0b',
-          borderRadius: 2,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1
-        }}>
-          <Box sx={{ 
-            p: 0.5, 
-            borderRadius: 1, 
-            backgroundColor: '#f59e0b',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'white' }}>
-              DEMO
-            </Typography>
-          </Box>
-          <Typography variant="body2" sx={{ color: '#92400e', fontSize: '0.875rem' }}>
-            Showing sample deleted competitors data
-          </Typography>
-        </Box>
-      )}
+
       
       {/* Integrated Section Header */}
       {sectionTitle && (

@@ -6,6 +6,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 const features = [
   'AI-Powered Revenue Forecasting with 7-60 day predictions and confidence intervals',
@@ -116,6 +117,44 @@ const HomePage = () => {
     }
     keysToRemove.forEach((k) => sessionStorage.removeItem(k));
     console.log('HomePage: Cleared all dashboard and unified analytics cache keys');
+  };
+
+  const handleDemoMode = async () => {
+    setIsLoading(true);
+    try {
+      console.log('🚀 HomePage: Starting frontend-only demo mode activation');
+      
+      // Clear any existing cache before demo
+      sessionStorage.clear();
+      localStorage.clear();
+      
+      // Set up demo session for tutorial system
+      sessionStorage.setItem('demo_session_started', new Date().toISOString());
+      
+      // Clear any previous tutorial completion for fresh demo experience
+      const demoShop = 'demo-shopgauge.myshopify.com';
+      localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
+      localStorage.removeItem(`tutorialCompleted_${demoShop}`);
+      
+      // Set demo mode flags BEFORE redirect to prevent race condition
+      localStorage.setItem('demo_mode_active', 'true');
+      localStorage.setItem('isAuthenticated', 'true');
+      sessionStorage.setItem('shop', 'demo-shopgauge.myshopify.com');
+      
+      console.log('✅ HomePage: Demo mode activated, navigating to dashboard');
+      
+      // Navigate to dashboard with demo flag
+      window.location.href = '/dashboard?demo=true';
+      
+    } catch (error) {
+      console.error('Demo mode error:', error);
+      notifications.showError('Failed to start demo mode. Please try again.', {
+        persistent: true,
+        category: 'Demo'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -324,15 +363,52 @@ const HomePage = () => {
                   </div>
                 </form>
               ) : (
-                <button
-                  onClick={() => setShowConnectForm(true)}
-                  className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
-                >
-                  <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                  Connect Store
-                </button>
+                                <div className="flex items-center gap-3">
+                  {/* Primary CTA - Connect Store */}
+                  <button
+                    onClick={() => setShowConnectForm(true)}
+                    className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
+                  >
+                    <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    Connect Store
+                  </button>
+                  
+                  {/* Modern Demo Icon Button */}
+                  <div className="relative group">
+                    <button
+                      onClick={handleDemoMode}
+                      disabled={isLoading}
+                      className="inline-flex items-center justify-center w-16 h-16 rounded-full transition-all duration-300 bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white hover:bg-white/30 hover:border-white/50 transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                      title="Try Demo - Explore with sample data"
+                    >
+                      {isLoading ? (
+                        <svg className="animate-spin h-7 w-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      )}
+                    </button>
+                    
+                    {/* Enhanced Tooltip */}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-4 py-3 bg-gray-900/95 backdrop-blur-sm text-white text-sm rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-10 shadow-2xl border border-gray-700">
+                      <div className="flex items-center mb-2">
+                        <span className="mr-2 text-lg">▶️</span>
+                        <span className="font-semibold">Try Demo</span>
+                      </div>
+                      <div className="text-xs opacity-90 leading-relaxed">
+                        Start exploring with<br/>realistic sample data
+                      </div>
+                      {/* Tooltip arrow */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
+                    </div>
+                  </div>
+                </div>
               )
             )}
             <p className="text-sm opacity-90 mt-6 text-white">No credit card required for trial • Cancel anytime</p>

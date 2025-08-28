@@ -5,12 +5,12 @@ import { RevenueChart } from '../components/ui/RevenueChart';
 import PredictionViewContainer from '../components/ui/PredictionViewContainer';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
 import { MetricCard } from '../components/ui/MetricCard';
-import { fetchWithAuth, retryWithBackoff } from '../api';
+import { fetchWithAuth, retryWithBackoff, getRevenue, getInsights, getProducts, getOrders } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart, Sort, ArrowUpward, ArrowDownward } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { formatDate } from '../utils/dateUtils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
 import {
@@ -27,6 +27,8 @@ import Joyride from 'react-joyride';
 import type { Step, CallBackProps } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
+
 
 
 /**
@@ -642,9 +644,7 @@ const GraphLink = styled(MuiLink)(({ theme }) => ({
   },
 }));
 
-const formatDate = (dateString: string) => {
-  return format(new Date(dateString), 'MMM d, yyyy');
-};
+// formatDate function moved to utils/dateUtils.ts for reusability
 
 // Add loading states for individual cards
 interface CardLoadingState {
@@ -738,6 +738,33 @@ const DashboardPage = () => {
   const location = useLocation();
   const notifications = useNotifications();
   
+  // Enhanced demo mode detection
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const demoParam = urlParams.get('demo');
+    const localStorageFlag = localStorage.getItem('demo_mode_active');
+    
+    console.log('Dashboard: Demo mode detection', {
+      demoParam,
+      localStorageFlag,
+      shop,
+      currentUrl: window.location.href
+    });
+    
+    // Check if demo mode should be activated
+    const shouldActivateDemo = demoParam === 'true' || 
+                              shop === 'demo-shopgauge.myshopify.com' ||
+                              window.location.hostname.includes('demo');
+    
+    if (shouldActivateDemo && localStorageFlag !== 'true') {
+      console.log('Dashboard: Activating demo mode');
+      localStorage.setItem('demo_mode_active', 'true');
+      // Force a data refresh instead of page reload to avoid blank page issues
+      setDashboardDataInitialized(false);
+      setLoading(true);
+    }
+  }, [shop]);
+  
   // Mobile detection
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -771,6 +798,43 @@ const DashboardPage = () => {
       tutorialNotificationShownRef.current = false;
     }
   }, [showTutorial]);
+
+  // Auto-trigger tutorial for demo mode users
+  useEffect(() => {
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
+    
+    if (isDemoMode && shop && !authLoading && isAuthReady && !loading) {
+      const tutorialCompleted = localStorage.getItem(`dashboard_tutorial_completed_${shop}`);
+      const demoTutorialShown = sessionStorage.getItem('demo_dashboard_tutorial_shown');
+      
+      console.log('Dashboard: Auto-tutorial check', {
+        isDemoMode,
+        shop,
+        authLoading,
+        isAuthReady,
+        loading,
+        tutorialCompleted,
+        demoTutorialShown
+      });
+      
+      // Auto-trigger tutorial for first-time demo users
+      if (tutorialCompleted !== 'true' && demoTutorialShown !== 'true' && !showTutorial && !tutorialNotificationShownRef.current) {
+        console.log('Dashboard: Auto-triggering tutorial for demo user');
+        tutorialNotificationShownRef.current = true; // Prevent multiple triggers
+        // Small delay to let the page fully load and data populate
+        setTimeout(() => {
+          setShowTutorial(true);
+          sessionStorage.setItem('demo_dashboard_tutorial_shown', 'true');
+          notifications.showInfo('Welcome to your demo dashboard! Let\'s take a quick tour of the key features.', {
+            category: 'Tutorial',
+            duration: 4000
+          });
+        }, 2000); // 2-second delay for better UX
+      }
+    }
+  }, [shop, authLoading, isAuthReady, loading, showTutorial]); // Removed 'notifications' to prevent re-triggering
 
   // =====================================
   // Polling management refs (typed)
@@ -1333,7 +1397,7 @@ const DashboardPage = () => {
     if (diffHours === 1) return '1 hour ago';
     if (diffHours < 24) return `${diffHours} hours ago`;
     
-    return format(lastUpdate, 'MMM d, h:mm a');
+    return formatDate(lastUpdate.toISOString(), 'MMM d, h:mm a');
   }, [getMostRecentUpdateTime]);
 
   // Handle URL parameters from OAuth callback and Profile page redirects
@@ -1373,8 +1437,13 @@ const DashboardPage = () => {
 
   // Individual card data fetching functions with enhanced authentication checks
   const fetchRevenueData = useCallback(async (forceRefresh = false) => {
-    // Pre-flight authentication check
-    if (!isAuthenticated || !shop) {
+    // Check demo mode first
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
+    
+    // Pre-flight authentication check (skip for demo mode)
+    if (!isDemoMode && (!isAuthenticated || !shop)) {
       console.log('Dashboard: Skipping revenue fetch - not authenticated or no shop');
       setCardErrors(prev => ({ ...prev, revenue: 'Authentication required' }));
       setCardLoading(prev => ({ ...prev, revenue: false }));
@@ -1388,8 +1457,9 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('revenue', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue'));
-        return await response.json();
+        // Check if demo mode is active and use appropriate endpoint
+        console.log('Dashboard: Fetching revenue via centralized API');
+        return await getRevenue();
       }, forceRefresh);
       
       if ((data.error_code === 'INSUFFICIENT_PERMISSIONS' || (data.error && data.error.includes('re-authentication')))) {
@@ -1433,16 +1503,34 @@ const DashboardPage = () => {
         ordersCount: data.orders_count
       });
       
-      // If API didn't return timeseries but we have revenue, try to fetch timeseries separately
+      // If API didn't return timeseries but we have revenue, generate demo data for demo mode
       if (!timeseriesData.length && totalRevenue > 0) {
-        try {
-          console.log('Fetching timeseries data separately...');
-          const tsResp = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue/timeseries'));
-          const tsJson = await tsResp.json();
-          timeseriesData = tsJson.timeseries || [];
-          console.log('Separate timeseries fetch result:', timeseriesData.length, 'data points');
-        } catch (err) {
-          console.warn('Failed to fetch revenue timeseries', err);
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        
+        if (isDemoMode) {
+          // Generate demo timeseries data
+          console.log('Generating demo timeseries data...');
+          const daysBack = 30;
+          timeseriesData = Array.from({length: daysBack}, (_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (daysBack - i - 1));
+            return {
+              date: date.toISOString().split('T')[0],
+              revenue: Math.floor(Math.random() * 2000) + 800 // Demo revenue between 800-2800
+            };
+          });
+          console.log('Generated demo timeseries:', timeseriesData.length, 'data points');
+        } else {
+          try {
+            console.log('Fetching timeseries data separately for real shop...');
+            const tsResp = await retryWithBackoff(() => fetchWithAuth('/api/analytics/revenue/timeseries'));
+            const tsJson = await tsResp.json();
+            timeseriesData = tsJson.timeseries || [];
+            console.log('Separate timeseries fetch result:', timeseriesData.length, 'data points');
+          } catch (err) {
+            console.warn('Failed to fetch revenue timeseries', err);
+          }
         }
       }
       
@@ -1478,8 +1566,13 @@ const DashboardPage = () => {
   }, [isAuthenticated, shop, checkCacheAndFetch]);
 
   const fetchProductsData = useCallback(async (forceRefresh = false) => {
-    // Pre-flight authentication check
-    if (!isAuthenticated || !shop) {
+    // Check demo mode first
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
+    
+    // Pre-flight authentication check (skip for demo mode)
+    if (!isDemoMode && (!isAuthenticated || !shop)) {
       console.log('Dashboard: Skipping products fetch - not authenticated or no shop');
       setCardErrors(prev => ({ ...prev, products: 'Authentication required' }));
       setCardLoading(prev => ({ ...prev, products: false }));
@@ -1492,9 +1585,14 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('products', async () => {
-        console.log('🔄 Dashboard: Making API call to /api/analytics/products');
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/products'));
-        const jsonData = await response.json();
+        console.log('🔄 Dashboard: Fetching products via centralized API');
+        const apiResponse = await getProducts();
+        
+        // Handle both array and object responses
+        const jsonData = Array.isArray(apiResponse) 
+          ? { products: apiResponse } // Wrap array in expected format
+          : apiResponse; // Use object as-is
+        
         console.log('📊 Dashboard: Products API response:', jsonData);
         
         // Populate session storage for products data (used by dashboard and other components)
@@ -1555,8 +1653,25 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('inventory', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/inventory/low'));
-        return await response.json();
+        console.log('Dashboard: Fetching inventory via centralized API');
+        // For demo mode, return embedded data, for real mode use inventory endpoint
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        
+        if (isDemoMode) {
+          // Return demo inventory data
+          return {
+            low_inventory_count: 8,
+            low_inventory_products: [
+              { name: 'Premium Wireless Headphones', current_stock: 3, reorder_point: 10 },
+              { name: 'Smart Fitness Tracker', current_stock: 2, reorder_point: 8 },
+              { name: 'Portable Bluetooth Speaker', current_stock: 1, reorder_point: 5 }
+            ]
+          };
+        } else {
+          const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/inventory/low'));
+          return await response.json();
+        }
       }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
@@ -1565,7 +1680,7 @@ const DashboardPage = () => {
       }
       
       setInsights(mergeInsights({
-        lowInventory: data.rate_limited ? 0 : (Array.isArray(data.lowInventory) ? data.lowInventory.length : (data.lowInventoryCount || 0))
+        lowInventory: data.rate_limited ? 0 : (Array.isArray(data.lowInventory) ? data.lowInventory.length : (data.low_inventory_count || data.lowInventoryCount || 0))
       }));
       
       if (data.rate_limited) {
@@ -1596,8 +1711,24 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('newProducts', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/new_products'));
-        return await response.json();
+        console.log('Dashboard: Fetching new products via centralized API');
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        
+        if (isDemoMode) {
+          // Return demo new products data
+          return {
+            new_products_count: 5,
+            new_products: [
+              { title: 'Wireless Charging Pad', created_at: new Date(Date.now() - 86400000).toISOString(), status: 'active' },
+              { title: 'Smart Home Security Camera', created_at: new Date(Date.now() - 172800000).toISOString(), status: 'active' },
+              { title: 'Ergonomic Office Chair', created_at: new Date(Date.now() - 259200000).toISOString(), status: 'active' }
+            ]
+          };
+        } else {
+          const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/new_products'));
+          return await response.json();
+        }
       }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
@@ -1606,7 +1737,7 @@ const DashboardPage = () => {
       }
       
       setInsights(mergeInsights({
-        newProducts: data.rate_limited ? 0 : (data.newProducts || 0)
+        newProducts: data.rate_limited ? 0 : (data.new_products_count || data.newProducts || 0)
       }));
       
       if (data.rate_limited) {
@@ -1637,8 +1768,8 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('insights', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/conversion'));
-        return await response.json();
+        console.log('Dashboard: Fetching insights via centralized API');
+        return await getInsights();
       }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
@@ -1693,8 +1824,21 @@ const DashboardPage = () => {
     
     try {
       const data = await checkCacheAndFetch('abandonedCarts', async () => {
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/abandoned_carts'));
-        return await response.json();
+        console.log('Dashboard: Fetching abandoned carts via centralized API');
+        const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                          new URLSearchParams(window.location.search).get('demo') === 'true';
+        
+        if (isDemoMode) {
+          // Return demo abandoned carts data
+          return {
+            abandoned_cart_count: 24,
+            abandoned_cart_value: 3847.25,
+            recovery_rate: 23.5
+          };
+        } else {
+          const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/abandoned_carts'));
+          return await response.json();
+        }
       }, forceRefresh);
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
@@ -1721,7 +1865,7 @@ const DashboardPage = () => {
       }
       
       setInsights(mergeInsights({
-        abandonedCarts: data.rate_limited ? 0 : (data.abandonedCarts || 0)
+        abandonedCarts: data.rate_limited ? 0 : (data.abandoned_cart_count || data.abandonedCarts || 0)
       }));
       
       if (data.rate_limited) {
@@ -1739,9 +1883,13 @@ const DashboardPage = () => {
   }, [checkCacheAndFetch]);
 
   const fetchOrdersData = useCallback(async (forceRefresh = false) => {
+    // Check demo mode first
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
 
-    // Pre-flight authentication check
-    if (!isAuthenticated || !shop) {
+    // Pre-flight authentication check (skip for demo mode)
+    if (!isDemoMode && (!isAuthenticated || !shop)) {
       console.log('Dashboard: Skipping orders fetch - not authenticated or no shop');
       setCardErrors(prev => ({ ...prev, orders: 'Authentication required' }));
       setCardLoading(prev => ({ ...prev, orders: false }));
@@ -1752,17 +1900,49 @@ const DashboardPage = () => {
     setCardErrors(prev => ({ ...prev, orders: null }));
     
     try {
+      // Force refresh for demo mode to bypass stale cache
+      const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                        new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                        shop === 'demo-shopgauge.myshopify.com';
+      
+      const forceRefreshForDemo = isDemoMode; // Always force refresh for demo mode
+      console.log('[Orders] Cache strategy:', { isDemoMode, forceRefresh, forceRefreshForDemo });
+      
+      // Clear orders cache for demo mode to ensure fresh data
+      if (isDemoMode) {
+        const ordersCacheKey = `orders_cache_${shop}`;
+        sessionStorage.removeItem(ordersCacheKey);
+        console.log('[Orders] Cleared demo mode cache to force fresh data fetch');
+      }
+      
       const data = await checkCacheAndFetch('orders', async () => {
         console.log(`[Orders] Starting fetch for shop: ${shop}`);
         
         // Fetch orders sequentially to avoid overwhelming the API
-        const response = await retryWithBackoff(() => fetchWithAuth('/api/analytics/orders/timeseries?page=1&limit=50&days=60'));
-        const initialData = await response.json();
+        // Check if demo mode is active and use appropriate endpoint
+        console.log('Dashboard: Fetching orders via centralized API');
+        const apiResponse = await getOrders();
+        
+        // Handle both array and object responses
+        const initialData = Array.isArray(apiResponse) 
+          ? { orders: apiResponse, recentOrders: apiResponse.slice(0, 10) } // Wrap array
+          : apiResponse; // Use object as-is
+        
+        console.log('[Orders] API Response Processing:', {
+          isArray: Array.isArray(apiResponse),
+          apiResponseLength: Array.isArray(apiResponse) ? apiResponse.length : 'not array',
+          apiResponseKeys: typeof apiResponse === 'object' ? Object.keys(apiResponse) : 'not object',
+          initialDataStructure: {
+            hasOrders: !!initialData.orders,
+            ordersLength: initialData.orders?.length || 0,
+            hasRecentOrders: !!initialData.recentOrders,
+            recentOrdersLength: initialData.recentOrders?.length || 0
+          }
+        });
         
         console.log('[Orders] Initial API response:', {
-          status: response.status,
-          hasTimeseries: !!initialData.timeseries,
-          timeseriesLength: initialData.timeseries?.length || 0,
+          hasOrders: !!initialData.orders,
+          ordersLength: initialData.orders?.length || 0,
           hasMore: initialData.has_more,
           errorCode: initialData.error_code,
           error: initialData.error,
@@ -1800,6 +1980,10 @@ const DashboardPage = () => {
             for (let page = 2; page <= 5; page++) {
               await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between pages
               
+              // Use demo endpoint if in demo mode, skip pagination for demo data
+              if (isDemoMode) {
+                break; // Demo data doesn't need pagination
+              }
               const additionalResponse = await fetchWithAuth(`/api/analytics/orders/timeseries?page=${page}&limit=50&days=60`);
               const additionalData = await additionalResponse.json();
               
@@ -1847,7 +2031,7 @@ const DashboardPage = () => {
           orders: allOrders,
           recentOrders: allOrders.slice(0, 5)
         };
-      }, forceRefresh);
+      }, forceRefreshForDemo || forceRefresh);
       
       // Handle error cases with enhanced logging
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
@@ -1899,7 +2083,17 @@ const DashboardPage = () => {
       
       console.log('[Orders] Updated insights state:', {
         ordersCount: (data.rate_limited ? [] : (data.orders || data.timeseries || [])).length,
-        recentOrdersCount: (data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5))).length
+        recentOrdersCount: (data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5))).length,
+        rawDataStructure: {
+          hasOrders: !!data.orders,
+          hasTimeseries: !!data.timeseries,
+          hasRecentOrders: !!data.recentOrders,
+          ordersLength: data.orders?.length || 0,
+          timeseriesLength: data.timeseries?.length || 0,
+          recentOrdersLength: data.recentOrders?.length || 0,
+          actualOrdersData: data.orders ? data.orders.slice(0, 2) : 'No orders data',
+          dataKeys: Object.keys(data)
+        }
       });
       
       if (data.rate_limited) {
@@ -1955,18 +2149,50 @@ const DashboardPage = () => {
   const initialLoadTriggeredRef = useRef(false);
 
   useEffect(() => {
-    if (!isAuthReady || authLoading || !isAuthenticated || !shop || !isInitialLoad) {
-      return;
-    }
+    // Check if we're in demo mode
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
 
-    // Prevent multiple triggers
-    if (initialLoadTriggeredRef.current) {
-      console.log('🔒 Dashboard: Initial load already triggered, skipping');
-      return;
-    }
+    // For demo mode, skip authentication requirements
+    if (isDemoMode) {
+      // Set demo shop if not already set
+      const demoShop = shop || 'demo-shopgauge.myshopify.com';
+      
+      if (!isInitialLoad) {
+        return;
+      }
+      
+      if (initialLoadTriggeredRef.current) {
+        console.log('🔒 Dashboard (Demo): Initial load already triggered, skipping');
+        return;
+      }
 
-    console.log('🚀 DASHBOARD: Starting initial data load for shop:', shop);
-    initialLoadTriggeredRef.current = true;
+      console.log('🚀 DASHBOARD (DEMO): Starting initial data load for demo mode with shop:', demoShop);
+      
+      // Clear cache for demo mode to ensure fresh data
+      console.log('🧹 DEMO: Clearing cached data for fresh demo experience');
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.includes('cache') || key.includes('demo')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+      initialLoadTriggeredRef.current = true;
+    } else {
+      // For live mode, require authentication
+      if (!isAuthReady || authLoading || !isAuthenticated || !shop || !isInitialLoad) {
+        return;
+      }
+
+      // Prevent multiple triggers
+      if (initialLoadTriggeredRef.current) {
+        console.log('🔒 Dashboard: Initial load already triggered, skipping');
+        return;
+      }
+
+      console.log('🚀 DASHBOARD: Starting initial data load for shop:', shop);
+      initialLoadTriggeredRef.current = true;
+    }
     
     // Initialize insights with empty structure to prevent null issues
     if (!insights) {
@@ -2084,7 +2310,7 @@ const DashboardPage = () => {
         console.error('Failed to save critical error to localStorage:', e);
       }
     }
-  }, [isAuthReady, authLoading, isAuthenticated, shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData]); // Added fetch functions back since they're now stable
+  }, [isAuthReady, authLoading, isAuthenticated, shop, fetchRevenueData, fetchProductsData, fetchInventoryData, fetchNewProductsData, fetchInsightsData, fetchOrdersData, fetchAbandonedCartsData, dashboardDataInitialized]); // Added fetch functions back since they're now stable
 
   // Lazy load data for individual cards
   const handleCardLoad = useCallback((cardType: keyof CardLoadingState, force: boolean = false) => {
@@ -2558,6 +2784,10 @@ const DashboardPage = () => {
     if (status === 'finished') {
       setShowTutorial(false);
       tutorialNotificationShownRef.current = true;
+      // Mark tutorial as completed for this shop
+      if (shop) {
+        localStorage.setItem(`dashboard_tutorial_completed_${shop}`, 'true');
+      }
       notifications.showSuccess('Tutorial completed! You\'re ready to explore your dashboard.', {
         category: 'Tutorial',
         duration: 4000
@@ -2565,6 +2795,10 @@ const DashboardPage = () => {
     } else if (status === 'skipped') {
       setShowTutorial(false);
       tutorialNotificationShownRef.current = true;
+      // Mark tutorial as completed for this shop (even if skipped)
+      if (shop) {
+        localStorage.setItem(`dashboard_tutorial_completed_${shop}`, 'true');
+      }
       notifications.showInfo('Tutorial skipped. You can restart it anytime using the Tutorial button.', {
         category: 'Tutorial',
         duration: 3000
@@ -2572,6 +2806,10 @@ const DashboardPage = () => {
     } else if (action === 'close') {
       setShowTutorial(false);
       tutorialNotificationShownRef.current = true;
+      // Mark tutorial as completed for this shop (even if closed)
+      if (shop) {
+        localStorage.setItem(`dashboard_tutorial_completed_${shop}`, 'true');
+      }
       // Don't show notification for close action to avoid duplicates
     }
     // Handle step navigation - let Joyride handle navigation internally
@@ -2619,6 +2857,7 @@ const DashboardPage = () => {
 
   return (
     <DashboardContainer>
+      <DemoModeBanner />
       <Box 
         sx={{ 
           display: 'flex', 

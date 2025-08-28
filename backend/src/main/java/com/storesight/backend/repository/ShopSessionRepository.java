@@ -95,4 +95,18 @@ public interface ShopSessionRepository extends JpaRepository<ShopSession, Long> 
       "SELECT ss FROM ShopSession ss WHERE ss.userAgent LIKE %:userAgentPattern% AND ss.isActive = true ORDER BY ss.createdAt DESC")
   List<ShopSession> findByUserAgentPatternAndActive(
       @Param("userAgentPattern") String userAgentPattern);
+
+  /** Find active session by session ID (for demo mode) */
+  Optional<ShopSession> findBySessionIdAndIsActiveTrue(String sessionId);
+
+  /** Count active sessions for a shop by shop ID */
+  @Query("SELECT COUNT(ss) FROM ShopSession ss WHERE ss.shop.id = :shopId AND ss.isActive = true")
+  long countActiveSessionsForShop(@Param("shopId") Long shopId);
+
+  /** Delete expired sessions for a specific shop */
+  @Modifying
+  @Transactional
+  @Query(
+      "DELETE FROM ShopSession ss WHERE ss.shop.id = :shopId AND ss.expiresAt IS NOT NULL AND ss.expiresAt < :now")
+  int deleteExpiredSessionsForShop(@Param("shopId") Long shopId, @Param("now") LocalDateTime now);
 }

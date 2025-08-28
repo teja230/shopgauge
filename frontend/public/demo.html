@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Demo Mode Test</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>Demo Mode Redirect</h1>
+    <p>Redirecting to dashboard with demo mode enabled...</p>
+    
+    <script>
+        // Clear any existing demo flags
+        localStorage.removeItem('demo_mode_active');
+        sessionStorage.removeItem('demo_mode_active');
+        
+        // Set demo mode flag
+        localStorage.setItem('demo_mode_active', 'true');
+        
+        console.log('Demo redirect: Set localStorage demo_mode_active = true');
+        
+        // Redirect to dashboard with demo parameter
+        const targetUrl = '/dashboard?demo=true';
+        console.log('Demo redirect: Redirecting to', targetUrl);
+        
+        window.location.href = targetUrl;
+    </script>
+</body>
+</html>

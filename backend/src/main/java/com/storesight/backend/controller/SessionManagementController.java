@@ -3,6 +3,7 @@ package com.storesight.backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.ShopSession;
 import com.storesight.backend.service.AdminAuthService;
+import com.storesight.backend.service.DemoModeService;
 import com.storesight.backend.service.FeatureFlagService;
 import com.storesight.backend.service.ShopService;
 import com.storesight.backend.service.SseService;
@@ -39,6 +40,8 @@ public class SessionManagementController {
   private final AdminAuthService adminAuthService;
 
   @Autowired private FeatureFlagService featureFlagService;
+
+  @Autowired private DemoModeService demoModeService;
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -776,6 +779,19 @@ public class SessionManagementController {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
+    // DEMO MODE EXEMPTION: Demo mode is exempt from session limits
+    if (demoModeService.isDemoStore(shop)) {
+      logger.debug("Demo mode detected for shop: {} - exempting from session limits", shop);
+      response.put("limitReached", false);
+      response.put("maxSessions", 999); // Unlimited for demo
+      response.put("currentSessionCount", 1);
+      response.put("shop", shop);
+      response.put("currentSessionId", request.getSession().getId());
+      response.put("currentSessionFound", true);
+      response.put("isDemoMode", true);
+      return ResponseEntity.ok(response);
+    }
+
     logger.debug(
         "Session limit check requested for shop: {} from IP: {}",
         shop,
@@ -980,6 +996,20 @@ public class SessionManagementController {
     if (shop == null) {
       response.put("error", "No shop authentication found");
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    // DEMO MODE EXEMPTION: Demo mode is exempt from session limits
+    if (demoModeService.isDemoStore(shop)) {
+      logger.debug("Demo mode detected for shop: {} - allowing unlimited session creation", shop);
+      response.put("canCreate", true);
+      response.put("currentSessionExists", true);
+      response.put("activeSessionCount", 1);
+      response.put("maxSessions", 999); // Unlimited for demo
+      response.put("shop", shop);
+      response.put("currentSessionId", request.getSession().getId());
+      response.put("success", true);
+      response.put("isDemoMode", true);
+      return ResponseEntity.ok(response);
     }
 
     try {
