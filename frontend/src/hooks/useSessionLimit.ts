@@ -105,6 +105,40 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   };
 
   const checkSessionLimit = useCallback(async (retryCount = 0): Promise<SessionLimitResponse | null> => {
+    // Check if demo mode is active
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true';
+    
+    if (isDemoMode) {
+      console.log('🧪 useSessionLimit: Demo mode detected, skipping session limit check');
+      // Demo mode doesn't need session limits
+      setLoading(false);
+      setError(null);
+      setLastChecked(new Date());
+      
+      // Return a demo session response that allows unlimited sessions
+      const demoResponse: SessionLimitResponse = {
+        limitReached: false,
+        maxSessions: 999,
+        currentSessionCount: 1,
+        shop: 'demo-shopgauge.myshopify.com',
+        currentSessionId: 'demo-session-id',
+        sessions: [{
+          sessionId: 'demo-session-id',
+          isCurrentSession: true,
+          createdAt: new Date().toISOString(),
+          lastAccessedAt: new Date().toISOString(),
+          ipAddress: '127.0.0.1',
+          userAgent: 'Demo User Agent',
+          isExpired: false
+        }],
+        success: true
+      };
+      
+      setSessionLimitData(demoResponse);
+      return demoResponse;
+    }
+
     // Prevent overlapping requests
     if (isRequestInProgress) {
       console.log('🔄 useSessionLimit: Request already in progress, skipping');
