@@ -2769,9 +2769,9 @@ export default function CompetitorsPage() {
       
       // Auto-trigger tutorial for first-time demo users, but only if they've seen the dashboard tutorial
       // or if they landed directly on competitors page
-      if (tutorialCompleted !== 'true' && !demoTutorialShown && !showTutorial && 
+      if (tutorialCompleted !== 'true' && demoTutorialShown !== 'true' && !showTutorial && 
           !tutorialAutoTriggerRef.current &&
-          (dashboardTutorialShown || window.location.pathname === '/competitors')) {
+          (dashboardTutorialShown === 'true' || window.location.pathname === '/competitors')) {
         console.log('Competitors: Auto-triggering tutorial for demo user');
         tutorialAutoTriggerRef.current = true; // Prevent multiple triggers
         // Small delay to let the page fully load and data populate

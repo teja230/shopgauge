@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
 interface DemoModeIndicatorProps {
@@ -37,7 +37,49 @@ export const DemoModeBanner: React.FC = () => {
   const { isDemoMode, logout } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [isPanelHovered, setIsPanelHovered] = useState(false);
+  const [performanceStats, setPerformanceStats] = useState<any>(null);
+  const [currentStrategy, setCurrentStrategy] = useState<string>('hybrid');
+  const [systemHealth, setSystemHealth] = useState<any>(null);
+  const [isAdvancedView, setIsAdvancedView] = useState(false);
 
+  // Load performance monitoring data
+  useEffect(() => {
+    if (!isDemoMode) return;
+
+    const loadPerformanceData = async () => {
+      try {
+        // Dynamically import services to avoid bundle size impact
+        const [
+          { demoManager, getDemoPerformanceStats },
+          { performanceMonitor, getDemoSystemHealth },
+          { demoSecurity, getDemoSecurityMetrics }
+        ] = await Promise.all([
+          import('../../services/IntelligentDemoManager'),
+          import('../../services/DemoPerformanceMonitor'),
+          import('../../services/DemoSecurityManager')
+        ]);
+
+        // Get current strategy and performance stats
+        const strategy = demoManager.getStrategy();
+        const stats = getDemoPerformanceStats(5 * 60 * 1000); // Last 5 minutes
+        const health = await getDemoSystemHealth();
+
+        setCurrentStrategy(strategy);
+        setPerformanceStats(stats);
+        setSystemHealth(health);
+      } catch (error) {
+        console.warn('⚠️ Demo Indicator: Failed to load performance data:', error);
+      }
+    };
+
+    loadPerformanceData();
+
+    // Update performance data every 30 seconds
+    const interval = setInterval(loadPerformanceData, 30000);
+    return () => clearInterval(interval);
+  }, [isDemoMode]);
+
+  // Early return after all hooks
   if (!isDemoMode) return null;
 
   // Keep overlay open if either button or panel is hovered
@@ -81,10 +123,16 @@ export const DemoModeBanner: React.FC = () => {
           setTimeout(() => setIsHovered(false), 100);
         }}
       >
-        {/* Main Demo Button - Compact Version */}
+        {/* Main Demo Button - Clean and User-Friendly */}
         <button className="group flex items-center space-x-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-full shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 backdrop-blur-sm">
           <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
           <span className="font-medium text-xs">Demo</span>
+          {/* Only show performance info in development */}
+          {import.meta.env.DEV && performanceStats?.averageResponseTime > 0 && (
+            <span className="text-xs opacity-75">
+              {Math.round(performanceStats.averageResponseTime)}ms
+            </span>
+          )}
           <svg 
             className={`w-3 h-3 transition-transform duration-200 ${shouldShowOverlay ? 'rotate-180' : ''}`} 
             fill="none" 
@@ -108,11 +156,31 @@ export const DemoModeBanner: React.FC = () => {
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-gray-100">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <h3 className="font-semibold text-gray-900 text-sm">Demo Mode Active</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <h3 className="font-semibold text-gray-900 text-sm">Demo Mode Active</h3>
+              </div>
+              {/* Only show technical info in development */}
+              {import.meta.env.DEV && (
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-gray-600 capitalize">{currentStrategy}</span>
+                  {systemHealth?.overallHealth && (
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      systemHealth.overallHealth === 'excellent' ? 'bg-green-500' :
+                      systemHealth.overallHealth === 'good' ? 'bg-blue-500' :
+                      systemHealth.overallHealth === 'poor' ? 'bg-orange-500' : 'bg-red-500'
+                    }`}></div>
+                  )}
+                </div>
+              )}
             </div>
-            <p className="text-xs text-gray-600 mt-1">Exploring with realistic sample data</p>
+            <p className="text-xs text-gray-600 mt-1">
+              {import.meta.env.DEV 
+                ? `Intelligent demo with ${(performanceStats?.averageResponseTime > 0) ? `${Math.round(performanceStats.averageResponseTime)}ms` : '<50ms'} response times`
+                : 'Exploring with realistic sample data'
+              }
+            </p>
           </div>
 
           {/* Features */}
@@ -144,27 +212,104 @@ export const DemoModeBanner: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Stats */}
+            {/* Demo Data Overview */}
             <div className="bg-gray-50 rounded-lg p-3 mb-3">
-              <div className="text-xs font-medium text-gray-700 mb-2">Demo Data</div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-gray-500">Products:</span>
-                  <span className="font-semibold text-gray-900 ml-1">24</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Revenue:</span>
-                  <span className="font-semibold text-gray-900 ml-1">$26.9K</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Orders:</span>
-                  <span className="font-semibold text-gray-900 ml-1">16</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Period:</span>
-                  <span className="font-semibold text-gray-900 ml-1">60 days</span>
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-gray-700">Demo Data</div>
+                {/* Only show debug mode for developers */}
+                {import.meta.env.DEV && (
+                  <button
+                    onClick={() => setIsAdvancedView(!isAdvancedView)}
+                    className="text-xs text-gray-500 hover:text-blue-600 font-medium"
+                    title="Developer Debug View"
+                  >
+                    {isAdvancedView ? '👁️' : '🔧'}
+                  </button>
+                )}
               </div>
+              
+              {!isAdvancedView || !import.meta.env.DEV ? (
+                // User-friendly view - Focus on demo content
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-gray-500">Products:</span>
+                    <span className="font-semibold text-gray-900 ml-1">24</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Revenue:</span>
+                    <span className="font-semibold text-gray-900 ml-1">$26.9K</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Orders:</span>
+                    <span className="font-semibold text-gray-900 ml-1">187</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Period:</span>
+                    <span className="font-semibold text-gray-900 ml-1">30 days</span>
+                  </div>
+                </div>
+              ) : (
+                // Developer debug view - Performance metrics (DEV only)
+                <div className="space-y-2">
+                  <div className="text-xs text-orange-600 font-medium bg-orange-50 px-2 py-1 rounded">
+                    🔧 Developer Debug Mode
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-gray-500">Strategy:</span>
+                      <div className="flex items-center mt-1">
+                        <span className="font-semibold text-gray-900 capitalize">{currentStrategy}</span>
+                        <div className={`w-2 h-2 rounded-full ml-2 ${
+                          currentStrategy === 'frontend' ? 'bg-green-500' :
+                          currentStrategy === 'hybrid' ? 'bg-blue-500' :
+                          currentStrategy === 'backend' ? 'bg-orange-500' : 'bg-gray-500'
+                        }`}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Health:</span>
+                      <div className="flex items-center mt-1">
+                        <span className={`font-semibold capitalize ${
+                          systemHealth?.overallHealth === 'excellent' ? 'text-green-600' :
+                          systemHealth?.overallHealth === 'good' ? 'text-blue-600' :
+                          systemHealth?.overallHealth === 'poor' ? 'text-orange-600' : 'text-red-600'
+                        }`}>
+                          {systemHealth?.overallHealth || 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {performanceStats && (
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-gray-500">Avg Response:</span>
+                        <span className="font-semibold text-green-600 ml-1">
+                          {(performanceStats?.averageResponseTime > 0) ? Math.round(performanceStats.averageResponseTime) : '0'}ms
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Success Rate:</span>
+                        <span className="font-semibold text-green-600 ml-1">
+                          {Math.round(performanceStats.successRate)}%
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Requests:</span>
+                        <span className="font-semibold text-gray-900 ml-1">
+                          {performanceStats.totalRequests}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Cache Hit:</span>
+                        <span className="font-semibold text-blue-600 ml-1">
+                          {Math.round(performanceStats.cacheHitRate)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

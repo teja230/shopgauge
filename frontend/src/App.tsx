@@ -26,6 +26,7 @@ import SessionLimitDialog from './components/ui/SessionLimitDialog';
 import useSessionLimit from './hooks/useSessionLimit';
 import SessionExtensionPrompt from './components/ui/SessionExtensionPrompt';
 import { useNotifications } from './hooks/useNotifications';
+import DemoPerformanceConsole from './components/dev/DemoPerformanceConsole';
 
 // Simple Protected Route for shop authentication
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -366,6 +367,7 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
       <CommandPalette />
       <RouteErrorCleaner />
+      <DemoPerformanceConsole />
             <NavBar />
       <PrivacyBanner />
       <DebugPanel 
