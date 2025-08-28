@@ -278,7 +278,7 @@ export class DemoSecurityManager {
 
       // Generate hash from collected characteristics
       const combined = characteristics.join('|');
-      this.browserFingerprint = this.simpleHash(combined).substr(0, 16);
+      this.browserFingerprint = this.simpleHash(combined).substring(0, 16);
 
       console.log('🔍 Demo Security: Browser fingerprint generated:', this.browserFingerprint);
     } catch (error) {
@@ -287,15 +287,15 @@ export class DemoSecurityManager {
       const fallbackKey = 'demo_fingerprint_fallback';
       let fallbackId = localStorage.getItem(fallbackKey);
       if (!fallbackId) {
-        fallbackId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`;
+        fallbackId = `fallback_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`;
         try {
           localStorage.setItem(fallbackKey, fallbackId);
         } catch (storageError) {
           // If even localStorage fails, use session-only ID
-          fallbackId = `session_${Math.random().toString(36).substr(2, 16)}`;
+          fallbackId = `session_${Math.random().toString(36).substring(2, 18)}`;
         }
       }
-      this.browserFingerprint = fallbackId.substr(0, 16);
+      this.browserFingerprint = fallbackId.substring(0, 16);
     }
   }
 

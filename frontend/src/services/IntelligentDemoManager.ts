@@ -41,6 +41,7 @@ interface FallbackConfig {
   enableBackendFallback: boolean;
   enableEmbeddedFallback: boolean;
   healthCheckIntervalMs: number;
+  healthCheckEndpoint: string;
 }
 
 /**
@@ -70,7 +71,8 @@ export class IntelligentDemoManager {
       timeoutMs: 5000,
       enableBackendFallback: true,
       enableEmbeddedFallback: true,
-      healthCheckIntervalMs: 5 * 60 * 1000 // 5 minutes
+      healthCheckIntervalMs: 5 * 60 * 1000, // 5 minutes
+      healthCheckEndpoint: '/actuator/health' // Configurable health check endpoint
     };
     
     this.initializeStrategy();
@@ -409,7 +411,7 @@ export class IntelligentDemoManager {
 
       // Generate hash from collected characteristics
       const combined = characteristics.join('|');
-      this.browserFingerprint = this.simpleHash(combined).substr(0, 16);
+      this.browserFingerprint = this.simpleHash(combined).substring(0, 16);
 
       console.log('🔍 Demo Manager: Browser fingerprint generated:', this.browserFingerprint);
     } catch (error) {
@@ -418,15 +420,15 @@ export class IntelligentDemoManager {
       const fallbackKey = 'demo_manager_fingerprint_fallback';
       let fallbackId = localStorage.getItem(fallbackKey);
       if (!fallbackId) {
-        fallbackId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`;
+        fallbackId = `fallback_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`;
         try {
           localStorage.setItem(fallbackKey, fallbackId);
         } catch (storageError) {
           // If even localStorage fails, use session-only ID
-          fallbackId = `session_${Math.random().toString(36).substr(2, 16)}`;
+          fallbackId = `session_${Math.random().toString(36).substring(2, 18)}`;
         }
       }
-      this.browserFingerprint = fallbackId.substr(0, 16);
+      this.browserFingerprint = fallbackId.substring(0, 16);
     }
   }
 
@@ -521,7 +523,7 @@ export class IntelligentDemoManager {
     setInterval(async () => {
       try {
         const { API_BASE_URL } = await import('../api');
-        const response = await fetch(`${API_BASE_URL}/actuator/health`, {
+        const response = await fetch(`${API_BASE_URL}${this.fallbackConfig.healthCheckEndpoint}`, {
           method: 'GET',
           credentials: 'include',
           signal: AbortSignal.timeout(3000)
