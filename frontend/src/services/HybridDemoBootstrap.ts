@@ -146,73 +146,21 @@ export class HybridDemoBootstrap {
 
   /**
    * Register service worker for demo data caching
+   * REMOVED: Demo service worker was causing conflicts and is not needed
+   * Main service worker (/sw.js) handles all caching including demo endpoints
    */
   private async registerServiceWorker(): Promise<void> {
-    if (!('serviceWorker' in navigator)) {
-      console.warn('⚠️ Hybrid Demo: Service Worker not supported');
-      return;
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.register('/demo-service-worker.js', {
-        scope: '/',
-        type: 'classic'
-      });
-
-      console.log('📦 Hybrid Demo: Service Worker registered:', registration.scope);
-
-      // Wait for service worker to be ready
-      await navigator.serviceWorker.ready;
-
-      // Send configuration to service worker
-      if (registration.active) {
-        registration.active.postMessage({
-          type: 'DEMO_CONFIG',
-          config: this.config
-        });
-      }
-
-      // Listen for service worker messages
-      navigator.serviceWorker.addEventListener('message', this.handleServiceWorkerMessage.bind(this));
-
-    } catch (error) {
-      console.warn('⚠️ Hybrid Demo: Service Worker registration failed:', error);
-      throw error;
-    }
+    // Demo service worker removed - main service worker handles all caching
+    console.log('📦 Hybrid Demo: Service worker registration disabled - using main SW');
   }
 
   /**
    * Handle service worker messages
+   * REMOVED: No longer needed since demo service worker is removed
    */
   private handleServiceWorkerMessage(event: MessageEvent): void {
-    const { type, data } = event.data;
-
-    switch (type) {
-      case 'DEMO_CACHE_READY':
-        console.log('📦 Hybrid Demo: Service Worker cache ready');
-        break;
-
-      case 'DEMO_PERFORMANCE_UPDATE':
-        if (this.services.monitor && data.responseTime) {
-          this.services.monitor.recordMetric({
-            responseTime: data.responseTime,
-            strategy: 'service-worker',
-            endpoint: data.endpoint || 'unknown',
-            success: true,
-            cacheHit: true
-          });
-        }
-        break;
-
-      case 'DEMO_ERROR':
-        console.warn('⚠️ Hybrid Demo: Service Worker error:', data);
-        break;
-
-      default:
-        if (this.config.debug) {
-          console.log('📢 Hybrid Demo: Service Worker message:', type, data);
-        }
-    }
+    // Service worker message handling removed
+    console.log('📢 Hybrid Demo: Service worker messages disabled');
   }
 
   /**
