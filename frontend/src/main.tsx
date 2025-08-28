@@ -78,24 +78,30 @@ const preloadCriticalResources = () => {
 preloadCriticalResources();
 initializeHybridDemo();
 
-// Expose demo activation for testing
-(window as any).activateDemoMode = () => {
-  console.log('🎯 Activating demo mode...');
-  localStorage.setItem('demo_mode_active', 'true');
-  localStorage.setItem('isAuthenticated', 'true');
-  sessionStorage.setItem('shop', 'demo-shopgauge.myshopify.com');
-  window.location.reload();
-};
+// Expose demo activation for development/testing only
+if (import.meta.env.DEV || window.location.hostname === 'localhost') {
+  (window as any).activateDemoMode = () => {
+    console.log('🧪 [DEV] Activating demo mode...');
+    localStorage.setItem('demo_mode_active', 'true');
+    localStorage.setItem('isAuthenticated', 'true');
+    sessionStorage.setItem('shop', 'demo-shopgauge.myshopify.com');
+    window.location.reload();
+  };
 
-// Expose demo status check
-(window as any).checkDemoStatus = () => {
-  console.log('🔍 Demo Status:', {
-    localStorage: localStorage.getItem('demo_mode_active'),
-    urlParam: new URLSearchParams(window.location.search).get('demo'),
-    isAuthenticated: localStorage.getItem('isAuthenticated'),
-    shop: sessionStorage.getItem('shop')
-  });
-};
+  (window as any).checkDemoStatus = () => {
+    console.log('🔍 [DEV] Demo Status:', {
+      localStorage: localStorage.getItem('demo_mode_active'),
+      urlParam: new URLSearchParams(window.location.search).get('demo'),
+      isAuthenticated: localStorage.getItem('isAuthenticated'),
+      shop: sessionStorage.getItem('shop')
+    });
+  };
+  
+  console.log('🔧 [DEV] Demo functions available: window.activateDemoMode(), window.checkDemoStatus()');
+} else {
+  // Production security: No global demo functions
+  console.log('🔒 [PROD] Demo debugging functions disabled for security');
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
