@@ -42,6 +42,8 @@ export interface DemoSecurityMetrics {
   suspiciousActivity: number;
   botDetections: number;
   averageSessionDuration: number;
+  rateLimitViolations: number;
+  sessionViolations: number;
 }
 
 export interface RateLimitInfo {
@@ -57,11 +59,20 @@ export interface RateLimitInfo {
 export class DemoSecurityManager {
   private static instance: DemoSecurityManager;
   private config: DemoSecurityConfig;
-  private browserFingerprint: string;
+  private browserFingerprint: string = '';
   private sessionInfo: DemoSessionInfo | null = null;
   private requestHistory: Array<{ timestamp: number; endpoint: string; fingerprint: string }> = [];
-  private securityMetrics: DemoSecurityMetrics;
-  private cleanupInterval: number;
+  private securityMetrics: DemoSecurityMetrics = {
+    activeSessions: 0,
+    totalRequests: 0,
+    blockedRequests: 0,
+    suspiciousActivity: 0,
+    botDetections: 0,
+    averageSessionDuration: 0,
+    rateLimitViolations: 0,
+    sessionViolations: 0
+  };
+  private cleanupInterval: number = 0;
 
   private constructor() {
     this.config = this.getDefaultConfig();
@@ -271,7 +282,9 @@ export class DemoSecurityManager {
       blockedRequests: 0,
       suspiciousActivity: 0,
       botDetections: 0,
-      averageSessionDuration: 0
+      averageSessionDuration: 0,
+      rateLimitViolations: 0,
+      sessionViolations: 0
     };
   }
 

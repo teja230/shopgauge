@@ -14,7 +14,8 @@
  * - Bundle impact: Lazy-loaded, no main bundle bloat
  */
 
-import { IntelligentDemoManager, DemoStrategy } from './IntelligentDemoManager';
+import { IntelligentDemoManager } from './IntelligentDemoManager';
+import type { DemoStrategy } from './IntelligentDemoManager';
 import { DemoPerformanceMonitor } from './DemoPerformanceMonitor';
 import { DemoSecurityManager } from './DemoSecurityManager';
 

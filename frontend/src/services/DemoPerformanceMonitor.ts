@@ -190,7 +190,7 @@ export class DemoPerformanceMonitor {
     }
 
     const timeToFirstByte = navigation.responseStart - navigation.requestStart;
-    const timeToInteractive = navigation.loadEventEnd - navigation.navigationStart;
+    const timeToInteractive = navigation.loadEventEnd - navigation.startTime;
     const firstContentfulPaint = this.getWebVitalMetric('first-contentful-paint');
     const largestContentfulPaint = this.getWebVitalMetric('largest-contentful-paint');
     const cumulativeLayoutShift = this.getWebVitalMetric('cumulative-layout-shift');
