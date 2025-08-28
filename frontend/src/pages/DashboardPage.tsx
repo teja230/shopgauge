@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart, Sort, ArrowUpward, ArrowDownward } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { formatDate } from '../utils/dateUtils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
 import {
@@ -644,22 +644,7 @@ const GraphLink = styled(MuiLink)(({ theme }) => ({
   },
 }));
 
-const formatDate = (dateString: string | null | undefined) => {
-  try {
-    if (!dateString) {
-      return '--';
-    }
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date string:', dateString);
-      return '--';
-    }
-    return format(date, 'MMM d, yyyy');
-  } catch (error) {
-    console.warn('Error formatting date:', dateString, error);
-    return '--';
-  }
-};
+// formatDate function moved to utils/dateUtils.ts for reusability
 
 // Add loading states for individual cards
 interface CardLoadingState {
