@@ -85,7 +85,7 @@ const BusinessIntelligencePage: React.FC = () => {
   const [streamingMessage, setStreamingMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   
-  // Insight cards
+  // Insight cards with subtle colors matching Market Intelligence theme
   const [insightCards, setInsightCards] = useState<InsightCard[]>([
     { 
       id: 'summary', 
@@ -93,7 +93,7 @@ const BusinessIntelligencePage: React.FC = () => {
       title: 'Executive Summary', 
       description: 'Key performance metrics and business overview',
       icon: AnalyticsIcon,
-      color: theme.palette.primary.main,
+      color: '#2563eb', // Blue color matching Market Intelligence
       insight: null, 
       loading: false, 
       error: null 
@@ -104,7 +104,7 @@ const BusinessIntelligencePage: React.FC = () => {
       title: 'Performance Trends', 
       description: 'Revenue growth patterns and market dynamics',
       icon: TrendingUpIcon,
-      color: theme.palette.success.main,
+      color: '#059669', // Green color matching Market Intelligence
       insight: null, 
       loading: false, 
       error: null 
@@ -115,7 +115,7 @@ const BusinessIntelligencePage: React.FC = () => {
       title: 'Cost Analysis', 
       description: 'Market intelligence ROI and optimization opportunities',
       icon: CostIcon,
-      color: theme.palette.warning.main,
+      color: '#d97706', // Orange color matching Market Intelligence
       insight: null, 
       loading: false, 
       error: null 
@@ -126,7 +126,7 @@ const BusinessIntelligencePage: React.FC = () => {
       title: 'Strategic Recommendations', 
       description: 'Prioritized action items for business growth',
       icon: RecommendationIcon,
-      color: theme.palette.info.main,
+      color: '#7c3aed', // Purple color for recommendations
       insight: null, 
       loading: false, 
       error: null 
@@ -414,37 +414,55 @@ const BusinessIntelligencePage: React.FC = () => {
     <ErrorBoundary>
       <Box sx={{ 
         minHeight: '100vh', 
-        bgcolor: 'background.default',
-        py: { xs: 2, md: 4 }
+        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+        py: { xs: 3, md: 4 }
       }}>
         <Container maxWidth="xl">
           {/* Header */}
           <Box sx={{ mb: 4, textAlign: 'center' }}>
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-              ShopGPT
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              AI-powered business insights for {shop}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+              <AIIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                ShopGPT
+              </Typography>
+            </Box>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
+              Your AI business analyst, ready to provide insights and answer questions about {shop}
             </Typography>
           </Box>
 
           {/* Loading State */}
           {dataLoading && (
             <Box sx={{ mb: 3 }}>
-              <LinearProgress />
-              <Typography variant="body2" sx={{ 
-                textAlign: 'center', 
-                mt: 2, 
-                color: 'text.secondary'
+              <Paper sx={{ 
+                p: 3, 
+                borderRadius: 3, 
+                bgcolor: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
               }}>
-                Loading shop data...
-              </Typography>
+                <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />
+                <Typography variant="body2" sx={{ 
+                  textAlign: 'center', 
+                  color: 'text.secondary',
+                  fontWeight: 500
+                }}>
+                  Loading your business data...
+                </Typography>
+              </Paper>
             </Box>
           )}
           
           {/* Error State */}
           {dataError && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 3, 
+                borderRadius: 3,
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
+              }}
+            >
               {dataError}
             </Alert>
           )}
@@ -455,28 +473,37 @@ const BusinessIntelligencePage: React.FC = () => {
               {/* Chat Container */}
               <Card sx={{ 
                 mb: 4,
-                minHeight: 400,
+                minHeight: 500,
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                borderRadius: 3,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                overflow: 'hidden'
               }}>
                 {/* Chat Header */}
                 <Box sx={{ 
-                  p: 2, 
+                  p: 3, 
                   borderBottom: 1,
                   borderColor: 'divider',
-                  bgcolor: 'grey.50'
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white'
                 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Avatar sx={{ 
-                      bgcolor: 'primary.main',
-                      width: 32,
-                      height: 32
+                      bgcolor: 'rgba(255, 255, 255, 0.2)',
+                      width: 40,
+                      height: 40
                     }}>
-                      <BotIcon sx={{ fontSize: 18 }} />
+                      <BotIcon sx={{ fontSize: 20 }} />
                     </Avatar>
-                    <Typography variant="h6" fontWeight={600}>
-                      ShopGPT Assistant
-                    </Typography>
+                    <Box>
+                      <Typography variant="h6" fontWeight={600}>
+                        ShopGPT Assistant
+                      </Typography>
+                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                        Powered by AI • Always learning
+                      </Typography>
+                    </Box>
                   </Box>
                 </Box>
                 
@@ -485,7 +512,9 @@ const BusinessIntelligencePage: React.FC = () => {
                   flexGrow: 1,
                   p: 3,
                   overflowY: 'auto',
-                  minHeight: 300
+                  minHeight: 350,
+                  maxHeight: 500,
+                  background: 'linear-gradient(to bottom, #f8fafc 0%, #ffffff 50%)'
                 }}>
                   {/* Welcome Message */}
                   {chatMessages.length === 0 && (
@@ -501,45 +530,68 @@ const BusinessIntelligencePage: React.FC = () => {
                           </Avatar>
                           <Box sx={{ flexGrow: 1 }}>
                             <Paper sx={{ 
-                              p: 2,
-                              bgcolor: 'grey.50',
-                              borderRadius: 2
+                              p: 3,
+                              bgcolor: 'rgba(103, 126, 234, 0.05)',
+                              borderRadius: 3,
+                              border: '1px solid rgba(103, 126, 234, 0.1)'
                             }}>
                               <Typography variant="body1" sx={{ mb: 2 }}>
                                 Hello! I'm your AI business analyst. I can help you understand your shop's performance, 
                                 analyze trends, and provide strategic recommendations. What would you like to know?
                               </Typography>
                               
-                              {/* Initial Suggested Questions - Consistent Style */}
-                              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-                                Here are some questions you can ask:
+                              {/* Initial Suggested Questions - Market Intelligence Style */}
+                              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
+                                Suggested questions to get you started:
                               </Typography>
                               <Box sx={{ 
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: 1
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                                gap: 1.5
                               }}>
-                                {suggestedQuestions.map((q, idx) => (
-                                  <Chip
-                                    key={idx}
-                                    label={q.text}
-                                    size="small"
-                                    onClick={() => handleSuggestedQuestion(q.text)}
-                                    sx={{ 
-                                      '& .MuiChip-label': {
-                                        fontSize: '0.75rem'
-                                      },
-                                      cursor: 'pointer',
-                                      border: '1px solid',
-                                      borderColor: 'divider',
-                                      bgcolor: 'background.paper',
-                                      '&:hover': {
-                                        bgcolor: 'primary.50',
-                                        borderColor: 'primary.main'
-                                      }
-                                    }}
-                                  />
-                                ))}
+                                {suggestedQuestions.map((q, idx) => {
+                                  const IconComponent = q.icon;
+                                  return (
+                                    <Box
+                                      key={idx}
+                                      onClick={() => handleSuggestedQuestion(q.text)}
+                                      sx={{
+                                        p: 2,
+                                        borderRadius: 2.5,
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        bgcolor: 'background.paper',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 1.5,
+                                        '&:hover': {
+                                          bgcolor: 'rgba(103, 126, 234, 0.04)',
+                                          borderColor: 'rgba(103, 126, 234, 0.3)',
+                                          transform: 'translateY(-1px)',
+                                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                                        }
+                                      }}
+                                    >
+                                      <Box sx={{ color: 'primary.main', mt: 0.25, '& > *': { fontSize: '18px' } }}>
+                                        <IconComponent />
+                                      </Box>
+                                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant="body2" sx={{ 
+                                          fontWeight: 500,
+                                          lineHeight: 1.4,
+                                          color: 'text.primary'
+                                        }}>
+                                          {q.text}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {q.category}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  );
+                                })}
                               </Box>
                             </Paper>
                           </Box>
@@ -567,9 +619,15 @@ const BusinessIntelligencePage: React.FC = () => {
                             {message.type === 'user' ? 'You' : 'ShopGPT'} • {new Date(message.timestamp).toLocaleTimeString()}
                           </Typography>
                           <Paper sx={{ 
-                            p: 2,
-                            bgcolor: message.type === 'user' ? 'primary.50' : 'grey.50',
-                            borderRadius: 2
+                            p: 2.5,
+                            bgcolor: message.type === 'user' 
+                              ? 'rgba(37, 99, 235, 0.08)' 
+                              : 'rgba(248, 250, 252, 0.8)',
+                            borderRadius: 3,
+                            border: message.type === 'user' 
+                              ? '1px solid rgba(37, 99, 235, 0.2)' 
+                              : '1px solid rgba(0, 0, 0, 0.05)',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
                           }}>
                             <Typography variant="body1" sx={{ 
                               whiteSpace: 'pre-wrap',
@@ -612,9 +670,11 @@ const BusinessIntelligencePage: React.FC = () => {
                           ShopGPT is thinking...
                         </Typography>
                         <Paper sx={{ 
-                          p: 2,
-                          bgcolor: 'grey.50',
-                          borderRadius: 2
+                          p: 2.5,
+                          bgcolor: 'rgba(248, 250, 252, 0.8)',
+                          borderRadius: 3,
+                          border: '1px solid rgba(0, 0, 0, 0.05)',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
                         }}>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             {[0, 1, 2].map((i) => (
@@ -650,35 +710,52 @@ const BusinessIntelligencePage: React.FC = () => {
                   {showSuggestions && chatMessages.length > 0 && !chatLoading && (
                     <Fade in>
                       <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
                           Continue the conversation:
                         </Typography>
                         <Box sx={{ 
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: 1
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                          gap: 1.5
                         }}>
-                          {suggestedQuestions.slice(0, 4).map((q, idx) => (
-                            <Chip
-                              key={`followup-${idx}`}
-                              label={q.text}
-                              size="small"
-                              onClick={() => handleSuggestedQuestion(q.text)}
-                              sx={{ 
-                                '& .MuiChip-label': {
-                                  fontSize: '0.75rem'
-                                },
-                                cursor: 'pointer',
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                bgcolor: 'background.paper',
-                                '&:hover': {
-                                  bgcolor: 'primary.50',
-                                  borderColor: 'primary.main'
-                                }
-                              }}
-                            />
-                          ))}
+                          {suggestedQuestions.slice(0, 4).map((q, idx) => {
+                            const IconComponent = q.icon;
+                            return (
+                              <Box
+                                key={`followup-${idx}`}
+                                onClick={() => handleSuggestedQuestion(q.text)}
+                                sx={{
+                                  p: 2,
+                                  borderRadius: 2,
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  bgcolor: 'background.paper',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1.5,
+                                  '&:hover': {
+                                    bgcolor: 'rgba(103, 126, 234, 0.04)',
+                                    borderColor: 'rgba(103, 126, 234, 0.3)',
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+                                  }
+                                }}
+                              >
+                                <Box sx={{ color: 'primary.main', '& > *': { fontSize: '16px' } }}>
+                                  <IconComponent />
+                                </Box>
+                                <Typography variant="body2" sx={{ 
+                                  fontWeight: 500,
+                                  fontSize: '0.8rem',
+                                  color: 'text.primary'
+                                }}>
+                                  {q.text}
+                                </Typography>
+                              </Box>
+                            );
+                          })}
                         </Box>
                       </Box>
                     </Fade>
@@ -689,13 +766,14 @@ const BusinessIntelligencePage: React.FC = () => {
                 
                 {/* Chat Input */}
                 <Box sx={{ 
-                  p: 2, 
+                  p: 3, 
                   borderTop: 1,
-                  borderColor: 'divider'
+                  borderColor: 'divider',
+                  bgcolor: 'grey.50'
                 }}>
                   <TextField
                     fullWidth
-                    placeholder="Ask me anything about your business..."
+                    placeholder="Ask me anything about your business performance, trends, or get strategic advice..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -726,14 +804,18 @@ const BusinessIntelligencePage: React.FC = () => {
                         </InputAdornment>
                       ),
                       sx: {
+                        borderRadius: 2,
                         '& fieldset': {
-                          borderColor: 'divider'
+                          borderColor: 'divider',
+                          borderRadius: 2
                         },
                         '&:hover fieldset': {
-                          borderColor: 'primary.main'
+                          borderColor: 'primary.main',
+                          boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.1)'
                         },
                         '&.Mui-focused fieldset': {
-                          borderColor: 'primary.main'
+                          borderColor: 'primary.main',
+                          boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.1)'
                         }
                       }
                     }}
@@ -743,9 +825,12 @@ const BusinessIntelligencePage: React.FC = () => {
 
               {/* Insight Cards - Below Chat */}
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
-                  AI-Generated Insights
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                  <AIIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+                  <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                    AI-Generated Insights
+                  </Typography>
+                </Box>
                 <Box sx={{ 
                   display: 'grid', 
                   gridTemplateColumns: { 
@@ -753,85 +838,148 @@ const BusinessIntelligencePage: React.FC = () => {
                     sm: '1fr 1fr', 
                     lg: 'repeat(4, 1fr)' 
                   }, 
-                  gap: 2 
+                  gap: 3,
+                  alignItems: 'stretch' // Ensure all cards have equal height
                 }}>
                   {insightCards.map((card) => {
                     const IconComponent = card.icon;
+                    // Generate background and border colors based on card color (matching Market Intelligence)
+                    const getCardColors = (color: string) => {
+                      switch (color) {
+                        case '#2563eb': // Blue
+                          return { bg: 'rgba(37, 99, 235, 0.05)', border: 'rgba(37, 99, 235, 0.1)', iconBg: 'rgba(37, 99, 235, 0.1)' };
+                        case '#059669': // Green
+                          return { bg: 'rgba(5, 150, 105, 0.05)', border: 'rgba(5, 150, 105, 0.1)', iconBg: 'rgba(5, 150, 105, 0.1)' };
+                        case '#d97706': // Orange
+                          return { bg: 'rgba(217, 119, 6, 0.05)', border: 'rgba(217, 119, 6, 0.1)', iconBg: 'rgba(217, 119, 6, 0.1)' };
+                        case '#7c3aed': // Purple
+                          return { bg: 'rgba(124, 58, 237, 0.05)', border: 'rgba(124, 58, 237, 0.1)', iconBg: 'rgba(124, 58, 237, 0.1)' };
+                        default:
+                          return { bg: 'rgba(0, 0, 0, 0.02)', border: 'rgba(0, 0, 0, 0.1)', iconBg: 'rgba(0, 0, 0, 0.1)' };
+                      }
+                    };
+                    
+                    const colors = getCardColors(card.color);
+                    
                     return (
                       <Card key={card.id} sx={{ 
                         height: '100%',
+                        minHeight: 280, // Ensure minimum consistent height
                         position: 'relative',
+                        borderRadius: 3,
+                        border: `1px solid ${colors.border}`,
+                        bgcolor: colors.bg,
+                        transition: 'all 0.2s ease-in-out',
+                        display: 'flex',
+                        flexDirection: 'column',
                         '&:hover': {
-                          boxShadow: 2
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
+                          borderColor: card.color
                         }
                       }}>
-                        <CardContent>
-                          {/* Card Header */}
+                        <CardContent sx={{ 
+                          p: 3, 
+                          height: '100%', 
+                          display: 'flex', 
+                          flexDirection: 'column' 
+                        }}>
+                          {/* Card Header - Market Intelligence style */}
                           <Box sx={{ 
                             display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'flex-start', 
-                            mb: 2 
+                            alignItems: 'flex-start',
+                            mb: 3
                           }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              <Box sx={{ color: card.color }}>
-                                <IconComponent />
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
+                              <Box sx={{ 
+                                p: 1.5,
+                                borderRadius: 2,
+                                bgcolor: colors.iconBg,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                <Box sx={{ color: card.color, '& > *': { fontSize: '24px' } }}>
+                                  <IconComponent />
+                                </Box>
                               </Box>
-                              <Box>
-                                <Typography variant="subtitle1" sx={{ 
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="h6" sx={{ 
                                   fontWeight: 600,
+                                  color: 'text.primary',
+                                  fontSize: '1rem',
+                                  mb: 0.5,
                                   lineHeight: 1.2
                                 }}>
                                   {card.title}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" color="text.secondary" sx={{ 
+                                  lineHeight: 1.3,
+                                  display: 'block',
+                                  fontSize: '0.75rem'
+                                }}>
                                   {card.description}
                                 </Typography>
                               </Box>
                             </Box>
                             
-                            <IconButton
-                              size="small"
-                              onClick={() => generateSingleInsight(card.id)}
-                              disabled={card.loading}
-                            >
-                              <RefreshIcon fontSize="small" />
-                            </IconButton>
+
                           </Box>
                           
-                          {/* Content */}
-                          <Box sx={{ minHeight: 100 }}>
+                          {/* Content - Flexible height */}
+                          <Box sx={{ 
+                            flexGrow: 1, 
+                            display: 'flex', 
+                            alignItems: card.insight || card.error ? 'flex-start' : 'center',
+                            minHeight: 100
+                          }}>
                             {card.loading && (
-                              <Box>
-                                <Skeleton variant="text" />
-                                <Skeleton variant="text" />
-                                <Skeleton variant="text" width="60%" />
+                              <Box sx={{ width: '100%' }}>
+                                <Skeleton variant="text" height={20} sx={{ mb: 1 }} />
+                                <Skeleton variant="text" height={20} sx={{ mb: 1 }} />
+                                <Skeleton variant="text" height={20} width="60%" />
                               </Box>
                             )}
                             
                             {card.error && (
-                              <Alert severity="error" sx={{ py: 0.5, px: 1 }}>
-                                <Typography variant="caption">
-                                  {card.error}
-                                </Typography>
+                              <Alert severity="error" sx={{ 
+                                py: 1, 
+                                px: 2, 
+                                borderRadius: 2,
+                                fontSize: '0.875rem',
+                                width: '100%'
+                              }}>
+                                {card.error}
                               </Alert>
                             )}
                             
                             {card.insight && !card.loading && (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" sx={{ 
+                                color: 'text.primary',
+                                lineHeight: 1.5,
+                                fontSize: '0.875rem',
+                                width: '100%'
+                              }}>
                                 {card.insight.insight}
                               </Typography>
                             )}
                             
                             {!card.insight && !card.loading && !card.error && (
                               <Box sx={{ 
-                                textAlign: 'center', 
-                                py: 3,
-                                color: 'text.disabled'
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'text.disabled',
+                                width: '100%',
+                                textAlign: 'center'
                               }}>
-                                <AIIcon sx={{ fontSize: 24, opacity: 0.3, mb: 1 }} />
+                                <Box sx={{ color: card.color, mb: 1 }}>
+                                  <AIIcon style={{ fontSize: 32, opacity: 0.3 }} />
+                                </Box>
                                 <Typography variant="caption">
-                                  Generating insights...
+                                  Click refresh to generate insights
                                 </Typography>
                               </Box>
                             )}
