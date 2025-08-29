@@ -14,6 +14,7 @@ import {
 import { fetchWithAuth } from '../../api';
 import { getMiCacheKey } from '../../utils/miCacheUtils';
 import { useAuth } from '../../context/AuthContext';
+import { debugLog } from './DebugPanel';
 
 interface PriceHistoryData {
   checked_at: string;
@@ -145,10 +146,18 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   };
 
   const getPriceChangeColor = (change: number) => {
-    if (change > 0) return 'text-red-600';
-    if (change < 0) return 'text-green-600';
+    if (change > 0) return 'text-green-600';
+    if (change < 0) return 'text-red-600';
     return 'text-gray-600';
   };
+
+  // Log color fix for price changes
+  debugLog.info('PriceHistoryModal: Fixed price change colors - green for positive, red for negative', {
+    component: 'PriceHistoryModal',
+    fix: 'price_change_colors',
+    positive_color: 'green',
+    negative_color: 'red'
+  });
 
   const getPriceChangeIcon = (change: number) => {
     if (change > 0) return '↗';
@@ -190,7 +199,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
             Price: {formatPrice(data.price)}
           </p>
           {data.change !== 0 && (
-            <p className={`text-sm ${data.change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`text-sm ${data.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
               {data.change > 0 ? '+' : ''}{data.change.toFixed(1)}% change
             </p>
           )}
