@@ -23,6 +23,7 @@ import {
   Home as HomeIcon,
   Dashboard as DashboardIcon,
   Business as BusinessIcon,
+  AutoAwesome as IntelligenceIcon,
   Person as PersonIcon,
   Menu as MenuIcon,
   Close as CloseIcon,
@@ -129,6 +130,12 @@ const NavBar: React.FC = () => {
       icon: <BusinessIcon />,
       path: '/competitors',
       badge: suggestionCount
+    },
+    {
+      text: 'ShopGPT',
+      icon: <IntelligenceIcon />,
+      path: '/business-intelligence',
+      badge: 0
     },
     {
       text: 'Profile',
@@ -321,6 +328,18 @@ const NavBar: React.FC = () => {
                 }}
               >
                 Dashboard
+              </Button>
+              <Button
+                color="inherit"
+                onClick={() => navigate('/business-intelligence')}
+                sx={{
+                  backgroundColor: location.pathname === '/business-intelligence' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                  }
+                }}
+              >
+                ShopGPT
               </Button>
               <Badge 
                 badgeContent={suggestionCount} 

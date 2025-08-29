@@ -26,6 +26,7 @@ Welcome to the **ShopGauge** documentation hub. This is your single starting poi
 - **[Market Intelligence](user-guide/MARKET_INTELLIGENCE.md)** - Competitor discovery and analysis
 - **[Mobile Enhancements](user-guide/MOBILE_ENHANCEMENTS.md)** - Mobile-first features
 - **[Notifications System](user-guide/NOTIFICATIONS_SYSTEM.md)** - Email, SMS, and in-app notifications
+- **[Business Intelligence & AI Summarizer](BUSINESS_INTELLIGENCE_ARCHITECTURE.md)** - 🆕 AI-powered insights and chat interface
 
 ---
 

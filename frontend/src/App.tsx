@@ -6,6 +6,7 @@ import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatus
 import { NotificationSettingsProvider } from './context/NotificationSettingsContext';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
+import BusinessIntelligencePage from './pages/BusinessIntelligencePage';
 import CompetitorsPage from './pages/CompetitorsPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
@@ -403,6 +404,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/business-intelligence" element={<ProtectedRoute><BusinessIntelligencePage /></ProtectedRoute>} />
           <Route path="/competitors" element={<ProtectedRoute><CompetitorsPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminProtectedRoute><AdminPage /></AdminProtectedRoute>} />

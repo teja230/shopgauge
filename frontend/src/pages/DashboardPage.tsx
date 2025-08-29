@@ -31,6 +31,7 @@ import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 
 
+
 /**
  * 🚀 DASHBOARD CACHE BEHAVIOR
  * ============================
@@ -3696,6 +3697,8 @@ const DashboardPage = () => {
             </RefreshButton>
           </Box>
         </Box>
+
+
 
         {/* Tutorial Trigger Button - Floating Action Button */}
         <Box
