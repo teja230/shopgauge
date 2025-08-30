@@ -3,7 +3,8 @@
  * This demonstrates how to use the system without any AI provider costs
  */
 
-import aiInsightsService, { AIConfig } from './aiInsightsService';
+import aiInsightsService from './aiInsightsService';
+import type { AIConfig } from './aiInsightsService';
 
 // Local-only configuration - no external AI costs
 export const LOCAL_ONLY_CONFIG: Partial<AIConfig> = {

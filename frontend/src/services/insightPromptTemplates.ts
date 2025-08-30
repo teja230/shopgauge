@@ -78,30 +78,31 @@ Keep analysis under 150 words, focus on actionable insights.`
       type: 'costs',
       maxTokens: 200,
       priority: 'high',
-      template: `
-Analyze the cost structure and provide optimization recommendations:
-
-Market Intelligence Costs:
-- Daily: ${{DAILY_COST}}
-- Monthly: ${{MONTHLY_COST}}
-- Budget usage: {{BUDGET_USAGE}}%
-- Requests: {{REQUESTS}}
-
-Revenue Context:
-- Total Revenue: ${{TOTAL_REVENUE}}
-- Revenue Growth: {{REVENUE_GROWTH}}%
-
-Competitor Analysis ROI:
-- Active competitors: {{COMPETITOR_COUNT}}
-- Price monitoring value: {{COMPETITOR_VALUE}}
-
-Provide:
-1. Cost efficiency assessment
-2. ROI evaluation
-3. Optimization recommendations
-4. Budget allocation suggestions
-
-Max 120 words, focus on actionable cost optimizations.`
+      template: [
+        'Analyze the cost structure and provide optimization recommendations:',
+        '',
+        'Market Intelligence Costs:',
+        '- Daily: ${{DAILY_COST}}',
+        '- Monthly: ${{MONTHLY_COST}}',
+        '- Budget usage: {{BUDGET_USAGE}}%',
+        '- Requests: {{REQUESTS}}',
+        '',
+        'Revenue Context:',
+        '- Total Revenue: ${{TOTAL_REVENUE}}',
+        '- Revenue Growth: {{REVENUE_GROWTH}}%',
+        '',
+        'Competitor Analysis ROI:',
+        '- Active competitors: {{COMPETITOR_COUNT}}',
+        '- Price monitoring value: {{COMPETITOR_VALUE}}',
+        '',
+        'Provide:',
+        '1. Cost efficiency assessment',
+        '2. ROI evaluation',
+        '3. Optimization recommendations',
+        '4. Budget allocation suggestions',
+        '',
+        'Max 120 words, focus on actionable cost optimizations.'
+      ].join('\n')
     };
   }
 
