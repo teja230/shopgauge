@@ -61,7 +61,6 @@ class AIInsightsService {
     tokensSaved: 0
   };
   private batchQueue: Array<{ request: InsightRequest; resolve: Function; reject: Function }> = [];
-  private batchTimer: NodeJS.Timeout | null = null;
   
   // Cache TTL based on insight type
   private readonly CACHE_TTL = {
@@ -169,16 +168,18 @@ class AIInsightsService {
   async generateBatchInsights(requests: InsightRequest[]): Promise<GeneratedInsight[]> {
     console.log(`🔄 Generating ${requests.length} insights in batch mode`);
     
-    const results: GeneratedInsight[] = [];
-    const aiRequests: InsightRequest[] = [];
+    // Preserve original order by tracking index
+    const results: (GeneratedInsight | null)[] = new Array(requests.length).fill(null);
+    const aiRequests: { request: InsightRequest; index: number }[] = [];
     
     // Process cache hits and local insights first
-    for (const request of requests) {
+    for (let i = 0; i < requests.length; i++) {
+      const request = requests[i];
       const cacheKey = this.generateCacheKey(request);
       const cached = this.getCachedInsight(cacheKey, request.type);
       
       if (cached) {
-        results.push({
+        results[i] = {
           insight: cached.insight,
           confidence: 0.9,
           cost: 0,
@@ -189,11 +190,11 @@ class AIInsightsService {
             processingTime: 0,
             dataFreshness: this.getDataFreshness(request.data)
           }
-        });
+        };
       } else {
         const localInsight = this.tryLocalInsight(request);
         if (localInsight) {
-          results.push({
+          results[i] = {
             insight: localInsight,
             confidence: 0.7,
             cost: 0,
@@ -204,21 +205,26 @@ class AIInsightsService {
               processingTime: 0,
               dataFreshness: this.getDataFreshness(request.data)
             }
-          });
+          };
         } else {
-          aiRequests.push(request);
+          aiRequests.push({ request, index: i });
         }
       }
     }
     
-    // Process remaining requests through AI
+    // Process remaining requests through AI preserving order
     if (aiRequests.length > 0) {
-      const aiResults = await this.processBatchAI(aiRequests);
-      results.push(...aiResults);
+      const aiResults = await this.processBatchAI(aiRequests.map(ar => ar.request));
+      // Place AI results in correct positions
+      aiRequests.forEach((ar, idx) => {
+        results[ar.index] = aiResults[idx];
+      });
     }
     
-    console.log(`✅ Batch complete: ${results.length - aiRequests.length} from cache/local, ${aiRequests.length} from AI`);
-    return results;
+    // Filter out any nulls and return in original order
+    const finalResults = results.filter((r): r is GeneratedInsight => r !== null);
+    console.log(`✅ Batch complete: ${finalResults.length - aiRequests.length} from cache/local, ${aiRequests.length} from AI`);
+    return finalResults;
   }
 
   /**
@@ -365,6 +371,7 @@ class AIInsightsService {
 
   private generateMockAIInsight(prompt: string, request?: InsightRequest): string {
     const data = request?.data;
+    const userQuestion = request?.context?.userQuestion;
     
     // Extract actual data values with fallbacks
     const revenue = data?.revenue?.total || 0;
@@ -390,6 +397,49 @@ class AIInsightsService {
     const monthlyROI = dailyCost > 0 
       ? Math.max(250, dailyCost * 30 * 3).toFixed(0) // 3x ROI estimate
       : '750';
+    
+    // Handle user questions specifically
+    if (userQuestion) {
+      const lowerQuestion = userQuestion.toLowerCase();
+      
+      // Revenue/sales questions
+      if (lowerQuestion.includes('revenue') || lowerQuestion.includes('sales')) {
+        return `Based on your current data, ${shopName} has generated $${revenue.toLocaleString()} in revenue with a ${growth > 0 ? 'positive' : growth < 0 ? 'negative' : 'stable'} growth rate of ${Math.abs(growth).toFixed(1)}%. ${growth > 5 ? 'This strong performance indicates healthy business momentum.' : growth > 0 ? 'Steady growth shows consistent progress.' : 'Consider implementing growth strategies to boost revenue.'} Your ${productCount} products are generating an average of $${(revenue / productCount).toFixed(2)} per product.`;
+      }
+      
+      // Product questions
+      if (lowerQuestion.includes('product')) {
+        return `You currently have ${productCount} active products in your catalog. ${lowStock > 0 ? `Alert: ${lowStock} products are running low on inventory and need immediate restocking to avoid stockouts.` : 'All products have healthy inventory levels.'} Your top-performing products are driving the majority of your $${revenue.toLocaleString()} revenue. Consider expanding successful product lines while optimizing underperformers.`;
+      }
+      
+      // Competitor questions
+      if (lowerQuestion.includes('competitor') || lowerQuestion.includes('competition')) {
+        return competitorCount > 0 
+          ? `You're actively monitoring ${competitorCount} competitors, investing $${dailyCost.toFixed(2)}/day (${budgetUsage.toFixed(1)}% of budget) in market intelligence. This provides valuable pricing insights and competitive positioning data. Your ${growth.toFixed(1)}% growth rate ${growth > 5 ? 'outperforms' : 'aligns with'} market averages. The ROI on competitive monitoring is approximately $${monthlyROI}/month through strategic pricing and positioning advantages.`
+          : `You're not currently monitoring any competitors. Consider setting up market intelligence to gain pricing insights, track competitor inventory, and identify market opportunities. This typically provides 3-10x ROI through better strategic decisions.`;
+      }
+      
+      // Cost/budget questions
+      if (lowerQuestion.includes('cost') || lowerQuestion.includes('budget') || lowerQuestion.includes('spend')) {
+        return dailyCost > 0
+          ? `Your market intelligence costs $${dailyCost.toFixed(2)}/day ($${(dailyCost * 30).toFixed(0)}/month), utilizing ${budgetUsage.toFixed(1)}% of your monitoring budget. This investment tracks ${competitorCount} competitors and provides an estimated ROI of $${monthlyROI}/month. ${budgetUsage > 80 ? 'Consider optimizing monitoring frequency to reduce costs.' : budgetUsage < 30 ? 'You have room to expand monitoring for more insights.' : 'Current spending levels are well-balanced.'}`
+          : `You're not currently investing in market intelligence. Consider allocating budget for competitor monitoring to gain strategic advantages and improve pricing decisions.`;
+      }
+      
+      // Improvement/optimization questions
+      if (lowerQuestion.includes('improve') || lowerQuestion.includes('optimize') || lowerQuestion.includes('increase')) {
+        const recommendations = [];
+        if (lowStock > 0) recommendations.push(`restock ${lowStock} low-inventory items`);
+        if (abandonedCarts > 5) recommendations.push(`reduce cart abandonment (currently ${abandonedCarts} carts)`);
+        if (growth < 5) recommendations.push('implement growth strategies to accelerate revenue');
+        if (competitorCount === 0) recommendations.push('set up competitor monitoring');
+        if (competitorCount > 0 && budgetUsage < 30) recommendations.push('expand market intelligence coverage');
+        
+        return recommendations.length > 0
+          ? `To improve performance, focus on these priorities: ${recommendations.join(', ')}. These actions could increase revenue by 10-20% while improving operational efficiency.`
+          : `Your business is performing well! Continue monitoring key metrics and consider expanding successful strategies. Focus on maintaining your ${growth.toFixed(1)}% growth rate while exploring new market opportunities.`;
+      }
+    }
     
     // Generate appropriate mock response based on prompt type
     if (prompt.includes('executive summary')) {

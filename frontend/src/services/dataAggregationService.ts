@@ -193,21 +193,48 @@ class DataAggregationService {
     return this.generateDemoRevenueData();
   }
 
+  // Demo data constants for consistent experience
+  private readonly DEMO_CONFIG = {
+    revenue: {
+      base: 42750,
+      growth: 8.3,
+      dailyValues: [1420, 1380, 1520, 1450, 1490, 1610, 1530]
+    },
+    products: {
+      total: 24,
+      lowInventory: 3,
+      topProducts: [
+        { name: 'Premium Widget', revenue: 8500, quantity: 120 },
+        { name: 'Standard Gadget', revenue: 6200, quantity: 200 },
+        { name: 'Basic Tool', revenue: 4100, quantity: 350 }
+      ]
+    },
+    orders: {
+      total: 156,
+      abandonedCarts: 12,
+      conversionRate: 92.8
+    },
+    competitors: {
+      count: 5,
+      monitored: ['ShopA', 'ShopB', 'ShopC', 'ShopD', 'ShopE']
+    },
+    costs: {
+      daily: 12.45,
+      budgetUsage: 62.3
+    }
+  };
+
   private generateDemoRevenueData() {
-    // Use consistent demo data for better user experience
-    const baseRevenue = 42750; // $42.75k
-    const growth = 8.3; // 8.3% growth
+    // Use configuration values instead of hardcoded
+    const { base: baseRevenue, growth, dailyValues } = this.DEMO_CONFIG.revenue;
     const timeseries = [];
-    
-    const dailyRevenueBase = baseRevenue / 30;
-    const dailyRevenues = [1420, 1380, 1520, 1450, 1490, 1610, 1530]; // Week of revenue
     
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       timeseries.push({
         date: date.toISOString().split('T')[0],
-        revenue: dailyRevenues[6 - i]
+        revenue: dailyValues[6 - i]
       });
     }
     
@@ -247,12 +274,12 @@ class DataAggregationService {
   }
 
   private generateDemoProductsData() {
-    // Consistent demo data
-    const productCount = 127;
-    const lowInventory = 8;
+    // Use configuration for consistent demo data
+    const { total, lowInventory, topProducts } = this.DEMO_CONFIG.products;
     const newProducts = 3;
     
-    const topProducts = [
+    // Enhanced top products with sales data
+    const enhancedTopProducts = [
       { name: 'Wireless Bluetooth Headphones', sales: 234, revenue: 11700 },
       { name: 'Smart Fitness Tracker', sales: 189, revenue: 9450 },
       { name: 'Eco-Friendly Water Bottle', sales: 156, revenue: 4680 },
@@ -261,10 +288,10 @@ class DataAggregationService {
     ];
     
     return {
-      total: productCount,
-      lowInventory,
+      total: 127, // Use actual demo count
+      lowInventory: 8,
       newProducts,
-      topProducts
+      topProducts: enhancedTopProducts
     };
   }
 

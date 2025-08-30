@@ -310,6 +310,35 @@ const BusinessIntelligencePage: React.FC = () => {
     });
   };
 
+  // Determine insight type based on question content
+  const determineInsightType = (question: string): InsightRequest['type'] => {
+    const lowerQuestion = question.toLowerCase();
+    
+    // Check for cost/budget related keywords
+    if (lowerQuestion.includes('cost') || lowerQuestion.includes('budget') || 
+        lowerQuestion.includes('spend') || lowerQuestion.includes('expense') ||
+        lowerQuestion.includes('roi') || lowerQuestion.includes('investment')) {
+      return 'costs';
+    }
+    
+    // Check for trend/growth related keywords
+    if (lowerQuestion.includes('trend') || lowerQuestion.includes('growth') || 
+        lowerQuestion.includes('performance') || lowerQuestion.includes('revenue') ||
+        lowerQuestion.includes('sales') || lowerQuestion.includes('pattern')) {
+      return 'trends';
+    }
+    
+    // Check for recommendation/action related keywords
+    if (lowerQuestion.includes('should') || lowerQuestion.includes('recommend') || 
+        lowerQuestion.includes('improve') || lowerQuestion.includes('optimize') ||
+        lowerQuestion.includes('what to do') || lowerQuestion.includes('how to')) {
+      return 'recommendations';
+    }
+    
+    // Default to summary for general questions
+    return 'summary';
+  };
+
   const handleChatSubmit = async (question?: string) => {
     const messageText = question || chatInput.trim();
     if (!messageText || !aggregatedData) return;
@@ -330,12 +359,16 @@ const BusinessIntelligencePage: React.FC = () => {
     setChatLoading(true);
     
     try {
+      // Determine insight type based on question content
+      const insightType = determineInsightType(messageText);
+      
       const request: InsightRequest = {
-        type: 'summary',
+        type: insightType,
         data: aggregatedData,
         context: {
           timeframe: '7d',
-          focus: ['chat']
+          focus: [insightType],
+          userQuestion: messageText // Pass the question for context
         }
       };
       
