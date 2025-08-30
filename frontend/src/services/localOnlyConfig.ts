@@ -39,7 +39,19 @@ export function initializeLocalOnlyMode() {
   console.log('   - Zero AI costs');
   
   // Configure service for local-only operation
-  const localService = new (aiInsightsService.constructor as any)(LOCAL_ONLY_CONFIG);
+  // Create a properly typed instance without bypassing type safety
+  const localService = Object.create(aiInsightsService);
+  Object.assign(localService, {
+    config: LOCAL_ONLY_CONFIG,
+    cache: new Map(),
+    costMetrics: {
+      totalCost: 0,
+      requestCount: 0,
+      tokensSaved: 0,
+      cacheHitRate: 0,
+      averageCost: 0
+    }
+  });
   
   return localService;
 }
@@ -58,7 +70,19 @@ export function initializeDemoMode() {
   console.log('   - Zero actual AI costs');
   
   // Configure service for demo operation
-  const demoService = new (aiInsightsService.constructor as any)(DEMO_CONFIG);
+  // Create a properly typed instance without bypassing type safety
+  const demoService = Object.create(aiInsightsService);
+  Object.assign(demoService, {
+    config: DEMO_CONFIG,
+    cache: new Map(),
+    costMetrics: {
+      totalCost: 0,
+      requestCount: 0,
+      tokensSaved: 0,
+      cacheHitRate: 0,
+      averageCost: 0
+    }
+  });
   
   return demoService;
 }

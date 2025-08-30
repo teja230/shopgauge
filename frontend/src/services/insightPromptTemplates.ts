@@ -15,6 +15,7 @@ export interface InsightRequest {
     timeframe: string;
     focus: string[];
     previousInsights?: string[];
+    userQuestion?: string;
   };
 }
 
@@ -175,7 +176,7 @@ Max 120 words, be specific and actionable.`
     return prompt;
   }
 
-  private static getTemplateByType(type: PromptTemplate['type']): PromptTemplate {
+  public static getTemplateByType(type: PromptTemplate['type']): PromptTemplate {
     switch (type) {
       case 'summary':
         return this.getExecutiveSummary();
