@@ -66,6 +66,19 @@ class DataAggregationService {
       products: processedProducts,
       orders: processedOrders,
       marketIntelligence: processedMarketIntelligence,
+      insights: {
+        conversionRate: processedOrders.conversionRate || 0,
+        topSellingProducts: processedProducts.topProducts?.slice(0, 3).map((p: any) => ({
+          title: p.name,
+          sales: p.sales || 0
+        })) || [],
+        abandonedCartCount: processedOrders.abandonedCarts || 0,
+        insightText: `Your store has generated ${processedRevenue.total?.toLocaleString('en-US', { 
+          style: 'currency', 
+          currency: 'USD', 
+          minimumFractionDigits: 0 
+        }) || '$0'} in revenue with ${processedOrders.total || 0} orders.`
+      },
       metadata: {
         shop,
         timestamp: new Date().toISOString(),
@@ -221,8 +234,8 @@ class DataAggregationService {
       .slice(0, 5)
       .map(p => ({
         name: p.title,
-        revenue: p.price * Math.floor(Math.random() * 50 + 10), // Simulated sales
-        quantity: p.inventory_quantity
+        sales: Math.floor(Math.random() * 200 + 50), // Simulated sales count
+        revenue: p.price * Math.floor(Math.random() * 50 + 10) // Simulated revenue
       }));
     
     // Build aggregated data structure from DEMO_DATA_BUNDLE
@@ -241,19 +254,16 @@ class DataAggregationService {
         newProducts: analytics.inventory.new_products_this_month,
         topProducts
       },
-      inventory: {
-        totalProducts: analytics.inventory.total_products,
-        lowStockCount: analytics.inventory.low_stock_count,
-        outOfStockCount: analytics.inventory.out_of_stock_count
-      },
+
       orders: {
         total: analytics.orders.total_orders,
         abandonedCarts: analytics.inventory.abandoned_cart_count,
         conversionRate: analytics.orders.conversion_rate,
-        recentOrders: analytics.orders.daily_orders.slice(0, 5).map(o => ({
+        recent: analytics.orders.daily_orders.slice(0, 5).map(o => ({
           id: o.order_id,
-          amount: o.total_price,
-          date: o.created_at
+          total: o.total_price,
+          date: o.created_at,
+          status: 'fulfilled'
         }))
       },
       marketIntelligence: {
@@ -268,6 +278,7 @@ class DataAggregationService {
         costs: {
           daily: 15.75, // Realistic demo cost
           monthly: 15.75 * 30,
+          requests: 124, // Estimate requests based on cost
           budgetUsage: 68.5
         },
         suggestions: competitors.length // Number of suggestions based on competitors
@@ -288,12 +299,13 @@ class DataAggregationService {
       metadata: {
         shop: shop || 'demo-shopgauge.myshopify.com',
         timestamp: new Date().toISOString(),
-        dataFreshness: {
+        freshness: {
           revenue: 1,
           products: 1,
           orders: 1,
           marketIntelligence: 1
-        }
+        },
+        dataPoints: analytics.revenue.daily_revenue.length
       }
     };
     

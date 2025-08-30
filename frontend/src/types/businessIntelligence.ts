@@ -25,6 +25,7 @@ export interface AggregatedDashboardData {
   // Market Intelligence
   marketIntelligence: {
     competitors: Array<{
+      name: string;
       url: string;
       price: number;
       percentDiff: number;
@@ -38,6 +39,14 @@ export interface AggregatedDashboardData {
       requests: number;
       budgetUsage: number;
     };
+  };
+  
+  // Insights Summary
+  insights: {
+    conversionRate: number;
+    topSellingProducts: Array<{ title: string; sales: number }>;
+    abandonedCartCount: number;
+    insightText: string;
   };
   
   // Metadata
