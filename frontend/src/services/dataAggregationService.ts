@@ -2,6 +2,7 @@ import { fetchWithAuth } from '../api';
 import { marketIntelligenceAPI } from '../api/marketIntelligence';
 import marketIntelligenceAdminAPI from '../api/marketIntelligenceAdmin';
 import type { AggregatedDashboardData, InsightContext } from '../types/businessIntelligence';
+import { DEMO_DATA_BUNDLE } from '../data/demoDataBundle';
 
 class DataAggregationService {
   private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
@@ -11,7 +12,12 @@ class DataAggregationService {
    * Aggregate all dashboard and market intelligence data
    */
   async aggregateShopData(shop: string, forceRefresh = false): Promise<AggregatedDashboardData> {
-    const cacheKey = `aggregated_${shop}`;
+    // Check if demo mode is active
+    const isDemoMode = localStorage.getItem('demo_mode_active') === 'true' || 
+                      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                      shop === 'demo-shopgauge.myshopify.com';
+    
+    const cacheKey = `aggregated_${shop}_${isDemoMode ? 'demo' : 'live'}`;
     
     if (!forceRefresh && this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey)!;
@@ -20,7 +26,12 @@ class DataAggregationService {
       }
     }
 
-    console.log('🔄 Aggregating shop data for insights generation:', shop);
+    console.log('🔄 Aggregating shop data for insights generation:', shop, isDemoMode ? '(Demo Mode)' : '(Live Mode)');
+    
+    // If in demo mode, use the unified demo data bundle
+    if (isDemoMode) {
+      return this.aggregateDemoData(shop);
+    }
     
     const startTime = Date.now();
     const freshness: Record<string, number> = {};
@@ -193,7 +204,117 @@ class DataAggregationService {
     return this.generateDemoRevenueData();
   }
 
-  // Demo data constants for consistent experience
+  /**
+   * Aggregate demo data from the unified DEMO_DATA_BUNDLE
+   * This ensures consistency with Dashboard and Market Intelligence
+   */
+  private async aggregateDemoData(shop: string): Promise<AggregatedDashboardData> {
+    console.log('📦 Using unified DEMO_DATA_BUNDLE for ShopGPT');
+    
+    const demoData = DEMO_DATA_BUNDLE;
+    const analytics = demoData.analytics;
+    const products = demoData.products;
+    const competitors = demoData.competitors;
+    
+    // Calculate top products from the demo products
+    const topProducts = products
+      .slice(0, 5)
+      .map(p => ({
+        name: p.title,
+        revenue: p.price * Math.floor(Math.random() * 50 + 10), // Simulated sales
+        quantity: p.inventory_quantity
+      }));
+    
+    // Build aggregated data structure from DEMO_DATA_BUNDLE
+    const aggregatedData: AggregatedDashboardData = {
+      revenue: {
+        total: analytics.revenue.total_revenue,
+        timeseries: analytics.revenue.daily_revenue.map(d => ({
+          date: d.date,
+          revenue: d.revenue
+        })),
+        growth: analytics.revenue.revenue_growth
+      },
+      products: {
+        total: analytics.inventory.total_products,
+        lowInventory: analytics.inventory.low_stock_count,
+        newProducts: analytics.inventory.new_products_this_month,
+        topProducts
+      },
+      inventory: {
+        totalProducts: analytics.inventory.total_products,
+        lowStockCount: analytics.inventory.low_stock_count,
+        outOfStockCount: analytics.inventory.out_of_stock_count
+      },
+      orders: {
+        total: analytics.orders.total_orders,
+        abandonedCarts: analytics.inventory.abandoned_cart_count,
+        conversionRate: analytics.orders.conversion_rate,
+        recentOrders: analytics.orders.daily_orders.slice(0, 5).map(o => ({
+          id: o.order_id,
+          amount: o.total_price,
+          date: o.created_at
+        }))
+      },
+      marketIntelligence: {
+        competitors: competitors.map(c => ({
+          name: c.name,
+          url: c.url,
+          price: c.current_price,
+          percentDiff: Math.round((c.price_difference / c.our_price) * 100),
+          inStock: c.status === 'active',
+          lastChecked: c.last_checked
+        })),
+        costs: {
+          daily: 15.75, // Realistic demo cost
+          monthly: 15.75 * 30,
+          budgetUsage: 68.5
+        },
+        suggestions: competitors.length // Number of suggestions based on competitors
+      },
+      insights: {
+        conversionRate: analytics.orders.conversion_rate,
+        topSellingProducts: topProducts.slice(0, 3).map(p => ({
+          title: p.name,
+          sales: Math.floor(p.revenue / 100) // Approximate sales count
+        })),
+        abandonedCartCount: analytics.inventory.abandoned_cart_count,
+        insightText: `Your store has generated ${analytics.revenue.total_revenue.toLocaleString('en-US', { 
+          style: 'currency', 
+          currency: 'USD', 
+          minimumFractionDigits: 0 
+        })} in revenue with ${analytics.orders.total_orders} orders and a ${analytics.orders.conversion_rate}% conversion rate.`
+      },
+      metadata: {
+        shop: shop || 'demo-shopgauge.myshopify.com',
+        timestamp: new Date().toISOString(),
+        dataFreshness: {
+          revenue: 1,
+          products: 1,
+          orders: 1,
+          marketIntelligence: 1
+        }
+      }
+    };
+    
+    // Cache the demo data
+    this.cache.set(`aggregated_${shop}_demo`, {
+      data: aggregatedData,
+      timestamp: Date.now(),
+      ttl: this.CACHE_TTL
+    });
+    
+    console.log('✅ ShopGPT using unified demo data:', {
+      revenue: aggregatedData.revenue.total,
+      products: aggregatedData.products.total,
+      orders: aggregatedData.orders.total,
+      competitors: aggregatedData.marketIntelligence.competitors.length
+    });
+    
+    return aggregatedData;
+  }
+
+  // Demo data constants for consistent experience (DEPRECATED - kept for backward compatibility)
   private readonly DEMO_CONFIG = {
     revenue: {
       base: 42750,
@@ -225,23 +346,15 @@ class DataAggregationService {
   };
 
   private generateDemoRevenueData() {
-    // Use configuration values instead of hardcoded
-    const { base: baseRevenue, growth, dailyValues } = this.DEMO_CONFIG.revenue;
-    const timeseries = [];
-    
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      timeseries.push({
-        date: date.toISOString().split('T')[0],
-        revenue: dailyValues[6 - i]
-      });
-    }
-    
+    // Use unified DEMO_DATA_BUNDLE for consistency
+    const analytics = DEMO_DATA_BUNDLE.analytics;
     return {
-      total: baseRevenue,
-      timeseries,
-      growth
+      total: analytics.revenue.total_revenue,
+      timeseries: analytics.revenue.daily_revenue.slice(0, 7).map(d => ({
+        date: d.date,
+        revenue: d.revenue
+      })),
+      growth: analytics.revenue.revenue_growth
     };
   }
 
@@ -274,24 +387,22 @@ class DataAggregationService {
   }
 
   private generateDemoProductsData() {
-    // Use configuration for consistent demo data
-    const { total, lowInventory, topProducts } = this.DEMO_CONFIG.products;
-    const newProducts = 3;
+    // Use unified DEMO_DATA_BUNDLE for consistency
+    const analytics = DEMO_DATA_BUNDLE.analytics;
+    const products = DEMO_DATA_BUNDLE.products;
     
-    // Enhanced top products with sales data
-    const enhancedTopProducts = [
-      { name: 'Wireless Bluetooth Headphones', sales: 234, revenue: 11700 },
-      { name: 'Smart Fitness Tracker', sales: 189, revenue: 9450 },
-      { name: 'Eco-Friendly Water Bottle', sales: 156, revenue: 4680 },
-      { name: 'Premium Coffee Beans', sales: 143, revenue: 5720 },
-      { name: 'Organic Cotton T-Shirt', sales: 121, revenue: 3630 }
-    ];
+    // Get top 5 products with simulated sales data
+    const topProducts = products.slice(0, 5).map(p => ({
+      name: p.title,
+      sales: Math.floor(Math.random() * 200 + 50),
+      revenue: p.price * Math.floor(Math.random() * 100 + 20)
+    }));
     
     return {
-      total: 127, // Use actual demo count
-      lowInventory: 8,
-      newProducts,
-      topProducts: enhancedTopProducts
+      total: analytics.inventory.total_products,
+      lowInventory: analytics.inventory.low_stock_count,
+      newProducts: analytics.inventory.new_products_this_month,
+      topProducts
     };
   }
 
@@ -324,24 +435,21 @@ class DataAggregationService {
   }
 
   private generateDemoOrdersData() {
-    // Consistent demo data
-    const orderCount = 89;
-    const abandonedCarts = 12;
-    const conversionRate = 88.1;
+    // Use unified DEMO_DATA_BUNDLE for consistency
+    const analytics = DEMO_DATA_BUNDLE.analytics;
     
-    const recentOrders = [
-      { id: 'ORD-4521', date: new Date().toISOString(), total: 127, status: 'fulfilled' },
-      { id: 'ORD-4520', date: new Date(Date.now() - 86400000).toISOString(), total: 89, status: 'fulfilled' },
-      { id: 'ORD-4519', date: new Date(Date.now() - 172800000).toISOString(), total: 156, status: 'pending' },
-      { id: 'ORD-4518', date: new Date(Date.now() - 259200000).toISOString(), total: 203, status: 'fulfilled' },
-      { id: 'ORD-4517', date: new Date(Date.now() - 345600000).toISOString(), total: 74, status: 'fulfilled' }
-    ];
+    const recentOrders = analytics.orders.daily_orders.slice(0, 5).map(o => ({
+      id: o.order_id,
+      date: o.created_at,
+      total: o.total_price,
+      status: 'fulfilled'
+    }));
     
     return {
-      total: orderCount,
+      total: analytics.orders.total_orders,
       recent: recentOrders,
-      abandonedCarts,
-      conversionRate
+      abandonedCarts: analytics.inventory.abandoned_cart_count,
+      conversionRate: analytics.orders.conversion_rate
     };
   }
 
@@ -380,26 +488,25 @@ class DataAggregationService {
   }
 
   private generateDemoMarketIntelligenceData() {
-    // Consistent demo data
-    const dailyCost = 12.45;
-    const budgetUsage = 62.3;
+    // Use unified DEMO_DATA_BUNDLE for consistency
+    const competitors = DEMO_DATA_BUNDLE.competitors;
     
-    const competitors = [
-      { url: 'competitor-tech-store.com', price: 149, percentDiff: -8.2, inStock: true, lastChecked: new Date().toISOString() },
-      { url: 'rival-electronics.net', price: 165, percentDiff: 3.1, inStock: true, lastChecked: new Date().toISOString() },
-      { url: 'market-leader-shop.co', price: 172, percentDiff: 7.5, inStock: false, lastChecked: new Date().toISOString() },
-      { url: 'price-competitor.org', price: 145, percentDiff: -9.4, inStock: true, lastChecked: new Date().toISOString() },
-      { url: 'similar-goods-store.com', price: 158, percentDiff: -1.3, inStock: true, lastChecked: new Date().toISOString() }
-    ];
+    const competitorData = competitors.map(c => ({
+      url: c.url,
+      price: c.current_price,
+      percentDiff: Math.round((c.price_difference / c.our_price) * 100),
+      inStock: c.status === 'active',
+      lastChecked: c.last_checked
+    }));
     
     return {
-      competitors,
-      suggestions: 3,
+      competitors: competitorData,
+      suggestions: competitors.length,
       costs: {
-        daily: dailyCost,
-        monthly: dailyCost * 30,
+        daily: 15.75,
+        monthly: 15.75 * 30,
         requests: 124, // Estimate requests based on cost
-        budgetUsage
+        budgetUsage: 68.5
       }
     };
   }
