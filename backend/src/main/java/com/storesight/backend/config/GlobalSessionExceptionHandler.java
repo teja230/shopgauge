@@ -289,13 +289,16 @@ public class GlobalSessionExceptionHandler {
     if (e instanceof NoResourceFoundException) {
       String path = httpRequest.getRequestURI();
       String method = httpRequest.getMethod();
-      
+
       logger.warn("Resource not found: {} {} - returning 404", method, path);
-      
+
       return ResponseEntity.status(HttpStatus.NOT_FOUND)
-          .body("{\"error\":\"Resource not found\",\"message\":\"The requested endpoint does not exist\",\"path\":\"" + path + "\"}");
+          .body(
+              "{\"error\":\"Resource not found\",\"message\":\"The requested endpoint does not exist\",\"path\":\""
+                  + path
+                  + "\"}");
     }
-    
+
     // Not a session error - let other handlers deal with it
     throw new RuntimeException(e);
   }
