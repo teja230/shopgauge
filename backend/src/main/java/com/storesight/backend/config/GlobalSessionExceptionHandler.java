@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Enhanced global exception handler specifically for session-related errors with comprehensive race
@@ -284,6 +285,17 @@ public class GlobalSessionExceptionHandler {
       }
     }
 
+    // Handle NoResourceFoundException specifically to prevent cascading errors
+    if (e instanceof NoResourceFoundException) {
+      String path = httpRequest.getRequestURI();
+      String method = httpRequest.getMethod();
+      
+      logger.warn("Resource not found: {} {} - returning 404", method, path);
+      
+      return ResponseEntity.status(HttpStatus.NOT_FOUND)
+          .body("{\"error\":\"Resource not found\",\"message\":\"The requested endpoint does not exist\",\"path\":\"" + path + "\"}");
+    }
+    
     // Not a session error - let other handlers deal with it
     throw new RuntimeException(e);
   }

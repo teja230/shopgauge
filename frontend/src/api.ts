@@ -679,7 +679,7 @@ export async function getProducts(): Promise<any[]> {
   }
   
   console.log('API: Using regular products endpoint');
-  const res = await fetch(`${API_BASE_URL}/api/products`, defaultOptions);
+  const res = await fetch(`${API_BASE_URL}/api/analytics/products`, defaultOptions);
   return handleResponse<any[]>(res);
 }
 
@@ -766,7 +766,7 @@ export async function getOrders(): Promise<any> {
   }
   
   console.log('API: Using regular orders endpoint');
-  const res = await fetch(`${API_BASE_URL}/api/orders`, defaultOptions);
+  const res = await fetch(`${API_BASE_URL}/api/analytics/orders`, defaultOptions);
   return handleResponse<any>(res);
 }
 
@@ -842,7 +842,7 @@ export async function getRevenue(): Promise<any> {
   }
   
   console.log('API: Using regular revenue endpoint');
-  const res = await fetch(`${API_BASE_URL}/api/revenue`, defaultOptions);
+  const res = await fetch(`${API_BASE_URL}/api/analytics/revenue`, defaultOptions);
   return handleResponse<any>(res);
 }
 
