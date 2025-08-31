@@ -1191,11 +1191,11 @@ const DashboardPage = () => {
   const sortedProducts = useMemo(() => sortProducts(insights?.topProducts || []), [insights?.topProducts, sortProducts]);
   const sortedOrders = useMemo(() => {
     const orders = insights?.orders || [];
-    console.log('[Orders] sortedOrders calculation:', {
+    debugLog.info('[Orders] sortedOrders calculation', {
       hasInsights: !!insights,
       ordersLength: orders.length,
       sampleOrder: orders[0] || 'No orders'
-    });
+    }, 'Orders');
     return sortOrders(orders);
   }, [insights?.orders, sortOrders]);
   
@@ -2045,13 +2045,13 @@ const DashboardPage = () => {
       // Handle error cases with enhanced logging
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS' || 
           (data.error && data.error.includes('re-authentication'))) {
-        console.error('[Orders] Permission denied error:', data);
+        debugLog.error('[Orders] Permission denied error', data, 'Orders');
         setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
         return;
       }
       
       if (data.error_code === 'AUTHENTICATION_FAILED') {
-        console.error('[Orders] Authentication failed:', data);
+        debugLog.error('[Orders] Authentication failed', data, 'Orders');
         setCardErrors(prev => ({ ...prev, orders: 'Authentication failed – please re-authenticate with Shopify' }));
         return;
       }
@@ -2067,7 +2067,7 @@ const DashboardPage = () => {
       }
       
       if (data.error_code === 'INSUFFICIENT_PERMISSIONS') {
-        console.error('[Orders] Orders API access denied - insufficient permissions');
+        debugLog.error('[Orders] Orders API access denied - insufficient permissions', null, 'Orders');
         setCardErrors(prev => ({ ...prev, orders: 'Permission denied – please re-authenticate with Shopify' }));
         setInsights(mergeInsights({
           orders: [],
@@ -2078,31 +2078,31 @@ const DashboardPage = () => {
       
       // Handle generic errors with debug info
       if (data.error && data.debug_info) {
-        console.error('[Orders] Generic error with debug info:', data);
+        debugLog.error('[Orders] Generic error with debug info', data, 'Orders');
         setCardErrors(prev => ({ ...prev, orders: `Failed to load orders: ${data.error}` }));
         return;
       }
       
       // Handle successful data
-      console.log('[Orders] Successfully processed data, updating insights');
-      console.log('[Orders] Raw data received:', data);
-      console.log('[Orders] Data structure analysis:', {
+      debugLog.info('[Orders] Successfully processed data, updating insights', null, 'Orders');
+      debugLog.info('[Orders] Raw data received', data, 'Orders');
+      debugLog.info('[Orders] Data structure analysis', {
         hasOrders: !!data.orders,
         ordersLength: data.orders?.length || 0,
         hasTimeseries: !!data.timeseries,
         timeseriesLength: data.timeseries?.length || 0,
         dataKeys: Object.keys(data),
         sampleOrder: data.orders?.[0] || 'No orders'
-      });
+      }, 'Orders');
       
       const ordersData = data.rate_limited ? [] : (data.orders || data.timeseries || []);
       const recentOrdersData = data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5));
       
-      console.log('[Orders] Processed data:', {
+      debugLog.info('[Orders] Processed data', {
         ordersDataLength: ordersData.length,
         recentOrdersDataLength: recentOrdersData.length,
         sampleOrder: ordersData[0] || 'No orders'
-      });
+      }, 'Orders');
       
       setInsights(mergeInsights({
         orders: ordersData,
@@ -2111,15 +2111,15 @@ const DashboardPage = () => {
       
       // Debug: Check insights state after update
       setTimeout(() => {
-        console.log('[Orders] Insights state after update:', {
+        debugLog.info('[Orders] Insights state after update', {
           hasInsights: !!insights,
           ordersInInsights: insights?.orders?.length || 0,
           recentOrdersInInsights: insights?.recentOrders?.length || 0,
           sampleOrder: insights?.orders?.[0] || 'No orders in insights'
-        });
+        }, 'Orders');
       }, 100);
       
-      console.log('[Orders] Updated insights state:', {
+      debugLog.info('[Orders] Updated insights state', {
         ordersCount: (data.rate_limited ? [] : (data.orders || data.timeseries || [])).length,
         recentOrdersCount: (data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5))).length,
         rawDataStructure: {
@@ -2139,7 +2139,7 @@ const DashboardPage = () => {
         setHasRateLimit(true);
       }
     } catch (error: any) {
-      console.error('[Orders] Orders data fetch error:', error);
+      debugLog.error('[Orders] Orders data fetch error', error, 'Orders');
       const errorMessage = error.message === 'PERMISSION_ERROR'
         ? 'Permission denied – please re-authenticate with Shopify'
         : 'Failed to load orders data';
@@ -2289,7 +2289,7 @@ const DashboardPage = () => {
         
         // Orders data can be loaded slightly delayed to reduce initial load
         setTimeout(() => {
-          fetchOrdersData().catch(err => console.error('❌ Orders fetch failed:', err));
+          fetchOrdersData().catch(err => debugLog.error('❌ Orders fetch failed', err, 'Orders'));
         }, 100);
         
         console.log('✅ Dashboard: Parallel data loading completed');
