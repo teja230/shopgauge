@@ -901,7 +901,13 @@ const DashboardPage = () => {
 
   // Create a stable reference for orders data for Advanced Analytics
   const stableOrdersData = useMemo(() => {
-    return insights?.orders || [];
+    const ordersData = insights?.orders || [];
+    debugLog.info('[Advanced Analytics] Orders data for unified analytics', {
+      ordersLength: ordersData.length,
+      sampleOrder: ordersData[0] || 'No orders',
+      orderDates: ordersData.slice(0, 5).map(order => order?.created_at).filter(Boolean)
+    }, 'Advanced Analytics');
+    return ordersData;
   }, [insights?.orders]);
 
   // Use the new unified analytics hook with stabilized data

@@ -277,6 +277,14 @@ const useUnifiedAnalytics = (
         source: (typeof conversionRate === 'number' && !isNaN(conversionRate)) ? 'dashboard' : 'default'
       }, 'useUnifiedAnalytics');
 
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Input data analysis', {
+        revenueDataLength: revenueData?.length || 0,
+        ordersDataLength: ordersData?.length || 0,
+        sampleRevenueItem: revenueData?.[0] || 'No revenue data',
+        sampleOrderItem: ordersData?.[0] || 'No orders data',
+        orderDates: ordersData?.slice(0, 3).map(order => order?.created_at).filter(Boolean) || []
+      }, 'useUnifiedAnalytics');
+
       // FIXED: Aggregate orders by date to get correct daily order counts
       debugLog.info('🔄 UNIFIED_ANALYTICS: Aggregating orders by date', {
         revenueDataLength: revenueData?.length || 0,
