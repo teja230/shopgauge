@@ -1977,7 +1977,18 @@ public class AnalyticsController {
     dataPrivacyService.logDataAccess("ORDER_DATA_REQUEST", shop);
 
     try {
-      String url = "https://" + shop + "/admin/api/2023-10/orders.json?limit=10&status=any";
+      // Limit to last 60 days to match other endpoints and avoid large payloads
+      String since =
+          java.time.LocalDate.now()
+              .minusDays(60)
+              .format(java.time.format.DateTimeFormatter.ISO_DATE);
+      // Use proper ISO 8601 format with Z for UTC timezone and higher limit like other endpoints
+      String url =
+          "https://"
+              + shop
+              + "/admin/api/2023-10/orders.json?created_at_min="
+              + since
+              + "T00:00:00Z&limit=250&status=any";
 
       String response =
           webClient
