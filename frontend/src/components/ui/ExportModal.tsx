@@ -264,10 +264,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
           canvas.height = canvasHeight;
           
           const ctx = canvas.getContext('2d', { 
-            alpha: false, // Disable alpha for better PDF compatibility
-            imageSmoothingEnabled: true,
-            imageSmoothingQuality: 'high'
-          });
+            alpha: false // Disable alpha for better PDF compatibility
+          }) as CanvasRenderingContext2D;
           
           if (!ctx) {
             return reject(new Error('Could not get 2D context for canvas'));
@@ -294,9 +292,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
           }, 'ExportModal');
           
           resolve(canvas);
-        } catch (canvasError) {
+        } catch (canvasError: any) {
           debugLog.error('Canvas rendering failed', canvasError, 'ExportModal');
-          reject(new Error(`Canvas rendering failed: ${canvasError.message}`));
+          reject(new Error(`Canvas rendering failed: ${canvasError?.message || 'Unknown error'}`));
         }
       };
       
@@ -417,7 +415,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
             height: chartRef.current.offsetHeight,
             width: chartRef.current.offsetWidth,
             // Enhanced rendering options for better quality
-            pixelRatio: window.devicePixelRatio || 1,
             scrollX: 0,
             scrollY: 0,
             windowWidth: chartRef.current.offsetWidth,
@@ -428,7 +425,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
               return tagName === 'script' || 
                      tagName === 'noscript' || 
                      element.classList.contains('no-export') ||
-                     element.style.display === 'none';
+                     ((element as HTMLElement).style?.display === 'none');
             },
             onclone: (clonedDoc, element) => {
               // Enhanced style preservation for cloned document
