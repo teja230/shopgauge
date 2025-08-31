@@ -1917,15 +1917,13 @@ const DashboardPage = () => {
       const forceRefreshForDemo = isDemoMode; // Always force refresh for demo mode
       console.log('[Orders] Cache strategy:', { isDemoMode, forceRefresh, forceRefreshForDemo });
       
-      // Clear orders cache for demo mode to ensure fresh data
-      if (isDemoMode) {
-        const ordersCacheKey = `orders_cache_${shop}`;
-        sessionStorage.removeItem(ordersCacheKey);
-        console.log('[Orders] Cleared demo mode cache to force fresh data fetch');
-      }
+      // Clear orders cache to ensure fresh data (temporary fix for caching issue)
+      const ordersCacheKey = `orders_cache_${shop}`;
+      sessionStorage.removeItem(ordersCacheKey);
+      debugLog.info('[Orders] Cleared orders cache to force fresh data fetch', { shop, isDemoMode }, 'Orders');
       
       const data = await checkCacheAndFetch('orders', async () => {
-        console.log(`[Orders] Starting fetch for shop: ${shop}`);
+          debugLog.info(`[Orders] Starting fetch for shop: ${shop}`, null, 'Orders');
         
         // Fetch orders sequentially to avoid overwhelming the API
         // Check if demo mode is active and use appropriate endpoint
@@ -1978,8 +1976,15 @@ const DashboardPage = () => {
           return initialData; // Return error data to be handled outside
         }
         
-        let allOrders = initialData.timeseries || [];
-        console.log('[Orders] Initial orders from API:', allOrders.length, 'orders');
+        let allOrders = initialData.orders || initialData.timeseries || [];
+        debugLog.info('[Orders] Initial orders from API', { 
+          ordersLength: allOrders.length,
+          hasOrders: !!initialData.orders,
+          hasTimeseries: !!initialData.timeseries,
+          ordersArrayLength: initialData.orders?.length || 0,
+          timeseriesArrayLength: initialData.timeseries?.length || 0,
+          sampleOrder: allOrders[0] || 'No orders'
+        }, 'Orders');
         
         // Only fetch additional pages if first page worked and we have more data
         if (!initialData.rate_limited && initialData.has_more) {
@@ -2096,7 +2101,7 @@ const DashboardPage = () => {
       }, 'Orders');
       
       const ordersData = data.rate_limited ? [] : (data.orders || data.timeseries || []);
-      const recentOrdersData = data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5));
+      const recentOrdersData = data.rate_limited ? [] : (data.recentOrders || (data.orders || data.timeseries || []).slice(0, 5));
       
       debugLog.info('[Orders] Processed data', {
         ordersDataLength: ordersData.length,
@@ -2121,7 +2126,7 @@ const DashboardPage = () => {
       
       debugLog.info('[Orders] Updated insights state', {
         ordersCount: (data.rate_limited ? [] : (data.orders || data.timeseries || [])).length,
-        recentOrdersCount: (data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5))).length,
+        recentOrdersCount: (data.rate_limited ? [] : (data.recentOrders || (data.orders || data.timeseries || []).slice(0, 5))).length,
         rawDataStructure: {
           hasOrders: !!data.orders,
           hasTimeseries: !!data.timeseries,
