@@ -165,7 +165,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
     return false;
   }, [chartRef]);
 
-  // Helper to convert the first <svg> inside a container to a canvas (works well with Recharts)
+  // Enhanced SVG to canvas conversion with proper styling and error handling
   const convertContainerSvgToCanvas = async (container: HTMLElement, scale = 2): Promise<HTMLCanvasElement> => {
     return new Promise((resolve, reject) => {
       const svgEl = container.querySelector('svg');
@@ -173,37 +173,139 @@ const ExportModal: React.FC<ExportModalProps> = ({
         return reject(new Error('No SVG element found inside chart container'));
       }
 
+      debugLog.info('Starting SVG to canvas conversion', {
+        svgWidth: svgEl.getAttribute('width'),
+        svgHeight: svgEl.getAttribute('height'),
+        scale,
+        containerBounds: container.getBoundingClientRect()
+      }, 'ExportModal');
+
       const clonedSvg = svgEl.cloneNode(true) as SVGSVGElement;
-      // Ensure xmlns attribute present for serialization fidelity
+      
+      // Ensure proper SVG attributes for clean rendering
       clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
+      clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+      
+      // Get dimensions from the original SVG
       const rect = svgEl.getBoundingClientRect();
-      const width = rect.width * scale;
-      const height = rect.height * scale;
+      const svgWidth = rect.width || parseInt(svgEl.getAttribute('width') || '800');
+      const svgHeight = rect.height || parseInt(svgEl.getAttribute('height') || '600');
+      
+      // Set explicit dimensions on cloned SVG for consistent rendering
+      clonedSvg.setAttribute('width', svgWidth.toString());
+      clonedSvg.setAttribute('height', svgHeight.toString());
+      clonedSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
 
-      // Serialize SVG to string
+      // Preserve and enhance styles for better rendering
+      const styleElement = document.createElement('style');
+      styleElement.textContent = `
+        * { 
+          font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif !important;
+        }
+        .recharts-text {
+          font-size: 12px !important;
+          fill: #666 !important;
+        }
+        .recharts-cartesian-axis-tick-value {
+          font-size: 11px !important;
+          fill: #666 !important;
+        }
+        .recharts-legend-item-text {
+          font-size: 12px !important;
+          fill: #333 !important;
+        }
+        .recharts-tooltip-wrapper {
+          font-size: 12px !important;
+        }
+        .recharts-cartesian-grid-horizontal line,
+        .recharts-cartesian-grid-vertical line {
+          stroke: #f0f0f0 !important;
+          stroke-width: 1 !important;
+        }
+        .recharts-cartesian-axis line {
+          stroke: #ccc !important;
+        }
+      `;
+      clonedSvg.insertBefore(styleElement, clonedSvg.firstChild);
+
+      // Calculate final canvas dimensions
+      const canvasWidth = svgWidth * scale;
+      const canvasHeight = svgHeight * scale;
+
+      // Enhanced SVG serialization with proper encoding
       const serializer = new XMLSerializer();
-      const svgStr = serializer.serializeToString(clonedSvg);
-      const encoded = window.btoa(unescape(encodeURIComponent(svgStr)));
+      let svgStr = serializer.serializeToString(clonedSvg);
+      
+      // Fix common SVG serialization issues
+      svgStr = svgStr
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+
+      debugLog.info('SVG serialization completed', {
+        svgStringLength: svgStr.length,
+        canvasWidth,
+        canvasHeight
+      }, 'ExportModal');
+
+      // Use proper base64 encoding for better compatibility
+      const encoded = btoa(unescape(encodeURIComponent(svgStr)));
 
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          return reject(new Error('Could not get 2D context for canvas'));
-        }
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+          
+          const ctx = canvas.getContext('2d', { 
+            alpha: false, // Disable alpha for better PDF compatibility
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high'
+          });
+          
+          if (!ctx) {
+            return reject(new Error('Could not get 2D context for canvas'));
+          }
 
-        // Fill white background to avoid transparency issues when exporting as JPEG/PDF
-        ctx.fillStyle = getComputedStyle(container).backgroundColor || '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas);
+          // Set high-quality rendering
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          // Fill with proper background color
+          const bgColor = getComputedStyle(container).backgroundColor || 
+                          theme.palette.background.paper || 
+                          '#ffffff';
+          ctx.fillStyle = bgColor;
+          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          
+          // Draw the SVG image with high quality
+          ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+          
+          debugLog.info('Canvas rendering completed successfully', {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            backgroundColor: bgColor
+          }, 'ExportModal');
+          
+          resolve(canvas);
+        } catch (canvasError) {
+          debugLog.error('Canvas rendering failed', canvasError, 'ExportModal');
+          reject(new Error(`Canvas rendering failed: ${canvasError.message}`));
+        }
       };
-      img.onerror = (e) => reject(new Error('Failed loading SVG image for canvas conversion'));
+      
+      img.onerror = (e) => {
+        debugLog.error('SVG image loading failed', e, 'ExportModal');
+        reject(new Error('Failed to load SVG image for canvas conversion. The SVG may contain invalid elements.'));
+      };
+      
+      // Set the data URL with proper MIME type
       img.src = `data:image/svg+xml;base64,${encoded}`;
     });
   };
@@ -302,27 +404,72 @@ const ExportModal: React.FC<ExportModalProps> = ({
         debugLog.warn('SVG conversion failed, falling back to html2canvas', svgErr, 'ExportModal');
 
         try {
-          // Fallback: html2canvas snapshot of the whole container with enhanced options
+          // Enhanced html2canvas fallback with optimized settings for chart rendering
           canvas = await html2canvas(chartRef.current, {
-            backgroundColor: theme.palette.background.paper,
+            backgroundColor: theme.palette.background.paper || '#ffffff',
             scale,
             logging: false,
             useCORS: true,
             allowTaint: true,
             foreignObjectRendering: true,
-            imageTimeout: 15000,
+            imageTimeout: 30000, // Increased timeout for complex charts
             removeContainer: false,
             height: chartRef.current.offsetHeight,
             width: chartRef.current.offsetWidth,
+            // Enhanced rendering options for better quality
+            pixelRatio: window.devicePixelRatio || 1,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: chartRef.current.offsetWidth,
+            windowHeight: chartRef.current.offsetHeight,
             ignoreElements: (element) => {
-              // Ignore problematic elements that might cause issues
-              return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
+              // Ignore problematic elements that might cause rendering issues
+              const tagName = element.tagName.toLowerCase();
+              return tagName === 'script' || 
+                     tagName === 'noscript' || 
+                     element.classList.contains('no-export') ||
+                     element.style.display === 'none';
             },
-            onclone: (clonedDoc) => {
-              // Ensure all styles are properly applied to the cloned document
-              const clonedElement = clonedDoc.querySelector('[data-chart-container]') || clonedDoc.body;
-              if (clonedElement instanceof HTMLElement) {
-                clonedElement.style.background = theme.palette.background.paper;
+            onclone: (clonedDoc, element) => {
+              // Enhanced style preservation for cloned document
+              try {
+                // Apply theme background
+                const clonedElement = clonedDoc.querySelector('[data-chart-container]') || element;
+                if (clonedElement instanceof HTMLElement) {
+                  clonedElement.style.background = theme.palette.background.paper || '#ffffff';
+                  clonedElement.style.fontFamily = 'Roboto, Helvetica, Arial, sans-serif';
+                }
+
+                // Ensure all SVG elements have proper styling
+                const svgElements = clonedDoc.querySelectorAll('svg');
+                svgElements.forEach(svg => {
+                  if (svg instanceof SVGElement) {
+                    svg.style.fontFamily = 'Roboto, Helvetica, Arial, sans-serif';
+                    // Ensure SVG has explicit dimensions
+                    if (!svg.getAttribute('width') && svg.getBoundingClientRect().width > 0) {
+                      svg.setAttribute('width', svg.getBoundingClientRect().width.toString());
+                    }
+                    if (!svg.getAttribute('height') && svg.getBoundingClientRect().height > 0) {
+                      svg.setAttribute('height', svg.getBoundingClientRect().height.toString());
+                    }
+                  }
+                });
+
+                // Apply enhanced text styling for better readability
+                const textElements = clonedDoc.querySelectorAll('text, .recharts-text, .recharts-cartesian-axis-tick-value');
+                textElements.forEach(textEl => {
+                  if (textEl instanceof HTMLElement || textEl instanceof SVGElement) {
+                    textEl.style.fontFamily = 'Roboto, Helvetica, Arial, sans-serif';
+                    textEl.style.fontSize = textEl.style.fontSize || '12px';
+                  }
+                });
+
+                debugLog.info('html2canvas onclone completed', {
+                  svgCount: svgElements.length,
+                  textElementCount: textElements.length
+                }, 'ExportModal');
+              } catch (cloneError) {
+                debugLog.warn('Error in html2canvas onclone', cloneError, 'ExportModal');
               }
             }
           });
@@ -550,31 +697,91 @@ const ExportModal: React.FC<ExportModalProps> = ({
         format: 'a4',
       });
       
+      // Generate high-quality image data from canvas
       const imgData = canvas.toDataURL('image/png', 1.0);
+      
+      // Get PDF dimensions and calculate optimal image sizing
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth - 20;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const margin = 15;
+      const headerHeight = 50;
+      const footerHeight = 20;
       
-      // Add professional header
-      pdf.setFontSize(18);
-      pdf.setTextColor(40, 40, 40);
-      pdf.text(`${shopName || 'Analytics'} - ${chartTitle}`, 10, 20);
+      // Calculate available space for the chart
+      const availableWidth = pdfWidth - (margin * 2);
+      const availableHeight = pdfHeight - headerHeight - footerHeight;
       
-      // Add metadata
-      pdf.setFontSize(10);
-      pdf.setTextColor(120, 120, 120);
-      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 10, 30);
+      // Calculate image dimensions maintaining aspect ratio
+      const canvasAspectRatio = canvas.width / canvas.height;
+      let imgWidth = availableWidth;
+      let imgHeight = imgWidth / canvasAspectRatio;
+      
+      // If image is too tall, scale by height instead
+      if (imgHeight > availableHeight) {
+        imgHeight = availableHeight;
+        imgWidth = imgHeight * canvasAspectRatio;
+      }
+      
+      // Center the image horizontally
+      const imgX = (pdfWidth - imgWidth) / 2;
+      const imgY = headerHeight;
+      
+      debugLog.info('PDF layout calculated', {
+        pdfSize: `${pdfWidth}x${pdfHeight}`,
+        imageSize: `${imgWidth.toFixed(1)}x${imgHeight.toFixed(1)}`,
+        imagePosition: `${imgX.toFixed(1)},${imgY}`,
+        canvasSize: `${canvas.width}x${canvas.height}`,
+        aspectRatio: canvasAspectRatio.toFixed(2)
+      }, 'ExportModal');
+      
+      // Add professional header with better typography
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(20);
+      pdf.setTextColor(30, 30, 30);
+      const title = `${shopName || 'Analytics'} - ${chartTitle}`;
+      pdf.text(title, margin, 20);
+      
+      // Add subtitle/metadata with improved formatting
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(100, 100, 100);
+      
+      const metadata = [];
+      metadata.push(`Generated: ${new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`);
+      
       if (metrics?.timeRange) {
-        pdf.text(`Period: ${metrics.timeRange}`, 10, 35);
+        metadata.push(`Period: ${metrics.timeRange}`);
       }
       if (metrics?.confidenceScore) {
-        pdf.text(`Confidence: ${Math.round(metrics.confidenceScore * 100)}%`, 10, 40);
+        metadata.push(`Confidence: ${Math.round(metrics.confidenceScore * 100)}%`);
+      }
+      if (exportSettings.quality) {
+        metadata.push(`Quality: ${exportSettings.quality.charAt(0).toUpperCase() + exportSettings.quality.slice(1)}`);
       }
       
-      // Add chart
-      const yPosition = Math.min(50, pdfHeight - imgHeight - 20);
-      pdf.addImage(imgData, 'PNG', 10, yPosition, imgWidth, Math.min(imgHeight, pdfHeight - yPosition - 15));
+      // Add metadata lines
+      metadata.forEach((text, index) => {
+        pdf.text(text, margin, 32 + (index * 6));
+      });
+      
+      // Add the chart image with high quality
+      try {
+        pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight, undefined, 'FAST');
+        debugLog.info('Chart image added to PDF successfully', {
+          imageFormat: 'PNG',
+          compression: 'FAST',
+          finalSize: `${imgWidth.toFixed(1)}x${imgHeight.toFixed(1)}`
+        }, 'ExportModal');
+      } catch (imageError) {
+        debugLog.error('Failed to add image to PDF', imageError, 'ExportModal');
+        throw new Error('Failed to add chart image to PDF');
+      }
       
       // Add footer with branding if enabled
       if (exportSettings.includeWatermark) {
