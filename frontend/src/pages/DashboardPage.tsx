@@ -899,6 +899,11 @@ const DashboardPage = () => {
     return insights?.timeseries || [];
   }, [insights?.timeseries]);
 
+  // Create a stable reference for orders data for Advanced Analytics
+  const stableOrdersData = useMemo(() => {
+    return insights?.orders || [];
+  }, [insights?.orders]);
+
   // Use the new unified analytics hook with stabilized data
   const {
     data: unifiedAnalyticsData,
@@ -916,8 +921,8 @@ const DashboardPage = () => {
     autoRefresh: false,
     shop: shop && shop.trim() ? shop : undefined,
     useDashboardData: true, // Use dashboard data instead of separate API calls
-    dashboardRevenueData: stableTimeseriesData, // Use stable reference
-    dashboardOrdersData: stableTimeseriesData, // Use stable reference
+    dashboardRevenueData: stableTimeseriesData, // Use stable reference for revenue
+    dashboardOrdersData: stableOrdersData, // Use stable reference for orders
     realConversionRate: insights?.conversionRate, // Pass real conversion rate from dashboard
     recentRevenue: insights?.recentRevenue, // Pass 7-day revenue from dashboard
     recentOrders: insights?.recentOrders, // Pass 7-day orders from dashboard

@@ -277,15 +277,46 @@ const useUnifiedAnalytics = (
         source: (typeof conversionRate === 'number' && !isNaN(conversionRate)) ? 'dashboard' : 'default'
       }, 'useUnifiedAnalytics');
 
-      // Use revenue data as primary source
+      // FIXED: Aggregate orders by date to get correct daily order counts
+      debugLog.info('🔄 UNIFIED_ANALYTICS: Aggregating orders by date', {
+        revenueDataLength: revenueData?.length || 0,
+        ordersDataLength: ordersData?.length || 0,
+        sampleRevenueItem: revenueData?.[0],
+        sampleOrderItem: ordersData?.[0]
+      }, 'useUnifiedAnalytics');
+
+      // Create a map of daily order counts from individual orders
+      const dailyOrderCounts: { [date: string]: number } = {};
+      
+      if (Array.isArray(ordersData) && ordersData.length > 0) {
+        ordersData.forEach(order => {
+          if (order && order.created_at) {
+            // Extract date part only (YYYY-MM-DD)
+            const orderDate = order.created_at.split('T')[0];
+            dailyOrderCounts[orderDate] = (dailyOrderCounts[orderDate] || 0) + 1;
+          }
+        });
+        
+        debugLog.info('🔄 UNIFIED_ANALYTICS: Daily order counts calculated', {
+          totalDays: Object.keys(dailyOrderCounts).length,
+          sampleDays: Object.entries(dailyOrderCounts).slice(0, 3),
+          totalOrders: Object.values(dailyOrderCounts).reduce((sum, count) => sum + count, 0)
+        }, 'useUnifiedAnalytics');
+      }
+
+      // Use revenue data as primary source but get order counts from aggregated data
       const processedData = (revenueData || []).map((item, index) => {
         const date = item.created_at || item.date || new Date().toISOString();
+        const dateKey = date.split('T')[0]; // Extract date part for matching
         const revenue = validateData(item.total_price || item.revenue || 0);
-        const orders = validateData(item.orders_count || 1);
+        
+        // FIXED: Get actual order count for this date, not default to 1
+        const orders = validateData(dailyOrderCounts[dateKey] || 0);
+        
         // Always use the real conversion rate from dashboard
         const conversion = validateData(realConversionRate);
         
-      return {
+        return {
           kind: 'historical' as const,
           date,
           revenue,
