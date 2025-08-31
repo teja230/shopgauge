@@ -1189,7 +1189,15 @@ const DashboardPage = () => {
 
   // Sorted data
   const sortedProducts = useMemo(() => sortProducts(insights?.topProducts || []), [insights?.topProducts, sortProducts]);
-  const sortedOrders = useMemo(() => sortOrders(insights?.orders || []), [insights?.orders, sortOrders]);
+  const sortedOrders = useMemo(() => {
+    const orders = insights?.orders || [];
+    console.log('[Orders] sortedOrders calculation:', {
+      hasInsights: !!insights,
+      ordersLength: orders.length,
+      sampleOrder: orders[0] || 'No orders'
+    });
+    return sortOrders(orders);
+  }, [insights?.orders, sortOrders]);
   
   // Helper function to check if cache entry is fresh (< 120 minutes old)
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
@@ -2077,10 +2085,39 @@ const DashboardPage = () => {
       
       // Handle successful data
       console.log('[Orders] Successfully processed data, updating insights');
+      console.log('[Orders] Raw data received:', data);
+      console.log('[Orders] Data structure analysis:', {
+        hasOrders: !!data.orders,
+        ordersLength: data.orders?.length || 0,
+        hasTimeseries: !!data.timeseries,
+        timeseriesLength: data.timeseries?.length || 0,
+        dataKeys: Object.keys(data),
+        sampleOrder: data.orders?.[0] || 'No orders'
+      });
+      
+      const ordersData = data.rate_limited ? [] : (data.orders || data.timeseries || []);
+      const recentOrdersData = data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5));
+      
+      console.log('[Orders] Processed data:', {
+        ordersDataLength: ordersData.length,
+        recentOrdersDataLength: recentOrdersData.length,
+        sampleOrder: ordersData[0] || 'No orders'
+      });
+      
       setInsights(mergeInsights({
-        orders: data.rate_limited ? [] : (data.orders || data.timeseries || []),
-        recentOrders: data.rate_limited ? [] : (data.recentOrders || (data.timeseries || []).slice(0, 5))
+        orders: ordersData,
+        recentOrders: recentOrdersData
       }));
+      
+      // Debug: Check insights state after update
+      setTimeout(() => {
+        console.log('[Orders] Insights state after update:', {
+          hasInsights: !!insights,
+          ordersInInsights: insights?.orders?.length || 0,
+          recentOrdersInInsights: insights?.recentOrders?.length || 0,
+          sampleOrder: insights?.orders?.[0] || 'No orders in insights'
+        });
+      }, 100);
       
       console.log('[Orders] Updated insights state:', {
         ordersCount: (data.rate_limited ? [] : (data.orders || data.timeseries || [])).length,
