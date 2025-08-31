@@ -20,6 +20,10 @@ import {
   Avatar,
   Skeleton,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Analytics as AnalyticsIcon,
@@ -83,7 +87,39 @@ const BusinessIntelligencePage: React.FC = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d'>('7d');
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Timeframe options for user selection
+  const timeframeOptions = [
+    { value: '24h' as const, label: 'Last 24 Hours', description: 'Recent activity' },
+    { value: '7d' as const, label: 'Last 7 Days', description: 'Weekly trends' },
+    { value: '30d' as const, label: 'Last 30 Days', description: 'Monthly overview' }
+  ];
+
+  // Smart timeframe detection based on user question
+  const detectTimeframeFromQuestion = (question: string): '24h' | '7d' | '30d' => {
+    const lowerQuestion = question.toLowerCase();
+    
+    // Recent/immediate timeframes
+    if (lowerQuestion.includes('today') || lowerQuestion.includes('yesterday') || 
+        lowerQuestion.includes('last 24') || lowerQuestion.includes('past day') ||
+        lowerQuestion.includes('recent') || lowerQuestion.includes('now') ||
+        lowerQuestion.includes('current')) {
+      return '24h';
+    }
+    
+    // Monthly timeframes
+    if (lowerQuestion.includes('month') || lowerQuestion.includes('last 30') ||
+        lowerQuestion.includes('past month') || lowerQuestion.includes('monthly') ||
+        lowerQuestion.includes('long term') || lowerQuestion.includes('overall') ||
+        lowerQuestion.includes('total') || lowerQuestion.includes('all time')) {
+      return '30d';
+    }
+    
+    // Default to weekly for most questions
+    return '7d';
+  };
   
   // Insight cards with subtle colors matching Market Intelligence theme
   const [insightCards, setInsightCards] = useState<InsightCard[]>([
@@ -136,32 +172,32 @@ const BusinessIntelligencePage: React.FC = () => {
   // Suggested questions
   const suggestedQuestions: SuggestedQuestion[] = [
     { 
-      text: "What are my top performing products this week?", 
+      text: "What are my top performing products today?", 
       icon: TrendingUpIcon,
       category: "Performance"
     },
     { 
-      text: "How do I compare to my competitors?", 
+      text: "How do I compare to my competitors this month?", 
       icon: AnalyticsIcon,
       category: "Competition"
     },
     { 
-      text: "What should I focus on to increase revenue?", 
+      text: "What should I focus on to increase revenue overall?", 
       icon: CostIcon,
       category: "Revenue"
     },
     { 
-      text: "Which products have the best profit margins?", 
+      text: "Which products had the best profit margins recently?", 
       icon: RecommendationIcon,
       category: "Profitability"
     },
     { 
-      text: "What marketing strategies should I prioritize?", 
+      text: "What marketing strategies should I prioritize long term?", 
       icon: AIIcon,
       category: "Strategy"
     },
     { 
-      text: "How can I optimize my inventory levels?", 
+      text: "How can I optimize my current inventory levels?", 
       icon: AnalyticsIcon,
       category: "Operations"
     }
@@ -173,6 +209,8 @@ const BusinessIntelligencePage: React.FC = () => {
       loadAggregatedData();
     }
   }, [shop, isAuthenticated]);
+
+
 
   // Auto-scroll chat
   useEffect(() => {
@@ -220,7 +258,7 @@ const BusinessIntelligencePage: React.FC = () => {
             type: card.type,
             data: dataToUse,
             context: {
-              timeframe: '7d',
+              timeframe: selectedTimeframe,
               focus: [card.type]
             }
           };
@@ -250,6 +288,13 @@ const BusinessIntelligencePage: React.FC = () => {
     }
   };
 
+  // Regenerate insights when timeframe changes
+  useEffect(() => {
+    if (aggregatedData && selectedTimeframe) {
+      generateAllInsights();
+    }
+  }, [selectedTimeframe, aggregatedData]);
+
   const generateSingleInsight = async (cardId: string) => {
     if (!aggregatedData) return;
     
@@ -267,7 +312,7 @@ const BusinessIntelligencePage: React.FC = () => {
         type: card.type,
         data: aggregatedData,
         context: {
-          timeframe: '7d',
+          timeframe: selectedTimeframe,
           focus: [card.type]
         }
       };
@@ -359,18 +404,25 @@ const BusinessIntelligencePage: React.FC = () => {
     setChatLoading(true);
     
     try {
-      // Determine insight type based on question content
-      const insightType = determineInsightType(messageText);
-      
-      const request: InsightRequest = {
-        type: insightType,
-        data: aggregatedData,
-        context: {
-          timeframe: '7d',
-          focus: [insightType],
-          userQuestion: messageText // Pass the question for context
-        }
-      };
+          // Determine insight type and timeframe based on question content
+    const insightType = determineInsightType(messageText);
+    const detectedTimeframe = detectTimeframeFromQuestion(messageText);
+    
+    // Show timeframe detection if different from selected
+    const timeframeChanged = detectedTimeframe !== selectedTimeframe;
+    if (timeframeChanged) {
+      console.log(`🎯 Auto-detected timeframe: ${detectedTimeframe} (was ${selectedTimeframe})`);
+    }
+    
+    const request: InsightRequest = {
+      type: insightType,
+      data: aggregatedData,
+      context: {
+        timeframe: detectedTimeframe,
+        focus: [insightType],
+        userQuestion: messageText // Pass the question for context
+      }
+    };
       
       const insight = await aiInsightsService.generateInsight(request);
       
@@ -452,16 +504,49 @@ const BusinessIntelligencePage: React.FC = () => {
       }}>
         <Container maxWidth="xl">
           {/* Header */}
-          <Box sx={{ mb: 4, textAlign: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-              <AIIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                ShopGPT
+          <Box sx={{ mb: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, justifyContent: 'center' }}>
+                <AIIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
+                <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                  ShopGPT
+                </Typography>
+              </Box>
+              
+              {/* Timeframe Selector */}
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Timeframe</InputLabel>
+                <Select
+                  value={selectedTimeframe}
+                  label="Timeframe"
+                  onChange={(e) => setSelectedTimeframe(e.target.value as '24h' | '7d' | '30d')}
+                  sx={{ 
+                    '& .MuiSelect-select': { 
+                      py: 1,
+                      fontSize: '0.875rem'
+                    }
+                  }}
+                >
+                  {timeframeOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {option.label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.description}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
+                Your AI business analyst, ready to provide insights and answer questions about {shop} • {timeframeOptions.find(t => t.value === selectedTimeframe)?.description}
               </Typography>
             </Box>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-              Your AI business analyst, ready to provide insights and answer questions about {shop}
-            </Typography>
           </Box>
 
           {/* Loading State */}
