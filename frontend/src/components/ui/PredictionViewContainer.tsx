@@ -887,6 +887,8 @@ const PredictionViewContainer = memo(({
         {/* Chart - Allow natural sizing to prevent cutoff */}
         <Box 
           ref={chartRef}
+          data-chart-container="advanced-analytics"
+          data-chart-type={activeView}
           sx={{ 
           flex: 1, 
           position: 'relative',
@@ -907,6 +909,7 @@ const PredictionViewContainer = memo(({
           }}
         >
           <Box
+            data-chart-inner="true"
             sx={{ 
             width: '100%',
             height: '100%',

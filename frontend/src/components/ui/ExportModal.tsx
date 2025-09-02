@@ -109,27 +109,51 @@ const ExportModal: React.FC<ExportModalProps> = ({
         continue;
       }
       
-      // Check for SVG elements (works for both Classic and Advanced views)
-      const svgElements = chartRef.current.querySelectorAll('svg');
-      if (svgElements.length === 0) {
-        lastCheckInfo = 'No SVG elements found';
+      // Enhanced SVG detection for Advanced Analytics nested structures
+      const svgSelectors = [
+        'svg', // Direct SVG elements
+        '[data-chart-inner] svg', // Advanced Analytics inner container
+        '.recharts-wrapper svg', // Recharts wrapper
+        '.recharts-surface', // Recharts surface
+        '.recharts-responsive-container svg' // Responsive container
+      ];
+      
+      let svgElements: NodeListOf<SVGElement> | null = null;
+      let foundSelector = '';
+      
+      for (const selector of svgSelectors) {
+        const elements = chartRef.current.querySelectorAll(selector) as NodeListOf<SVGElement>;
+        if (elements.length > 0) {
+          svgElements = elements;
+          foundSelector = selector;
+          break;
+        }
+      }
+      
+      if (!svgElements || svgElements.length === 0) {
+        lastCheckInfo = `No SVG elements found with any selector: ${svgSelectors.join(', ')}`;
         await new Promise(resolve => setTimeout(resolve, 100));
         continue;
       }
       
-      // Check if SVG has actual content (paths, circles, etc.)
+      // Check if SVG has actual content (paths, circles, etc.) - enhanced for Recharts
       let hasContent = false;
       let contentInfo = '';
       svgElements.forEach((svg, index) => {
-        const paths = svg.querySelectorAll('path, circle, rect, line, text');
-        if (paths.length > 0) {
+        const contentElements = svg.querySelectorAll([
+          'path', 'circle', 'rect', 'line', 'text', 'g', 
+          '.recharts-line', '.recharts-area', '.recharts-bar',
+          '.recharts-dot', '.recharts-curve', '.recharts-symbols'
+        ].join(', '));
+        
+        if (contentElements.length > 0) {
           hasContent = true;
-          contentInfo += `SVG${index}: ${paths.length} elements; `;
+          contentInfo += `SVG${index}(${foundSelector}): ${contentElements.length} elements; `;
         }
       });
       
       if (!hasContent) {
-        lastCheckInfo = `Found ${svgElements.length} SVG(s) but no content: ${contentInfo}`;
+        lastCheckInfo = `Found ${svgElements.length} SVG(s) with ${foundSelector} but no content: ${contentInfo}`;
         await new Promise(resolve => setTimeout(resolve, 100));
         continue;
       }
@@ -143,11 +167,20 @@ const ExportModal: React.FC<ExportModalProps> = ({
         continue;
       }
       
+      // Advanced Analytics specific: Wait for animation completion
+      const isAdvancedAnalytics = chartRef.current.getAttribute('data-chart-container') === 'advanced-analytics';
+      if (isAdvancedAnalytics) {
+        // Give Recharts animations time to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
       // Chart appears ready
       debugLog.info('Chart readiness confirmed', {
         svgCount: svgElements.length,
         hasContent,
         contentInfo,
+        foundSelector,
+        isAdvancedAnalytics,
         svgDimensions: `${svgRect.width}x${svgRect.height}`,
         waitTime: Date.now() - startTime
       }, 'ExportModal');
@@ -168,12 +201,32 @@ const ExportModal: React.FC<ExportModalProps> = ({
   // Enhanced SVG to canvas conversion with proper styling and error handling
   const convertContainerSvgToCanvas = async (container: HTMLElement, scale = 2): Promise<HTMLCanvasElement> => {
     return new Promise((resolve, reject) => {
-      const svgEl = container.querySelector('svg');
+      // Enhanced SVG detection for nested structures
+      const svgSelectors = [
+        'svg',
+        '[data-chart-inner] svg',
+        '.recharts-wrapper svg',
+        '.recharts-responsive-container svg'
+      ];
+      
+      let svgEl: SVGElement | null = null;
+      let usedSelector = '';
+      
+      for (const selector of svgSelectors) {
+        const foundSvg = container.querySelector(selector) as SVGElement;
+        if (foundSvg) {
+          svgEl = foundSvg;
+          usedSelector = selector;
+          break;
+        }
+      }
+      
       if (!svgEl) {
-        return reject(new Error('No SVG element found inside chart container'));
+        return reject(new Error(`No SVG element found inside chart container with selectors: ${svgSelectors.join(', ')}`));
       }
 
       debugLog.info('Starting SVG to canvas conversion', {
+        usedSelector,
         svgWidth: svgEl.getAttribute('width'),
         svgHeight: svgEl.getAttribute('height'),
         scale,
@@ -369,19 +422,39 @@ const ExportModal: React.FC<ExportModalProps> = ({
       showInfo('Generating high-quality chart image...');
 
       // Enhanced SVG detection for nested chart structures (Advanced View)
-      const svgElements = chartRef.current.querySelectorAll('svg');
-      if (svgElements.length === 0) {
+      const svgSelectors = [
+        'svg', 
+        '[data-chart-inner] svg', 
+        '.recharts-wrapper svg',
+        '.recharts-responsive-container svg'
+      ];
+      
+      let svgElements: NodeListOf<SVGElement> | null = null;
+      let usedSelector = '';
+      
+      for (const selector of svgSelectors) {
+        const elements = chartRef.current.querySelectorAll(selector) as NodeListOf<SVGElement>;
+        if (elements.length > 0) {
+          svgElements = elements;
+          usedSelector = selector;
+          break;
+        }
+      }
+      
+      if (!svgElements || svgElements.length === 0) {
         showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
-        debugLog.error('Export PNG failed: No SVG elements found after readiness check', {
+        debugLog.error('Export PNG failed: No SVG elements found with any selector', {
           chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
+          triedSelectors: svgSelectors,
           chartTitle,
           chartType
         }, 'ExportModal');
         return;
       }
 
-      debugLog.info('SVG elements found for export', {
+      debugLog.info('SVG elements found for PNG export', {
         svgCount: svgElements.length,
+        usedSelector,
         firstSvgWidth: svgElements[0]?.getAttribute('width'),
         firstSvgHeight: svgElements[0]?.getAttribute('height'),
         firstSvgViewBox: svgElements[0]?.getAttribute('viewBox'),
@@ -609,11 +682,30 @@ const ExportModal: React.FC<ExportModalProps> = ({
       showInfo('Generating professional PDF report...');
 
       // Enhanced SVG detection for nested chart structures (Advanced View)
-      const svgElements = chartRef.current.querySelectorAll('svg');
-      if (svgElements.length === 0) {
+      const svgSelectors = [
+        'svg', 
+        '[data-chart-inner] svg', 
+        '.recharts-wrapper svg',
+        '.recharts-responsive-container svg'
+      ];
+      
+      let svgElements: NodeListOf<SVGElement> | null = null;
+      let usedSelector = '';
+      
+      for (const selector of svgSelectors) {
+        const elements = chartRef.current.querySelectorAll(selector) as NodeListOf<SVGElement>;
+        if (elements.length > 0) {
+          svgElements = elements;
+          usedSelector = selector;
+          break;
+        }
+      }
+      
+      if (!svgElements || svgElements.length === 0) {
         showError('Chart visualization is not ready for export. Please wait for the chart to fully render and try again.');
-        debugLog.error('Export PDF failed: No SVG elements found after readiness check', {
+        debugLog.error('Export PDF failed: No SVG elements found with any selector', {
           chartRefHTML: chartRef.current.outerHTML.substring(0, 500),
+          triedSelectors: svgSelectors,
           chartTitle,
           chartType
         }, 'ExportModal');
@@ -622,6 +714,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
       debugLog.info('SVG elements found for PDF export', {
         svgCount: svgElements.length,
+        usedSelector,
         firstSvgWidth: svgElements[0]?.getAttribute('width'),
         firstSvgHeight: svgElements[0]?.getAttribute('height'),
         firstSvgViewBox: svgElements[0]?.getAttribute('viewBox'),
