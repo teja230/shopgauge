@@ -202,6 +202,11 @@ const ExportModal: React.FC<ExportModalProps> = ({
         * { 
           font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif !important;
         }
+        text, .recharts-text {
+          text-rendering: optimizeLegibility !important;
+          -webkit-font-smoothing: antialiased !important;
+          -moz-osx-font-smoothing: grayscale !important;
+        }
         .recharts-text {
           font-size: 12px !important;
           fill: #666 !important;
@@ -231,6 +236,11 @@ const ExportModal: React.FC<ExportModalProps> = ({
       // Calculate final canvas dimensions
       const canvasWidth = svgWidth * scale;
       const canvasHeight = svgHeight * scale;
+
+      // IMPORTANT: Match raster size by overriding SVG dimensions for sharper output
+      clonedSvg.setAttribute('width', canvasWidth.toString());
+      clonedSvg.setAttribute('height', canvasHeight.toString());
+      clonedSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
       // Enhanced SVG serialization with proper encoding
       const serializer = new XMLSerializer();
@@ -380,6 +390,22 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }, 'ExportModal');
 
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
+      const deviceScale = Math.min(3, Math.max(1, (window as any).devicePixelRatio || 1));
+      const effectiveScale = Math.max(1, Math.min(6, scale * deviceScale));
+
+      debugLog.info('Export scale configuration (PDF)', {
+        baseScale: scale,
+        deviceScale,
+        effectiveScale
+      }, 'ExportModal');
+      const deviceScale = Math.min(3, Math.max(1, (window as any).devicePixelRatio || 1));
+      const effectiveScale = Math.max(1, Math.min(6, scale * deviceScale));
+
+      debugLog.info('Export scale configuration (PNG)', {
+        baseScale: scale,
+        deviceScale,
+        effectiveScale
+      }, 'ExportModal');
 
       let canvas: HTMLCanvasElement;
       let exportMethod = 'unknown';
@@ -390,7 +416,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         setProgress(50);
         
         // Attempt precise SVG capture first
-        canvas = await convertContainerSvgToCanvas(chartRef.current, scale);
+        canvas = await convertContainerSvgToCanvas(chartRef.current, effectiveScale);
         exportMethod = 'svg-conversion';
         debugLog.info('SVG -> Canvas conversion succeeded', {
           canvasWidth: canvas.width,
@@ -405,7 +431,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           // Enhanced html2canvas fallback with optimized settings for chart rendering
           canvas = await html2canvas(chartRef.current, {
             backgroundColor: theme.palette.background.paper || '#ffffff',
-            scale,
+            scale: effectiveScale,
             logging: false,
             useCORS: true,
             allowTaint: true,
@@ -621,7 +647,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         await new Promise(res => setTimeout(res, 500));
         setProgress(50);
         
-        canvas = await convertContainerSvgToCanvas(chartRef.current, 2);
+        canvas = await convertContainerSvgToCanvas(chartRef.current, effectiveScale);
         exportMethod = 'svg-conversion';
         debugLog.info('SVG -> Canvas conversion succeeded for PDF', {
           canvasWidth: canvas.width,
@@ -634,7 +660,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         try {
           canvas = await html2canvas(chartRef.current, {
             backgroundColor: theme.palette.background.paper,
-            scale: 2, // High resolution for PDF
+            scale: effectiveScale, // High resolution for PDF
             logging: false,
             useCORS: true,
             allowTaint: true,
@@ -694,8 +720,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
         format: 'a4',
       });
       
-      // Generate high-quality image data from canvas
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      // Generate high-quality image data from canvas (prefer JPEG with high quality to reduce aliasing)
+      // Note: PNG is lossless but can appear softer when scaled down in PDFs; JPEG at high quality often looks sharper.
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       
       // Get PDF dimensions and calculate optimal image sizing
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -769,7 +796,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
       
       // Add the chart image with high quality
       try {
-        pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight, undefined, 'FAST');
+        // Use HIGH compression hint for better visual quality
+        pdf.addImage(imgData, 'JPEG', imgX, imgY, imgWidth, imgHeight, undefined, 'FAST');
         debugLog.info('Chart image added to PDF successfully', {
           imageFormat: 'PNG',
           compression: 'FAST',
