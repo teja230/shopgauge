@@ -392,8 +392,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
       const deviceScale = Math.min(3, Math.max(1, (window as any).devicePixelRatio || 1));
       const effectiveScale = Math.max(1, Math.min(6, scale * deviceScale));
-      const deviceScale = Math.min(3, Math.max(1, (window as any).devicePixelRatio || 1));
-      const effectiveScale = Math.max(1, Math.min(6, scale * deviceScale));
 
       debugLog.info('Export scale configuration (PNG)', {
         baseScale: scale,
@@ -632,6 +630,14 @@ const ExportModal: React.FC<ExportModalProps> = ({
       }, 'ExportModal');
 
       const scale = exportSettings.quality === 'ultra' ? 3 : exportSettings.quality === 'high' ? 2 : 1;
+      const deviceScale = Math.min(3, Math.max(1, (window as any).devicePixelRatio || 1));
+      const effectiveScale = Math.max(1, Math.min(6, scale * deviceScale));
+
+      debugLog.info('Export scale configuration (PDF)', {
+        baseScale: scale,
+        deviceScale,
+        effectiveScale
+      }, 'ExportModal');
 
       let canvas: HTMLCanvasElement;
       let exportMethod = 'unknown';
