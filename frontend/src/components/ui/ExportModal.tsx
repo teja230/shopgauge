@@ -112,6 +112,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       // Enhanced SVG detection for Advanced Analytics nested structures
       const svgSelectors = [
         'svg', // Direct SVG elements
+        '[data-chart-content] svg', // Most specific for Advanced Analytics
         '[data-chart-inner] svg', // Advanced Analytics inner container
         '.recharts-wrapper svg', // Recharts wrapper
         '.recharts-surface', // Recharts surface
@@ -204,6 +205,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       // Enhanced SVG detection for nested structures
       const svgSelectors = [
         'svg',
+        '[data-chart-content] svg', // Most specific for Advanced Analytics
         '[data-chart-inner] svg',
         '.recharts-wrapper svg',
         '.recharts-responsive-container svg'
@@ -249,39 +251,59 @@ const ExportModal: React.FC<ExportModalProps> = ({
       clonedSvg.setAttribute('height', svgHeight.toString());
       clonedSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
 
-      // Preserve and enhance styles for better rendering
+      // Force light mode styles for exports - override any dark theme colors
       const styleElement = document.createElement('style');
       styleElement.textContent = `
         * { 
           font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif !important;
         }
+        /* Force light mode background */
+        svg {
+          background-color: #ffffff !important;
+        }
+        /* Force light mode text colors */
         text, .recharts-text {
           text-rendering: optimizeLegibility !important;
           -webkit-font-smoothing: antialiased !important;
           -moz-osx-font-smoothing: grayscale !important;
+          fill: #333333 !important;
         }
         .recharts-text {
           font-size: 12px !important;
-          fill: #666 !important;
+          fill: #333333 !important;
         }
         .recharts-cartesian-axis-tick-value {
           font-size: 11px !important;
-          fill: #666 !important;
+          fill: #333333 !important;
         }
         .recharts-legend-item-text {
           font-size: 12px !important;
-          fill: #333 !important;
+          fill: #333333 !important;
         }
         .recharts-tooltip-wrapper {
           font-size: 12px !important;
         }
+        /* Force light mode grid and axis lines */
         .recharts-cartesian-grid-horizontal line,
         .recharts-cartesian-grid-vertical line {
-          stroke: #f0f0f0 !important;
+          stroke: #e0e0e0 !important;
           stroke-width: 1 !important;
         }
         .recharts-cartesian-axis line {
-          stroke: #ccc !important;
+          stroke: #cccccc !important;
+        }
+        /* Force light mode chart elements */
+        .recharts-line {
+          stroke: #1976d2 !important;
+        }
+        .recharts-area {
+          fill: rgba(25, 118, 210, 0.1) !important;
+        }
+        .recharts-bar {
+          fill: #1976d2 !important;
+        }
+        .recharts-dot {
+          fill: #1976d2 !important;
         }
       `;
       clonedSvg.insertBefore(styleElement, clonedSvg.firstChild);
@@ -338,10 +360,8 @@ const ExportModal: React.FC<ExportModalProps> = ({
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
 
-          // Fill with proper background color
-          const bgColor = getComputedStyle(container).backgroundColor || 
-                          theme.palette.background.paper || 
-                          '#ffffff';
+          // Force light mode for exports - always use white background
+          const bgColor = '#ffffff';
           ctx.fillStyle = bgColor;
           ctx.fillRect(0, 0, canvasWidth, canvasHeight);
           
@@ -424,6 +444,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       // Enhanced SVG detection for nested chart structures (Advanced View)
       const svgSelectors = [
         'svg', 
+        '[data-chart-content] svg', // Most specific for Advanced Analytics
         '[data-chart-inner] svg', 
         '.recharts-wrapper svg',
         '.recharts-responsive-container svg'
@@ -495,7 +516,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         try {
           // Enhanced html2canvas fallback with optimized settings for chart rendering
           canvas = await html2canvas(chartRef.current, {
-            backgroundColor: theme.palette.background.paper || '#ffffff',
+            backgroundColor: '#ffffff', // Force light mode
             scale: effectiveScale,
             logging: false,
             useCORS: true,
@@ -684,6 +705,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       // Enhanced SVG detection for nested chart structures (Advanced View)
       const svgSelectors = [
         'svg', 
+        '[data-chart-content] svg', // Most specific for Advanced Analytics
         '[data-chart-inner] svg', 
         '.recharts-wrapper svg',
         '.recharts-responsive-container svg'
@@ -752,7 +774,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         
         try {
           canvas = await html2canvas(chartRef.current, {
-            backgroundColor: theme.palette.background.paper,
+            backgroundColor: '#ffffff', // Force light mode for PDF
             scale: effectiveScale, // High resolution for PDF
             logging: false,
             useCORS: true,
@@ -766,7 +788,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
             onclone: (clonedDoc) => {
               const clonedElement = clonedDoc.querySelector('[data-chart-container]') || clonedDoc.body;
               if (clonedElement instanceof HTMLElement) {
-                clonedElement.style.background = theme.palette.background.paper;
+                clonedElement.style.background = '#ffffff'; // Force light mode
               }
             }
           });
@@ -789,9 +811,9 @@ const ExportModal: React.FC<ExportModalProps> = ({
           canvas.height = 600;
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            ctx.fillStyle = theme.palette.background.paper;
+            ctx.fillStyle = '#ffffff'; // Force light mode
             ctx.fillRect(0, 0, 800, 600);
-            ctx.fillStyle = theme.palette.text.primary;
+            ctx.fillStyle = '#333333'; // Dark text on light background
             ctx.font = '24px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('Export failed - Chart not ready', 400, 300);

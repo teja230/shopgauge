@@ -910,6 +910,7 @@ const PredictionViewContainer = memo(({
         >
           <Box
             data-chart-inner="true"
+            data-chart-content="true"
             sx={{ 
             width: '100%',
             height: '100%',
