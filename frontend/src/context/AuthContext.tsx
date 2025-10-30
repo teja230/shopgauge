@@ -134,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated
       });
       
-      // Set up demo session immediately
+      // Set up demo session immediately (fallback for when cookie isn't set yet)
       const demoShop = 'demo-shopgauge.myshopify.com';
       
       // Set all demo flags
@@ -179,7 +179,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = async () => {
     console.log('AuthContext: Starting authentication check');
     console.log('AuthContext: Current URL:', window.location.href);
-    console.log('AuthContext: URL search params:', window.location.search);
     
     // Skip Shopify authentication on admin pages
     const currentPath = window.location.pathname;
@@ -194,43 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Check if this is a demo mode request
-    const urlParams = new URLSearchParams(window.location.search);
-    const isDemoMode = urlParams.get('demo') === 'true';
-    
-    console.log('AuthContext: Demo mode check - URL params:', Object.fromEntries(urlParams.entries()));
-    console.log('AuthContext: Demo mode detected:', isDemoMode);
-    
-    if (isDemoMode) {
-      console.log('AuthContext: Detected demo mode request, setting up demo session directly');
-      
-      // Set up demo mode directly without backend validation
-      const demoShop = 'demo-shopgauge.myshopify.com';
-      console.log('AuthContext: Setting up demo session for shop:', demoShop);
-      
-      setShop(demoShop);
-      setIsAuthenticated(true);
-      setIsAuthReady(true);
-      setIsDemoMode(true);
-      setApiAuthState(true, demoShop);
-      setHasInitiallyLoaded(true);
-      
-      // Set a global demo mode flag for the API layer
-      window.localStorage.setItem('demo_mode_active', 'true');
-      // Set authentication flag for session heartbeat compatibility
-      window.localStorage.setItem('isAuthenticated', 'true');
-      
-      console.log('AuthContext: Demo mode setup complete', {
-        shop: demoShop,
-        isAuthenticated: true,
-        isDemoMode: true,
-        isAuthReady: true,
-        hasInitiallyLoaded: true
-      });
-      return;
-    }
-    
     // Check if this is a post-OAuth redirect (user just completed OAuth)
+    const urlParams = new URLSearchParams(window.location.search);
     const isPostOAuth = urlParams.get('connected') === 'true';
     
     if (isPostOAuth) {

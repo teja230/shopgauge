@@ -122,38 +122,55 @@ const HomePage = () => {
   const handleDemoMode = async () => {
     setIsLoading(true);
     try {
-      console.log('🚀 HomePage: Starting frontend-only demo mode activation');
+      console.log('🚀 HomePage: Starting backend demo mode activation');
       
       // Clear any existing cache before demo
       sessionStorage.clear();
       localStorage.clear();
       
+      // Call the proper backend demo mode endpoint
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/demo/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // Important for cookies
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to start demo mode');
+      }
+      
+      const data = await response.json();
+      console.log('✅ HomePage: Demo session created', data);
+      
       // Set up demo session for tutorial system
       sessionStorage.setItem('demo_session_started', new Date().toISOString());
       
       // Clear any previous tutorial completion for fresh demo experience
-      const demoShop = 'demo-shopgauge.myshopify.com';
+      const demoShop = data.shop || 'demo-shopgauge.myshopify.com';
       localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
       localStorage.removeItem(`tutorialCompleted_${demoShop}`);
       
-      // Set demo mode flags BEFORE redirect to prevent race condition
+      // Set demo mode flags (backend already set cookie)
       localStorage.setItem('demo_mode_active', 'true');
       localStorage.setItem('isAuthenticated', 'true');
-      sessionStorage.setItem('shop', 'demo-shopgauge.myshopify.com');
       
-      console.log('✅ HomePage: Demo mode activated, navigating to dashboard');
-      
-      // Navigate to dashboard with demo flag
-      window.location.href = '/dashboard?demo=true';
+      // Navigate to the redirect URL provided by backend
+      const redirectUrl = data.redirectUrl || '/dashboard';
+      window.location.href = redirectUrl;
       
     } catch (error) {
-      console.error('Demo mode error:', error);
-      notifications.showError('Failed to start demo mode. Please try again.', {
-        persistent: true,
-        category: 'Demo'
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('❌ Demo mode error:', error);
+      notifications.showError(
+        error instanceof Error ? error.message : 'Failed to start demo mode. Please try again.',
+        {
+          persistent: true,
+          category: 'Demo'
+        }
+      );
+      setIsLoading(false); // Only reset loading on error (success will redirect)
     }
   };
 

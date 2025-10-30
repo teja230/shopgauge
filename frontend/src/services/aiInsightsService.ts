@@ -372,6 +372,7 @@ class AIInsightsService {
   private generateMockAIInsight(prompt: string, request?: InsightRequest): string {
     const data = request?.data;
     const userQuestion = request?.context?.userQuestion;
+    const timeframe = request?.context?.timeframe || '7d';
     
     // Extract actual data values with fallbacks
     const revenue = data?.revenue?.total || 0;
@@ -384,11 +385,27 @@ class AIInsightsService {
     const dailyCost = data?.marketIntelligence?.costs?.daily || 0;
     const budgetUsage = data?.marketIntelligence?.costs?.budgetUsage || 0;
     const shopName = data?.metadata?.shop || 'your business';
+    const baseConversionRate = data?.orders?.conversionRate || data?.insights?.conversionRate || 0;
+    
+    // Get timeframe-specific context
+    const timeframeLabel = timeframe === '24h' ? 'today' : timeframe === '7d' ? 'this week' : 'this month';
+    const timeframeContext = timeframe === '24h' ? 'recent performance' : timeframe === '7d' ? 'weekly trends' : 'monthly overview';
+    
+    console.log('🎨 Generating context-aware insight', {
+      shopName,
+      timeframe,
+      revenue,
+      productCount,
+      orderCount,
+      hasUserQuestion: !!userQuestion
+    });
     
     // Calculate derived metrics
-    const conversionRate = orderCount > 0 && abandonedCarts > 0 
-      ? ((orderCount / (orderCount + abandonedCarts)) * 100).toFixed(1)
-      : '85'; // fallback
+    const conversionRate = baseConversionRate > 0 
+      ? baseConversionRate.toFixed(1)
+      : orderCount > 0 && abandonedCarts > 0 
+        ? ((orderCount / (orderCount + abandonedCarts)) * 100).toFixed(1)
+        : '85'; // fallback
     
     const costPerCompetitor = competitorCount > 0 && dailyCost > 0 
       ? (dailyCost / competitorCount).toFixed(2)
@@ -398,25 +415,51 @@ class AIInsightsService {
       ? Math.max(250, dailyCost * 30 * 3).toFixed(0) // 3x ROI estimate
       : '750';
     
+    // Get top products context if available
+    const topProducts = data?.products?.topProducts || data?.insights?.topSellingProducts || [];
+    const hasTopProducts = topProducts.length > 0;
+    const topProduct = topProducts[0];
+    const topProductName = hasTopProducts 
+      ? (topProduct && ('name' in topProduct ? topProduct.name : topProduct.title))
+      : 'your best seller';
+    
     // Handle user questions specifically
     if (userQuestion) {
       const lowerQuestion = userQuestion.toLowerCase();
       
       // Revenue/sales questions
       if (lowerQuestion.includes('revenue') || lowerQuestion.includes('sales')) {
-        return `Based on your current data, ${shopName} has generated $${revenue.toLocaleString()} in revenue with a ${growth > 0 ? 'positive' : growth < 0 ? 'negative' : 'stable'} growth rate of ${Math.abs(growth).toFixed(1)}%. ${growth > 5 ? 'This strong performance indicates healthy business momentum.' : growth > 0 ? 'Steady growth shows consistent progress.' : 'Consider implementing growth strategies to boost revenue.'} Your ${productCount} products are generating an average of $${(revenue / productCount).toFixed(2)} per product.`;
+        const avgPerProduct = productCount > 0 ? (revenue / productCount).toFixed(2) : '0';
+        const growthDesc = growth > 5 ? 'strong positive' : growth > 0 ? 'steady positive' : growth < 0 ? 'declining' : 'stable';
+        const momentum = growth > 5 ? 'This excellent performance indicates strong business momentum and effective strategies.' : 
+                        growth > 0 ? 'Steady growth shows consistent progress. Consider scaling successful initiatives.' : 
+                        'Focus on implementing growth strategies to boost revenue.';
+        
+        return `Based on ${timeframeContext} for ${shopName}, you've generated **$${revenue.toLocaleString()}** in revenue with a ${growthDesc} growth rate of ${Math.abs(growth).toFixed(1)}%. ${momentum} Your ${productCount} active products are generating an average of $${avgPerProduct} per product${hasTopProducts ? `, with "${topProductName}" being your top performer` : ''}.`;
       }
       
       // Product questions
       if (lowerQuestion.includes('product')) {
-        return `You currently have ${productCount} active products in your catalog. ${lowStock > 0 ? `Alert: ${lowStock} products are running low on inventory and need immediate restocking to avoid stockouts.` : 'All products have healthy inventory levels.'} Your top-performing products are driving the majority of your $${revenue.toLocaleString()} revenue. Consider expanding successful product lines while optimizing underperformers.`;
+        const inventoryStatus = lowStock > 0 
+          ? `⚠️ **Alert**: ${lowStock} product${lowStock > 1 ? 's are' : ' is'} running low on inventory and need${lowStock === 1 ? 's' : ''} immediate restocking to avoid stockouts and lost sales.`
+          : '✅ All products have healthy inventory levels.';
+        const productPerformance = hasTopProducts 
+          ? ` Your top performers include **${topProducts.slice(0, 2).map((p: any) => p.name || p.title).join('** and **')}**, which are driving significant revenue.`
+          : ' Your top-performing products are driving the majority of revenue.';
+        
+        return `${timeframeLabel.charAt(0).toUpperCase() + timeframeLabel.slice(1)}, you have **${productCount} active products** in your catalog generating **$${revenue.toLocaleString()}** in total revenue. ${inventoryStatus}${productPerformance} Consider expanding successful product lines while optimizing or discontinuing underperformers to maximize profitability.`;
       }
       
       // Competitor questions
       if (lowerQuestion.includes('competitor') || lowerQuestion.includes('competition')) {
-        return competitorCount > 0 
-          ? `You're actively monitoring ${competitorCount} competitors, investing $${dailyCost.toFixed(2)}/day (${budgetUsage.toFixed(1)}% of budget) in market intelligence. This provides valuable pricing insights and competitive positioning data. Your ${growth.toFixed(1)}% growth rate ${growth > 5 ? 'outperforms' : 'aligns with'} market averages. The ROI on competitive monitoring is approximately $${monthlyROI}/month through strategic pricing and positioning advantages.`
-          : `You're not currently monitoring any competitors. Consider setting up market intelligence to gain pricing insights, track competitor inventory, and identify market opportunities. This typically provides 3-10x ROI through better strategic decisions.`;
+        if (competitorCount > 0) {
+          const performanceVsMarket = growth > 5 ? '**outperforming** market averages' : growth > 0 ? 'performing well and aligned with market trends' : 'below market averages';
+          const budgetStatus = budgetUsage > 80 ? 'Consider optimizing monitoring frequency.' : budgetUsage < 30 ? 'You have room to expand monitoring.' : 'Budget utilization is well-balanced.';
+          
+          return `📊 You're actively monitoring **${competitorCount} competitors** ${timeframeLabel}, investing **$${dailyCost.toFixed(2)}/day** (${budgetUsage.toFixed(1)}% of your monitoring budget). This investment provides valuable pricing insights, inventory tracking, and competitive positioning data. Your ${growth.toFixed(1)}% growth rate is ${performanceVsMarket}. The estimated ROI on competitive monitoring is approximately **$${monthlyROI}/month** through strategic pricing advantages and market opportunities. ${budgetStatus}`;
+        } else {
+          return `🔍 You're not currently monitoring any competitors. Setting up market intelligence would provide **pricing insights**, **competitor inventory tracking**, and help identify **market opportunities**. This typically delivers 3-10x ROI through better strategic decisions and optimal pricing. Consider adding 3-5 key competitors to start gaining competitive advantages.`;
+        }
       }
       
       // Cost/budget questions
@@ -427,17 +470,41 @@ class AIInsightsService {
       }
       
       // Improvement/optimization questions
-      if (lowerQuestion.includes('improve') || lowerQuestion.includes('optimize') || lowerQuestion.includes('increase')) {
-        const recommendations = [];
-        if (lowStock > 0) recommendations.push(`restock ${lowStock} low-inventory items`);
-        if (abandonedCarts > 5) recommendations.push(`reduce cart abandonment (currently ${abandonedCarts} carts)`);
-        if (growth < 5) recommendations.push('implement growth strategies to accelerate revenue');
-        if (competitorCount === 0) recommendations.push('set up competitor monitoring');
-        if (competitorCount > 0 && budgetUsage < 30) recommendations.push('expand market intelligence coverage');
+      if (lowerQuestion.includes('improve') || lowerQuestion.includes('optimize') || lowerQuestion.includes('increase') || lowerQuestion.includes('grow')) {
+        const recommendations: string[] = [];
+        const impactRatings: string[] = [];
         
-        return recommendations.length > 0
-          ? `To improve performance, focus on these priorities: ${recommendations.join(', ')}. These actions could increase revenue by 10-20% while improving operational efficiency.`
-          : `Your business is performing well! Continue monitoring key metrics and consider expanding successful strategies. Focus on maintaining your ${growth.toFixed(1)}% growth rate while exploring new market opportunities.`;
+        if (lowStock > 0) {
+          recommendations.push(`**Restock ${lowStock} low-inventory items immediately** to prevent stockouts`);
+          impactRatings.push('High Impact');
+        }
+        if (abandonedCarts > 5) {
+          const abandonmentRate = orderCount > 0 ? ((abandonedCarts / (orderCount + abandonedCarts)) * 100).toFixed(1) : '0';
+          recommendations.push(`**Optimize checkout flow** to reduce ${abandonedCarts} abandoned carts (${abandonmentRate}% abandonment rate)`);
+          impactRatings.push('Medium-High Impact');
+        }
+        if (growth < 5 && productCount > 0) {
+          recommendations.push(`**Implement growth strategies** to accelerate revenue beyond the current ${growth.toFixed(1)}% rate`);
+          impactRatings.push('High Impact');
+        }
+        if (competitorCount === 0) {
+          recommendations.push('**Set up competitor monitoring** to gain market intelligence and pricing advantages');
+          impactRatings.push('Medium Impact');
+        }
+        if (competitorCount > 0 && budgetUsage < 30) {
+          recommendations.push(`**Expand market intelligence coverage** (currently using only ${budgetUsage.toFixed(1)}% of budget)`);
+          impactRatings.push('Low-Medium Impact');
+        }
+        if (hasTopProducts && productCount > 5) {
+          recommendations.push(`**Scale successful products** like "${topProductName}" while phasing out underperformers`);
+          impactRatings.push('Medium Impact');
+        }
+        
+        if (recommendations.length > 0) {
+          return `🎯 **${timeframeLabel.charAt(0).toUpperCase() + timeframeLabel.slice(1)} Optimization Priorities** for ${shopName}:\n\n${recommendations.slice(0, 4).map((rec, i) => `${i + 1}. ${rec} (${impactRatings[i]})`).join('\n\n')}\n\nImplementing these could increase revenue by **10-25%** while improving operational efficiency and customer satisfaction.`;
+        } else {
+          return `🎉 **Excellent performance** ${timeframeLabel}! Your business is operating well with a ${growth.toFixed(1)}% growth rate and strong metrics. To maintain momentum:\n\n1. **Continue monitoring** key performance indicators\n2. **Scale successful strategies** that are working\n3. **Explore new markets** or product categories\n4. **Maintain inventory levels** to support growth\n5. **Consider increasing** marketing investment to capitalize on momentum`;
+        }
       }
     }
     

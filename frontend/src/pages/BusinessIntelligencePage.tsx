@@ -72,7 +72,7 @@ interface SuggestedQuestion {
 }
 
 const BusinessIntelligencePage: React.FC = () => {
-  const { isAuthenticated, shop } = useAuth();
+  const { isAuthenticated, shop, isDemoMode } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
@@ -169,46 +169,86 @@ const BusinessIntelligencePage: React.FC = () => {
     }
   ]);
 
-  // Suggested questions
-  const suggestedQuestions: SuggestedQuestion[] = [
-    { 
-      text: "What are my top performing products today?", 
-      icon: TrendingUpIcon,
-      category: "Performance"
-    },
-    { 
-      text: "How do I compare to my competitors this month?", 
-      icon: AnalyticsIcon,
-      category: "Competition"
-    },
-    { 
-      text: "What should I focus on to increase revenue overall?", 
-      icon: CostIcon,
-      category: "Revenue"
-    },
-    { 
-      text: "Which products had the best profit margins recently?", 
-      icon: RecommendationIcon,
-      category: "Profitability"
-    },
-    { 
-      text: "What marketing strategies should I prioritize long term?", 
-      icon: AIIcon,
-      category: "Strategy"
-    },
-    { 
-      text: "How can I optimize my current inventory levels?", 
-      icon: AnalyticsIcon,
-      category: "Operations"
+  // Suggested questions - dynamically generated based on data
+  const getSuggestedQuestions = (): SuggestedQuestion[] => {
+    const baseQuestions: SuggestedQuestion[] = [
+      { 
+        text: "What are my top performing products today?", 
+        icon: TrendingUpIcon,
+        category: "Performance"
+      },
+      { 
+        text: "How is my revenue trending this week?", 
+        icon: AnalyticsIcon,
+        category: "Revenue"
+      },
+      { 
+        text: "What should I focus on to increase revenue?", 
+        icon: CostIcon,
+        category: "Growth"
+      },
+      { 
+        text: "How can I optimize my business operations?", 
+        icon: RecommendationIcon,
+        category: "Optimization"
+      },
+      { 
+        text: "What marketing strategies should I prioritize?", 
+        icon: AIIcon,
+        category: "Strategy"
+      }
+    ];
+    
+    // Add context-specific questions based on aggregated data
+    if (aggregatedData) {
+      const contextQuestions: SuggestedQuestion[] = [];
+      
+      if (aggregatedData.products?.lowInventory > 0) {
+        contextQuestions.push({
+          text: `I have ${aggregatedData.products.lowInventory} low-stock items. What should I do?`,
+          icon: RecommendationIcon,
+          category: "Urgent"
+        });
+      }
+      
+      if (aggregatedData.marketIntelligence?.competitors?.length > 0) {
+        contextQuestions.push({
+          text: `How do I compare to my ${aggregatedData.marketIntelligence.competitors.length} competitors?`,
+          icon: AnalyticsIcon,
+          category: "Competition"
+        });
+      } else {
+        contextQuestions.push({
+          text: "Should I start monitoring competitors?",
+          icon: AnalyticsIcon,
+          category: "Market Intelligence"
+        });
+      }
+      
+      if (aggregatedData.orders?.abandonedCarts > 5) {
+        contextQuestions.push({
+          text: `How can I reduce my ${aggregatedData.orders.abandonedCarts} abandoned carts?`,
+          icon: TrendingUpIcon,
+          category: "Conversion"
+        });
+      }
+      
+      // Return context questions first, then base questions
+      return [...contextQuestions.slice(0, 2), ...baseQuestions].slice(0, 6);
     }
-  ];
+    
+    return baseQuestions;
+  };
+  
+  const suggestedQuestions = getSuggestedQuestions();
 
   // Load data on component mount
   useEffect(() => {
     if (shop && isAuthenticated) {
+      console.log('🤖 ShopGPT: Loading data', { shop, isDemoMode });
       loadAggregatedData();
     }
-  }, [shop, isAuthenticated]);
+  }, [shop, isAuthenticated, isDemoMode]);
 
 
 
@@ -224,8 +264,24 @@ const BusinessIntelligencePage: React.FC = () => {
     setDataError(null);
     
     try {
-      console.log('🔄 Loading shop data for ShopGPT:', shop);
+      console.log('🔄 ShopGPT: Loading shop data', { 
+        shop, 
+        isDemoMode, 
+        forceRefresh,
+        timestamp: new Date().toISOString() 
+      });
+      
       const data = await dataAggregationService.aggregateShopData(shop, forceRefresh);
+      
+      console.log('✅ ShopGPT: Data loaded successfully', {
+        shop: data.metadata.shop,
+        revenue: data.revenue?.total,
+        products: data.products?.total,
+        orders: data.orders?.total,
+        competitors: data.marketIntelligence?.competitors?.length,
+        isDemoMode
+      });
+      
       setAggregatedData(data);
       
       // Auto-generate insights on initial load
@@ -233,12 +289,14 @@ const BusinessIntelligencePage: React.FC = () => {
         await generateAllInsights(data);
       }
     } catch (error) {
-      console.error('Failed to load aggregated data:', error);
-      setDataError('Failed to load business data. Please try again.');
+      console.error('❌ ShopGPT: Failed to load aggregated data:', error);
+      setDataError(isDemoMode 
+        ? 'Failed to load demo data. Please refresh the page.' 
+        : 'Failed to load business data. Please try again.');
     } finally {
       setDataLoading(false);
     }
-  }, [shop, isAuthenticated]);
+  }, [shop, isAuthenticated, isDemoMode]);
 
   const generateAllInsights = async (data?: AggregatedDashboardData) => {
     const dataToUse = data || aggregatedData;
@@ -404,27 +462,43 @@ const BusinessIntelligencePage: React.FC = () => {
     setChatLoading(true);
     
     try {
-          // Determine insight type and timeframe based on question content
-    const insightType = determineInsightType(messageText);
-    const detectedTimeframe = detectTimeframeFromQuestion(messageText);
-    
-    // Show timeframe detection if different from selected
-    const timeframeChanged = detectedTimeframe !== selectedTimeframe;
-    if (timeframeChanged) {
-      console.log(`🎯 Auto-detected timeframe: ${detectedTimeframe} (was ${selectedTimeframe})`);
-    }
-    
-    const request: InsightRequest = {
-      type: insightType,
-      data: aggregatedData,
-      context: {
-        timeframe: detectedTimeframe,
-        focus: [insightType],
-        userQuestion: messageText // Pass the question for context
+      // Determine insight type and timeframe based on question content
+      const insightType = determineInsightType(messageText);
+      const detectedTimeframe = detectTimeframeFromQuestion(messageText);
+      
+      // Show timeframe detection if different from selected
+      const timeframeChanged = detectedTimeframe !== selectedTimeframe;
+      if (timeframeChanged) {
+        console.log(`🎯 ShopGPT: Auto-detected timeframe: ${detectedTimeframe} (was ${selectedTimeframe})`);
       }
-    };
+      
+      console.log('🤖 ShopGPT: Processing question', {
+        question: messageText,
+        insightType,
+        timeframe: detectedTimeframe,
+        shop: aggregatedData.metadata.shop,
+        isDemoMode,
+        dataPoints: aggregatedData.metadata.dataPoints
+      });
+      
+      const request: InsightRequest = {
+        type: insightType,
+        data: aggregatedData,
+        context: {
+          timeframe: detectedTimeframe,
+          focus: [insightType],
+          userQuestion: messageText // Pass the question for context
+        }
+      };
       
       const insight = await aiInsightsService.generateInsight(request);
+      
+      console.log('✅ ShopGPT: Generated insight', {
+        source: insight.source,
+        confidence: insight.confidence,
+        fromCache: insight.fromCache,
+        cost: insight.cost
+      });
       
       // Create assistant message with streaming effect
       const assistantMessageId = (Date.now() + 1).toString();
@@ -456,12 +530,14 @@ const BusinessIntelligencePage: React.FC = () => {
       }, 500);
       
     } catch (error) {
-      console.error('Chat insight generation failed:', error);
+      console.error('❌ ShopGPT: Chat insight generation failed:', error);
       setChatLoading(false);
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: 'I apologize, but I encountered an error processing your question. Please try again.',
+        content: isDemoMode
+          ? 'I apologize, but I encountered an error processing your question in demo mode. Please try refreshing the page or asking a different question.'
+          : 'I apologize, but I encountered an error processing your question. Please try again or rephrase your question.',
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, errorMessage]);
@@ -545,10 +621,55 @@ const BusinessIntelligencePage: React.FC = () => {
             <Box sx={{ textAlign: 'center' }}>
               <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
                 Your AI business analyst, ready to provide insights and answer questions about {shop} • {timeframeOptions.find(t => t.value === selectedTimeframe)?.description}
+                {isDemoMode && (
+                  <Chip 
+                    label="Demo Mode" 
+                    size="small" 
+                    color="primary" 
+                    sx={{ ml: 1, verticalAlign: 'middle' }}
+                  />
+                )}
               </Typography>
             </Box>
           </Box>
 
+          {/* Data Context Info */}
+          {aggregatedData && !dataLoading && (
+            <Paper sx={{ 
+              mb: 3, 
+              p: 2.5, 
+              borderRadius: 3,
+              bgcolor: isDemoMode ? 'rgba(37, 99, 235, 0.05)' : 'rgba(5, 150, 105, 0.05)',
+              border: '1px solid',
+              borderColor: isDemoMode ? 'rgba(37, 99, 235, 0.2)' : 'rgba(5, 150, 105, 0.2)'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AIIcon sx={{ fontSize: 20, color: isDemoMode ? 'primary.main' : 'success.main' }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {isDemoMode ? 'Demo Data Active' : 'Live Data Connected'}
+                  </Typography>
+                </Box>
+                <Divider orientation="vertical" flexItem />
+                <Typography variant="caption" color="text.secondary">
+                  Last updated: {new Date(aggregatedData.metadata.timestamp).toLocaleTimeString()}
+                </Typography>
+                <Divider orientation="vertical" flexItem />
+                <Typography variant="caption" color="text.secondary">
+                  {aggregatedData.metadata.dataPoints} data points
+                </Typography>
+                {aggregatedData.revenue && (
+                  <>
+                    <Divider orientation="vertical" flexItem />
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                      Revenue: ${aggregatedData.revenue.total?.toLocaleString() || '0'}
+                    </Typography>
+                  </>
+                )}
+              </Box>
+            </Paper>
+          )}
+          
           {/* Loading State */}
           {dataLoading && (
             <Box sx={{ mb: 3 }}>
@@ -565,7 +686,7 @@ const BusinessIntelligencePage: React.FC = () => {
                   color: 'text.secondary',
                   fontWeight: 500
                 }}>
-                  Loading your business data...
+                  {isDemoMode ? 'Loading demo data...' : 'Loading your business data...'}
                 </Typography>
               </Paper>
             </Box>
@@ -654,8 +775,12 @@ const BusinessIntelligencePage: React.FC = () => {
                               border: '1px solid rgba(103, 126, 234, 0.1)'
                             }}>
                               <Typography variant="body1" sx={{ mb: 2 }}>
-                                Hello! I'm your AI business analyst. I can help you understand your shop's performance, 
-                                analyze trends, and provide strategic recommendations. What would you like to know?
+                                Hello! I'm your AI business analyst for **{aggregatedData?.metadata?.shop || shop}**. {isDemoMode && 'You\'re in demo mode - feel free to explore! '}I have access to your {aggregatedData && (
+                                  <>
+                                    revenue data (${aggregatedData.revenue?.total?.toLocaleString() || '0'}), {aggregatedData.products?.total || 0} products, {aggregatedData.orders?.total || 0} orders
+                                    {aggregatedData.marketIntelligence?.competitors?.length > 0 && `, and ${aggregatedData.marketIntelligence.competitors.length} competitors`}
+                                  </>
+                                )}. I can help you understand performance trends, identify opportunities, and provide strategic recommendations. What would you like to know?
                               </Typography>
                               
                               {/* Initial Suggested Questions - Market Intelligence Style */}
@@ -1073,14 +1198,66 @@ const BusinessIntelligencePage: React.FC = () => {
                             )}
                             
                             {card.insight && !card.loading && (
-                              <Typography variant="body2" sx={{ 
-                                color: 'text.primary',
-                                lineHeight: 1.5,
-                                fontSize: '0.875rem',
-                                width: '100%'
-                              }}>
-                                {card.insight.insight}
-                              </Typography>
+                              <Box sx={{ width: '100%' }}>
+                                <Typography variant="body2" sx={{ 
+                                  color: 'text.primary',
+                                  lineHeight: 1.5,
+                                  fontSize: '0.875rem',
+                                  mb: 1.5
+                                }}>
+                                  {card.insight.insight}
+                                </Typography>
+                                
+                                {/* Insight metadata footer */}
+                                <Box sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: 1, 
+                                  pt: 1.5, 
+                                  borderTop: '1px solid',
+                                  borderColor: 'divider'
+                                }}>
+                                  <Chip 
+                                    label={card.insight.source === 'ai' ? 'AI Generated' : 
+                                           card.insight.source === 'local' ? 'Rule-Based' : 
+                                           'Fallback'}
+                                    size="small"
+                                    sx={{ 
+                                      fontSize: '0.7rem',
+                                      height: 20,
+                                      bgcolor: card.insight.source === 'ai' ? 'rgba(37, 99, 235, 0.1)' : 
+                                               card.insight.source === 'local' ? 'rgba(5, 150, 105, 0.1)' : 
+                                               'rgba(156, 163, 175, 0.1)',
+                                      color: card.insight.source === 'ai' ? 'primary.main' : 
+                                             card.insight.source === 'local' ? 'success.main' : 
+                                             'text.secondary'
+                                    }}
+                                  />
+                                  {card.insight.fromCache && (
+                                    <Chip 
+                                      label="Cached" 
+                                      size="small"
+                                      sx={{ 
+                                        fontSize: '0.7rem',
+                                        height: 20,
+                                        bgcolor: 'rgba(217, 119, 6, 0.1)',
+                                        color: 'warning.main'
+                                      }}
+                                    />
+                                  )}
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => generateSingleInsight(card.id)}
+                                    sx={{ 
+                                      ml: 'auto',
+                                      p: 0.5,
+                                      color: card.color
+                                    }}
+                                  >
+                                    <RefreshIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </Box>
+                              </Box>
                             )}
                             
                             {!card.insight && !card.loading && !card.error && (
