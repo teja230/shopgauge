@@ -1216,10 +1216,12 @@ const BusinessIntelligencePage: React.FC = () => {
                                   gap: 1, 
                                   pt: 1.5, 
                                   borderTop: '1px solid',
-                                  borderColor: 'divider'
+                                  borderColor: 'divider',
+                                  flexWrap: 'nowrap',
+                                  minWidth: 0
                                 }}>
                                   {debugLog.isEnabled() && (
-                                    <>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       <Chip 
                                         label={card.insight.source === 'ai' ? 'AI Generated' : 
                                                card.insight.source === 'local' ? 'Rule-Based' : 
@@ -1248,12 +1250,12 @@ const BusinessIntelligencePage: React.FC = () => {
                                           }}
                                         />
                                       )}
-                                    </>
+                                    </Box>
                                   )}
                                   <Typography 
                                     variant="caption" 
                                     color="text.secondary" 
-                                    sx={{ ml: 1 }}
+                                    sx={{ ml: 'auto', fontSize: '0.72rem' }}
                                   >
                                     Insight confidence: {Math.round((card.insight.confidence || 0) * 100)}%
                                   </Typography>
@@ -1261,7 +1263,7 @@ const BusinessIntelligencePage: React.FC = () => {
                                     size="small" 
                                     onClick={() => generateSingleInsight(card.id)}
                                     sx={{ 
-                                      ml: 'auto',
+                                      ml: 1,
                                       p: 0.5,
                                       color: card.color
                                     }}
