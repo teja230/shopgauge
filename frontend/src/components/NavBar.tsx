@@ -129,7 +129,7 @@ const NavBar: React.FC = () => {
       text: 'Market Intelligence',
       icon: <BusinessIcon />,
       path: '/competitors',
-      badge: suggestionCount
+      badge: 0
     },
     {
       text: 'ShopGPT',
@@ -341,11 +341,6 @@ const NavBar: React.FC = () => {
               >
                 ShopGPT
               </Button>
-              <Badge 
-                badgeContent={suggestionCount} 
-                color="error"
-                invisible={suggestionCount === 0}
-              >
               <Button
                 color="inherit"
                   onClick={() => navigate('/competitors')}
@@ -358,7 +353,6 @@ const NavBar: React.FC = () => {
               >
                   Market Intelligence
               </Button>
-              </Badge>
               <Button
                 color="inherit"
                 onClick={() => navigate('/profile')}

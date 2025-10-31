@@ -433,18 +433,20 @@ const BusinessInsightsGenerator: React.FC = () => {
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         {card.insight && (
                           <>
-                            <Chip
-                              size="small"
-                              icon={getSourceIcon(card.insight.source)}
-                              label={card.insight.source.toUpperCase()}
-                              color={card.insight.fromCache ? 'success' : 'primary'}
-                            />
+                            {debugLog.isEnabled() && (
+                              <Chip
+                                size="small"
+                                icon={getSourceIcon(card.insight.source)}
+                                label={card.insight.source.toUpperCase()}
+                                color={card.insight.fromCache ? 'success' : 'primary'}
+                              />
+                            )}
                             <Chip
                               size="small"
                               label={`${Math.round(card.insight.confidence * 100)}%`}
                               color={getConfidenceColor(card.insight.confidence)}
                             />
-                            {card.insight.cost > 0 && (
+                            {debugLog.isEnabled() && card.insight.cost > 0 && (
                               <Chip
                                 size="small"
                                 icon={<SavingsIcon />}

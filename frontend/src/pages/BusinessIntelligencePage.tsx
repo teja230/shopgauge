@@ -43,6 +43,7 @@ import type { AggregatedDashboardData } from '../types/businessIntelligence';
 import type { GeneratedInsight } from '../services/aiInsightsService';
 import type { InsightRequest } from '../services/insightPromptTemplates';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { debugLog } from '../components/ui/DebugPanel';
 
 interface InsightCard {
   id: string;
@@ -1217,34 +1218,45 @@ const BusinessIntelligencePage: React.FC = () => {
                                   borderTop: '1px solid',
                                   borderColor: 'divider'
                                 }}>
-                                  <Chip 
-                                    label={card.insight.source === 'ai' ? 'AI Generated' : 
-                                           card.insight.source === 'local' ? 'Rule-Based' : 
-                                           'Fallback'}
-                                    size="small"
-                                    sx={{ 
-                                      fontSize: '0.7rem',
-                                      height: 20,
-                                      bgcolor: card.insight.source === 'ai' ? 'rgba(37, 99, 235, 0.1)' : 
-                                               card.insight.source === 'local' ? 'rgba(5, 150, 105, 0.1)' : 
-                                               'rgba(156, 163, 175, 0.1)',
-                                      color: card.insight.source === 'ai' ? 'primary.main' : 
-                                             card.insight.source === 'local' ? 'success.main' : 
-                                             'text.secondary'
-                                    }}
-                                  />
-                                  {card.insight.fromCache && (
-                                    <Chip 
-                                      label="Cached" 
-                                      size="small"
-                                      sx={{ 
-                                        fontSize: '0.7rem',
-                                        height: 20,
-                                        bgcolor: 'rgba(217, 119, 6, 0.1)',
-                                        color: 'warning.main'
-                                      }}
-                                    />
+                                  {debugLog.isEnabled() && (
+                                    <>
+                                      <Chip 
+                                        label={card.insight.source === 'ai' ? 'AI Generated' : 
+                                               card.insight.source === 'local' ? 'Rule-Based' : 
+                                               'Fallback'}
+                                        size="small"
+                                        sx={{ 
+                                          fontSize: '0.7rem',
+                                          height: 20,
+                                          bgcolor: card.insight.source === 'ai' ? 'rgba(37, 99, 235, 0.1)' : 
+                                                   card.insight.source === 'local' ? 'rgba(5, 150, 105, 0.1)' : 
+                                                   'rgba(156, 163, 175, 0.1)',
+                                          color: card.insight.source === 'ai' ? 'primary.main' : 
+                                                 card.insight.source === 'local' ? 'success.main' : 
+                                                 'text.secondary'
+                                        }}
+                                      />
+                                      {card.insight.fromCache && (
+                                        <Chip 
+                                          label="Cached" 
+                                          size="small"
+                                          sx={{ 
+                                            fontSize: '0.7rem',
+                                            height: 20,
+                                            bgcolor: 'rgba(217, 119, 6, 0.1)',
+                                            color: 'warning.main'
+                                          }}
+                                        />
+                                      )}
+                                    </>
                                   )}
+                                  <Typography 
+                                    variant="caption" 
+                                    color="text.secondary" 
+                                    sx={{ ml: 1 }}
+                                  >
+                                    Insight confidence: {Math.round((card.insight.confidence || 0) * 100)}%
+                                  </Typography>
                                   <IconButton 
                                     size="small" 
                                     onClick={() => generateSingleInsight(card.id)}
