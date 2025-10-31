@@ -88,18 +88,19 @@ const BusinessIntelligencePage: React.FC = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [streamingMessage, setStreamingMessage] = useState('');
-  const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d'>('7d');
+  const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d' | '60d'>('7d');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Timeframe options for user selection
   const timeframeOptions = [
     { value: '24h' as const, label: 'Last 24 Hours', description: 'Recent activity' },
     { value: '7d' as const, label: 'Last 7 Days', description: 'Weekly trends' },
-    { value: '30d' as const, label: 'Last 30 Days', description: 'Monthly overview' }
+    { value: '30d' as const, label: 'Last 30 Days', description: 'Monthly overview' },
+    { value: '60d' as const, label: 'Last 60 Days', description: 'Two-month trend (default reporting window)' }
   ];
 
   // Smart timeframe detection based on user question
-  const detectTimeframeFromQuestion = (question: string): '24h' | '7d' | '30d' => {
+  const detectTimeframeFromQuestion = (question: string): '24h' | '7d' | '30d' | '60d' => {
     const lowerQuestion = question.toLowerCase();
     
     // Recent/immediate timeframes
@@ -110,6 +111,12 @@ const BusinessIntelligencePage: React.FC = () => {
       return '24h';
     }
     
+    // Two-month / 60 day timeframes
+    if (lowerQuestion.includes('60') || lowerQuestion.includes('two months') || lowerQuestion.includes('last 2 months') ||
+        lowerQuestion.includes('past 60') || lowerQuestion.includes('bi-month') || lowerQuestion.includes('bimonth')) {
+      return '60d';
+    }
+
     // Monthly timeframes
     if (lowerQuestion.includes('month') || lowerQuestion.includes('last 30') ||
         lowerQuestion.includes('past month') || lowerQuestion.includes('monthly') ||

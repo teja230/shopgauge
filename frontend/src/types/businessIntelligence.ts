@@ -59,7 +59,7 @@ export interface AggregatedDashboardData {
 }
 
 export interface InsightContext {
-  timeframe: '24h' | '7d' | '30d';
+  timeframe: '24h' | '7d' | '30d' | '60d';
   dataTypes: ('revenue' | 'products' | 'orders' | 'competitors' | 'costs')[];
   shop: string;
 }
