@@ -122,44 +122,32 @@ const HomePage = () => {
   const handleDemoMode = async () => {
     setIsLoading(true);
     try {
-      console.log('🚀 HomePage: Starting backend demo mode activation');
+      console.log('🚀 HomePage: Starting UI-only demo mode (no backend calls)');
       
       // Clear any existing cache before demo
       sessionStorage.clear();
       localStorage.clear();
       
-      // Call the proper backend demo mode endpoint
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/demo/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include' // Important for cookies
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to start demo mode');
-      }
-      
-      const data = await response.json();
-      console.log('✅ HomePage: Demo session created', data);
+      // UI-only demo mode - no backend API calls to reduce Redis/DB load
+      // All data comes from embedded DEMO_DATA_BUNDLE
+      const demoShop = 'demo-shopgauge.myshopify.com';
       
       // Set up demo session for tutorial system
       sessionStorage.setItem('demo_session_started', new Date().toISOString());
+      sessionStorage.setItem('demo_mode_active', 'true');
       
       // Clear any previous tutorial completion for fresh demo experience
-      const demoShop = data.shop || 'demo-shopgauge.myshopify.com';
       localStorage.removeItem(`dashboard_tutorial_completed_${demoShop}`);
       localStorage.removeItem(`tutorialCompleted_${demoShop}`);
       
-      // Set demo mode flags (backend already set cookie)
+      // Set demo mode flags (UI-only, no backend session)
       localStorage.setItem('demo_mode_active', 'true');
       localStorage.setItem('isAuthenticated', 'true');
       
-      // Navigate to the redirect URL provided by backend
-      const redirectUrl = data.redirectUrl || '/dashboard';
-      window.location.href = redirectUrl;
+      console.log('✅ HomePage: UI-only demo mode activated');
+      
+      // Navigate to dashboard in demo mode
+      window.location.href = '/dashboard?demo=true';
       
     } catch (error) {
       console.error('❌ Demo mode error:', error);
