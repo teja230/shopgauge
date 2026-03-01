@@ -43,14 +43,23 @@ target
 !**/.env.*.example
 
 # Sensitive files
-cookies.txt
+**/cookies.txt
 *.cookies
 *.pem
 *.key
 *.p12
 *.jks
+*.pfx
 **/secrets/
 **/credentials/
+CREDENTIAL_ROTATION_REQUIRED.md
+replacements.txt
+id_rsa*
+id_ed25519*
+id_ecdsa*
+.npmrc
+.pypirc
+.docker/
 
 # OS generated files
 .DS_Store

@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Run secret detection scan (fast, runs first to fail early)
+bash scripts/pre-commit-secrets.sh
+
 # Run backend formatting and tests
 cd backend && ./gradlew spotlessApply && ./gradlew test
 BACKEND_STATUS=$?
