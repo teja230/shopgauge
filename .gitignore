@@ -28,12 +28,29 @@ target
 *.rar
 *.iml
 
-# Environment variables
-.env
-.env.local
-.env.development
-.env.test
-.env.production
+# Environment variables - ENHANCED PROTECTION
+# Protect .env files anywhere in the repository
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.test
+**/.env.production
+**/.env.staging
+**/.env.prod
+# Allow example files for documentation
+!**/.env.example
+!**/.env.*.example
+
+# Sensitive files
+cookies.txt
+*.cookies
+*.pem
+*.key
+*.p12
+*.jks
+**/secrets/
+**/credentials/
 
 # OS generated files
 .DS_Store
