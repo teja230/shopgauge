@@ -520,7 +520,7 @@ const NavBar: React.FC = () => {
           >
             {storeDomain}
           </Typography>
-          <Box sx={{ mt: 0.55, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Box sx={{ mt: 0.55, display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             <Box
               sx={{
                 width: 8,
@@ -535,31 +535,39 @@ const NavBar: React.FC = () => {
             <Typography variant="caption" sx={{ color: '#aab7c2', fontWeight: 800 }}>
               {isDemoMode ? 'Demo mode' : 'Live store'}
             </Typography>
+            {isDemoMode && (
+              <Button
+                size="small"
+                startIcon={<LogoutIcon sx={{ fontSize: 13 }} />}
+                onClick={handleExitDemo}
+                sx={{
+                  ml: 0.5,
+                  minWidth: 0,
+                  minHeight: 22,
+                  height: 22,
+                  px: 0.85,
+                  borderRadius: 999,
+                  color: '#dbe5ff',
+                  bgcolor: 'rgba(47,91,234,0.16)',
+                  border: '1px solid rgba(124,156,255,0.26)',
+                  fontSize: 11,
+                  fontWeight: 850,
+                  lineHeight: 1,
+                  textTransform: 'none',
+                  '& .MuiButton-startIcon': { mr: 0.35, ml: 0 },
+                  '&:hover': {
+                    bgcolor: 'rgba(47,91,234,0.25)',
+                    borderColor: 'rgba(124,156,255,0.46)',
+                  },
+                }}
+              >
+                Leave
+              </Button>
+            )}
           </Box>
         </Box>
         <StorefrontIcon sx={{ color: 'rgba(185,200,255,0.72)', fontSize: 18, flexShrink: 0 }} />
       </Box>
-
-      {isDemoMode && (
-        <Button
-          fullWidth
-          size="small"
-          onClick={handleExitDemo}
-          sx={{
-            mt: 1.25,
-            minHeight: 34,
-            borderRadius: 1,
-            color: '#c8d4ff',
-            bgcolor: 'rgba(47,91,234,0.14)',
-            border: '1px solid rgba(47,91,234,0.24)',
-            '&:hover': {
-              bgcolor: 'rgba(47,91,234,0.22)',
-            },
-          }}
-        >
-          Exit demo
-        </Button>
-      )}
     </Box>
   );
 

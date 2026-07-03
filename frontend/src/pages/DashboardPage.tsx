@@ -330,6 +330,83 @@ interface Order {
   };
 }
 
+const parseMoneyValue = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const formatDashboardMoney = (value: unknown): string => {
+  const amount = parseMoneyValue(value);
+
+  if (amount === null) {
+    return 'N/A';
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: amount >= 1000 ? 0 : 2,
+  }).format(amount);
+};
+
+const getInventoryTone = (inventory?: number) => {
+  if (typeof inventory !== 'number') {
+    return {
+      label: 'Stock unknown',
+      color: '#64748b',
+      background: 'rgba(100,116,139,0.10)',
+      border: 'rgba(100,116,139,0.18)',
+    };
+  }
+
+  if (inventory <= 10) {
+    return {
+      label: `${inventory} left`,
+      color: '#b42318',
+      background: 'rgba(244,63,94,0.10)',
+      border: 'rgba(244,63,94,0.22)',
+    };
+  }
+
+  if (inventory <= 30) {
+    return {
+      label: `${inventory} in stock`,
+      color: '#a15c07',
+      background: 'rgba(245,158,11,0.12)',
+      border: 'rgba(245,158,11,0.24)',
+    };
+  }
+
+  return {
+    label: `${inventory} in stock`,
+    color: '#067647',
+    background: 'rgba(21,184,122,0.11)',
+    border: 'rgba(21,184,122,0.22)',
+  };
+};
+
+const getOrderCustomerName = (order: Order): string =>
+  order.customer
+    ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() || 'Customer'
+    : 'Guest checkout';
+
+const formatOrderNumber = (orderId: string | number | undefined, fallback: number): string => {
+  if (!orderId) {
+    return `Temporary-${fallback + 1}`;
+  }
+
+  const normalized = String(orderId).split('/').pop() || String(orderId);
+  return normalized.replace(/^demo_order_/, '');
+};
+
 interface RevenueData {
   created_at: string;
   total_price: number;
@@ -432,47 +509,30 @@ const HeroImage = styled('img')(() => ({
 const ProductList = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(1),
-  maxHeight: 360,
-  overflowY: 'auto',
-  paddingRight: theme.spacing(0.5),
-  // Enhanced scrollbar styles for better mobile UX
-  '&::-webkit-scrollbar': {
-    width: '6px',
-  },
-  '&::-webkit-scrollbar-track': {
-    background: theme.palette.grey[100],
-    borderRadius: '3px',
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.grey[400],
-    borderRadius: '3px',
-    '&:hover': {
-      background: theme.palette.grey[500],
-    },
-  },
-  // Firefox scrollbar
-  scrollbarWidth: 'thin',
-  scrollbarColor: `${theme.palette.grey[400]} ${theme.palette.grey[100]}`,
-  // Ensure scrollable on mobile
-  WebkitOverflowScrolling: 'touch',
+  gap: 0,
+  overflow: 'hidden',
+  borderRadius: 8,
+  border: '1px solid rgba(16, 24, 32, 0.08)',
+  background:
+    'linear-gradient(180deg, rgba(248,250,252,0.82) 0%, rgba(255,255,255,0.96) 100%)',
 }));
 
 const ProductItem = styled(Box)(({ theme }) => ({
   display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  padding: theme.spacing(1.6, 1.75),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: 'rgba(255,255,255,0.66)',
-  border: `1px solid ${theme.palette.divider}`,
-  transition: 'all 0.2s ease',
+  alignItems: 'flex-start',
+  gap: theme.spacing(1.5),
+  padding: theme.spacing(1.55, 1.75),
+  borderBottom: '1px solid rgba(16, 24, 32, 0.07)',
+  backgroundColor: 'transparent',
+  transition: 'background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
   '&:hover': {
-    backgroundColor: '#ffffff',
-    borderColor: 'rgba(47, 91, 234, 0.28)',
+    backgroundColor: 'rgba(47, 91, 234, 0.055)',
     transform: 'translateY(-1px)',
-    boxShadow: '0 18px 36px -32px rgb(16 24 32 / 0.75)',
-  }
+    boxShadow: '0 18px 36px -34px rgb(16 24 32 / 0.72)',
+  },
+  '&:last-of-type': {
+    borderBottom: 0,
+  },
 }));
 
 const ProductInfo = styled(Box)(({ theme }) => ({
@@ -484,10 +544,11 @@ const ProductInfo = styled(Box)(({ theme }) => ({
 }));
 
 const ProductName = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
+  fontWeight: 850,
   color: theme.palette.text.primary,
-  fontSize: '0.875rem',
-  lineHeight: 1.4
+  fontSize: '0.92rem',
+  lineHeight: 1.35,
+  minWidth: 0,
 }));
 
 const ProductStats = styled(Typography)(({ theme }) => ({
@@ -501,47 +562,30 @@ const ProductStats = styled(Typography)(({ theme }) => ({
 const OrderList = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(1),
-  maxHeight: 360,
-  overflowY: 'auto',
-  paddingRight: theme.spacing(0.5),
-  // Enhanced scrollbar styles for better mobile UX
-  '&::-webkit-scrollbar': {
-    width: '6px',
-  },
-  '&::-webkit-scrollbar-track': {
-    background: theme.palette.grey[100],
-    borderRadius: '3px',
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.grey[400],
-    borderRadius: '3px',
-    '&:hover': {
-      background: theme.palette.grey[500],
-    },
-  },
-  // Firefox scrollbar
-  scrollbarWidth: 'thin',
-  scrollbarColor: `${theme.palette.grey[400]} ${theme.palette.grey[100]}`,
-  // Ensure scrollable on mobile
-  WebkitOverflowScrolling: 'touch',
+  gap: 0,
+  overflow: 'hidden',
+  borderRadius: 8,
+  border: '1px solid rgba(16, 24, 32, 0.08)',
+  background:
+    'linear-gradient(180deg, rgba(248,250,252,0.82) 0%, rgba(255,255,255,0.96) 100%)',
 }));
 
 const OrderItem = styled(Box)(({ theme }) => ({
   display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  padding: theme.spacing(1.6, 1.75),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: 'rgba(255,255,255,0.66)',
-  border: `1px solid ${theme.palette.divider}`,
-  transition: 'all 0.2s ease',
+  alignItems: 'flex-start',
+  gap: theme.spacing(1.5),
+  padding: theme.spacing(1.55, 1.75),
+  borderBottom: '1px solid rgba(16, 24, 32, 0.07)',
+  backgroundColor: 'transparent',
+  transition: 'background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
   '&:hover': {
-    backgroundColor: '#ffffff',
-    borderColor: 'rgba(47, 91, 234, 0.28)',
+    backgroundColor: 'rgba(47, 91, 234, 0.055)',
     transform: 'translateY(-1px)',
-    boxShadow: '0 18px 36px -32px rgb(16 24 32 / 0.75)',
-  }
+    boxShadow: '0 18px 36px -34px rgb(16 24 32 / 0.72)',
+  },
+  '&:last-of-type': {
+    borderBottom: 0,
+  },
 }));
 
 const OrderInfo = styled(Box)(({ theme }) => ({
@@ -553,9 +597,9 @@ const OrderInfo = styled(Box)(({ theme }) => ({
 }));
 
 const OrderTitle = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
+  fontWeight: 850,
   color: theme.palette.text.primary,
-  fontSize: '0.875rem',
+  fontSize: '0.92rem',
   lineHeight: 1.4,
   display: 'flex',
   alignItems: 'center',
@@ -607,12 +651,12 @@ const LegendDot = styled(Box)<{ color: string }>(({ theme, color }) => ({
 
 const SectionHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
+  flexDirection: 'column',
+  alignItems: 'stretch',
   marginBottom: theme.spacing(2),
   padding: theme.spacing(0, 0, 1.5),
   borderBottom: `1px solid ${theme.palette.divider}`,
-  gap: theme.spacing(2),
+  gap: theme.spacing(1.25),
   position: 'sticky',
   top: 0,
   zIndex: 2,
@@ -1228,6 +1272,26 @@ const DashboardPage = () => {
     }, 'Orders');
     return sortOrders(orders);
   }, [insights?.orders, sortOrders]);
+  const visibleProducts = useMemo(() => sortedProducts.slice(0, 5), [sortedProducts]);
+  const visibleOrders = useMemo(() => sortedOrders.slice(0, 5), [sortedOrders]);
+  const getSortChipSx = useCallback((active: boolean) => ({
+    height: 30,
+    borderRadius: 999,
+    px: 0.35,
+    fontSize: '0.75rem',
+    fontWeight: 800,
+    bgcolor: active ? '#e8edff' : '#ffffff',
+    color: active ? '#1d3db8' : '#344054',
+    borderColor: active ? '#b3c4f5' : 'rgba(16, 24, 32, 0.18)',
+    '& .MuiChip-icon': {
+      color: active ? '#2f5bea' : '#64748b',
+      fontSize: 16,
+    },
+    '&:hover': {
+      bgcolor: active ? '#dfe7ff' : '#f6f7f9',
+      borderColor: active ? '#93aaf0' : 'rgba(47, 91, 234, 0.28)',
+    },
+  }), []);
   
   // Helper function to check if cache entry is fresh (< 120 minutes old)
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
@@ -3164,20 +3228,48 @@ const DashboardPage = () => {
             <StyledCard className="dashboard-products" sx={{ height: '100%' }}>
               <CardContent>
                 <SectionHeader>
-                  <SectionTitle>
-                    <Inventory2 color="primary" />
-                    Top Products
-                  </SectionTitle>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {!cardLoading.products && !cardErrors.products && insights?.topProducts?.length > 0 && (
-                      <>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <SectionTitle>
+                        <Inventory2 color="primary" />
+                        Top Products
+                      </SectionTitle>
+                      <Typography variant="caption" sx={{ color: '#667085', fontWeight: 700 }}>
+                        Ranked catalog snapshot with stock and price signals
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                    {shop && (
+                      <Button
+                        size="small"
+                        href={`https://${shop}/admin/products`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
+                      >
+                        View all
+                      </Button>
+                    )}
+                    {cardErrors.products && (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleCardLoad('products', true)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Refresh fontSize="small" />
+                      </IconButton>
+                    )}
+                    </Box>
+                  </Box>
+                  {!cardLoading.products && !cardErrors.products && insights?.topProducts?.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Chip
                           icon={productsSortBy === 'name' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
                           label="Name"
                           variant={productsSortBy === 'name' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleProductsSort('name')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(productsSortBy === 'name')}
                         />
                         <Chip
                           icon={productsSortBy === 'inventory' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3185,7 +3277,7 @@ const DashboardPage = () => {
                           variant={productsSortBy === 'inventory' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleProductsSort('inventory')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(productsSortBy === 'inventory')}
                         />
                         <Chip
                           icon={productsSortBy === 'price' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3193,31 +3285,10 @@ const DashboardPage = () => {
                           variant={productsSortBy === 'price' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleProductsSort('price')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(productsSortBy === 'price')}
                         />
-                      </>
-                    )}
-                  {shop && (
-                    <Button
-                      size="small"
-                      href={`https://${shop}/admin/products`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
-                    >
-                      View all
-                    </Button>
+                    </Box>
                   )}
-                  {cardErrors.products && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('products', true)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
-                  )}
-                  </Box>
                 </SectionHeader>
                 {cardLoading.products ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3240,27 +3311,98 @@ const DashboardPage = () => {
                       Retry
                     </Button>
                   </Box>
-                ) : sortedProducts?.length ? (
+                ) : visibleProducts?.length ? (
                   <ProductList>
-                    {sortedProducts.map((product) => (
+                    {visibleProducts.map((product, index) => {
+                      const inventoryTone = getInventoryTone(product.inventory);
+                      return (
                       <ProductItem key={`product-${product.id}`}>
+                        <Box
+                          sx={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            display: 'grid',
+                            placeItems: 'center',
+                            bgcolor: '#e8edff',
+                            color: '#2f5bea',
+                            fontWeight: 900,
+                            fontSize: 12,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {String(index + 1).padStart(2, '0')}
+                        </Box>
                         <ProductInfo>
-                          <ProductName>
-                            <ProductLink 
-                              href={`https://${shop}/admin/products/${product.id}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                            <ProductName>
+                              <ProductLink 
+                                href={`https://${shop}/admin/products/${product.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                {product.title}
+                                <OpenInNew sx={{ fontSize: 16, flexShrink: 0 }} />
+                              </ProductLink>
+                            </ProductName>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: '#101820',
+                                fontWeight: 900,
+                                fontFeatureSettings: '"tnum"',
+                                whiteSpace: 'nowrap',
+                              }}
                             >
-                              {product.title}
-                              <OpenInNew fontSize="small" />
-                            </ProductLink>
-                          </ProductName>
-                          <ProductStats>
-                            {typeof product.inventory !== 'undefined' ? `${product.inventory} in stock` : 'N/A'} • {product.price || 'N/A'}
+                              {formatDashboardMoney(product.price)}
+                            </Typography>
+                          </Box>
+                          <ProductStats sx={{ flexWrap: 'wrap' }}>
+                            <Box
+                              component="span"
+                              sx={{
+                                px: 1,
+                                py: 0.35,
+                                borderRadius: 999,
+                                color: inventoryTone.color,
+                                bgcolor: inventoryTone.background,
+                                border: `1px solid ${inventoryTone.border}`,
+                                fontWeight: 850,
+                              }}
+                            >
+                              {inventoryTone.label}
+                            </Box>
+                            {typeof product.quantity === 'number' && (
+                              <Box component="span" sx={{ color: '#667085', fontWeight: 750 }}>
+                                {product.quantity} sold
+                              </Box>
+                            )}
+                            {typeof product.total_price === 'number' && (
+                              <Box component="span" sx={{ color: '#667085', fontWeight: 750 }}>
+                                {formatDashboardMoney(product.total_price)} revenue
+                              </Box>
+                            )}
                           </ProductStats>
                         </ProductInfo>
                       </ProductItem>
-                    ))}
+                      );
+                    })}
+                    {sortedProducts.length > visibleProducts.length && (
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.15,
+                          bgcolor: 'rgba(248,250,252,0.88)',
+                          color: '#667085',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {sortedProducts.length - visibleProducts.length} more products available in Shopify
+                      </Box>
+                    )}
                   </ProductList>
                 ) : (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3295,20 +3437,48 @@ const DashboardPage = () => {
             <StyledCard className="dashboard-orders" sx={{ height: '100%' }}>
               <CardContent>
                 <SectionHeader>
-                  <SectionTitle>
-                    <ListAlt color="primary" />
-                    Recent Orders
-                  </SectionTitle>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {!cardLoading.orders && !cardErrors.orders && insights?.orders?.length > 0 && (
-                      <>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <SectionTitle>
+                        <ListAlt color="primary" />
+                        Recent Orders
+                      </SectionTitle>
+                      <Typography variant="caption" sx={{ color: '#667085', fontWeight: 700 }}>
+                        Latest revenue activity with customer context
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                    {shop && (
+                      <Button
+                        size="small"
+                        href={`https://${shop}/admin/orders`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
+                      >
+                        View all
+                      </Button>
+                    )}
+                    {cardErrors.orders && (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleCardLoad('orders')}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Refresh fontSize="small" />
+                      </IconButton>
+                    )}
+                    </Box>
+                  </Box>
+                  {!cardLoading.orders && !cardErrors.orders && insights?.orders?.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Chip
                           icon={ordersSortBy === 'date' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
                           label="Date"
                           variant={ordersSortBy === 'date' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleOrdersSort('date')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(ordersSortBy === 'date')}
                         />
                         <Chip
                           icon={ordersSortBy === 'amount' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3316,7 +3486,7 @@ const DashboardPage = () => {
                           variant={ordersSortBy === 'amount' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleOrdersSort('amount')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(ordersSortBy === 'amount')}
                         />
                         <Chip
                           icon={ordersSortBy === 'customer' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3324,31 +3494,10 @@ const DashboardPage = () => {
                           variant={ordersSortBy === 'customer' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleOrdersSort('customer')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(ordersSortBy === 'customer')}
                         />
-                      </>
-                    )}
-                  {shop && (
-                    <Button
-                      size="small"
-                      href={`https://${shop}/admin/orders`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
-                    >
-                      View all
-                    </Button>
+                    </Box>
                   )}
-                  {cardErrors.orders && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('orders')}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
-                  )}
-                  </Box>
                 </SectionHeader>
                 {cardLoading.orders ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3371,46 +3520,101 @@ const DashboardPage = () => {
                       Retry
                     </Button>
                   </Box>
-                ) : sortedOrders?.length ? (
+                ) : visibleOrders?.length ? (
                   <OrderList>
-                    {sortedOrders.map((order, index) => (
+                    {visibleOrders.map((order, index) => (
                       <OrderItem key={`order-${order.id || `temp-${index}`}`}>
+                        <Box
+                          sx={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            display: 'grid',
+                            placeItems: 'center',
+                            bgcolor: '#eefbf5',
+                            color: '#067647',
+                            fontWeight: 900,
+                            fontSize: 12,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {String(index + 1).padStart(2, '0')}
+                        </Box>
                         <OrderInfo>
-                          <OrderTitle>
-                            {order.id ? (
-                              <OrderLink 
-                                href={`https://${shop}/admin/orders/${order.id}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                              >
-                                Order #{order.id}
-                                <OpenInNew fontSize="small" />
-                              </OrderLink>
-                            ) : (
-                              <Typography variant="body1" color="text.secondary" component="div">
-                                Order #{`Temporary-${index + 1}`}
-                              </Typography>
-                            )}
-                            {order.customer && (
-                              <Typography 
-                                component="span" 
-                                variant="body2" 
-                                color="text.secondary" 
-                                sx={{ 
-                                  ml: 1,
-                                  display: { xs: 'none', sm: 'inline' }
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                            <Box sx={{ minWidth: 0 }}>
+                              <OrderTitle>
+                                {order.id ? (
+                                  <OrderLink 
+                                    href={`https://${shop}/admin/orders/${order.id}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                  >
+                                    Order #{formatOrderNumber(order.id, index)}
+                                    <OpenInNew sx={{ fontSize: 16, flexShrink: 0 }} />
+                                  </OrderLink>
+                                ) : (
+                                  <Typography variant="body1" color="text.secondary" component="div">
+                                    Order #{formatOrderNumber(order.id, index)}
+                                  </Typography>
+                                )}
+                              </OrderTitle>
+                              <OrderDetails sx={{ mt: 0.35, flexWrap: 'wrap' }}>
+                                <Box component="span">{formatDate(order.created_at)}</Box>
+                                <Box component="span" sx={{ color: '#cbd5e1' }}>•</Box>
+                                <Box component="span">{getOrderCustomerName(order)}</Box>
+                              </OrderDetails>
+                            </Box>
+                            <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: '#101820',
+                                  fontWeight: 900,
+                                  fontFeatureSettings: '"tnum"',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                • {order.customer.first_name} {order.customer.last_name}
+                                {formatDashboardMoney(order.total_price)}
                               </Typography>
-                            )}
-                          </OrderTitle>
-                          <OrderDetails>
-                            {formatDate(order.created_at)} • ${order.total_price}
-                          </OrderDetails>
+                              <Box
+                                component="span"
+                                sx={{
+                                  mt: 0.5,
+                                  display: 'inline-flex',
+                                  px: 0.85,
+                                  py: 0.25,
+                                  borderRadius: 999,
+                                  color: '#067647',
+                                  bgcolor: 'rgba(21,184,122,0.11)',
+                                  border: '1px solid rgba(21,184,122,0.22)',
+                                  fontSize: 11,
+                                  fontWeight: 850,
+                                }}
+                              >
+                                Paid
+                              </Box>
+                            </Box>
+                          </Box>
                         </OrderInfo>
                       </OrderItem>
                     ))}
+                    {sortedOrders.length > visibleOrders.length && (
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.15,
+                          bgcolor: 'rgba(248,250,252,0.88)',
+                          color: '#667085',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {sortedOrders.length - visibleOrders.length} more orders available in Shopify
+                      </Box>
+                    )}
                   </OrderList>
                 ) : (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
