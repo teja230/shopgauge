@@ -35,6 +35,7 @@ import {
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationSettings } from '../context/NotificationSettingsContext';
 import { fetchWithAuth } from '../api/index';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import Joyride from 'react-joyride';
 import type { CallBackProps, Step } from 'react-joyride';
@@ -2131,10 +2132,37 @@ export default function CompetitorsPage() {
           await fetchData(true);
         }, 500);
 
-        notifications.showSuccess('Competitor tracking has been discontinued', {
-          category: 'Competitors',
-          showToast: true
-        });
+        // Undo-able toast: restore puts the competitor (and its history) back
+        toast.custom(
+          (t) => (
+            <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-[#e4e7eb] bg-white px-4 py-3 shadow-[0_20px_44px_-24px_rgba(16,24,32,0.4)]">
+              <span className="text-sm font-semibold text-[#101820]">Competitor archived</span>
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-sm font-bold text-[#2f5bea] transition-colors hover:bg-[#2f5bea]/10"
+                onClick={async () => {
+                  toast.dismiss(t.id);
+                  try {
+                    await fetchWithAuth(`/api/competitors/${id}/restore`, { method: 'POST' });
+                    if (competitorToDelete) {
+                      setCompetitors((prev) => [...prev, competitorToDelete]);
+                    }
+                    setArchivedRefreshTrigger((prev) => prev + 1);
+                    setTimeout(() => fetchData(true), 400);
+                    notifications.showSuccess('Competitor restored', { category: 'Competitors', showToast: true });
+                  } catch {
+                    notifications.showError('Could not restore competitor. Check the archived list.', {
+                      category: 'Competitors',
+                    });
+                  }
+                }}
+              >
+                Undo
+              </button>
+            </div>
+          ),
+          { duration: 6000 }
+        );
         
       // Ensure archived list refreshed (second signal after API completes)
       setArchivedRefreshTrigger(prev => prev + 1);

@@ -57,63 +57,77 @@ interface RevenueChartProps {
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
 // Enhanced tooltip for classic chart
-const EnhancedClassicTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
+const EnhancedClassicTooltip: React.FC<
+  TooltipProps<RevenuePoint> & { series?: Array<{ created_at: string; total_price: number }> }
+> = ({ active, payload, label, series }) => {
   if (!active || !payload || !payload.length) return null;
 
-  const data = payload[0];
-  const value = data.value as number;
+  const value = (payload[0].value as number) || 0;
+
+  // Compare against the previous point and the period total when the series is available
+  let deltaPercent: number | null = null;
+  let shareOfPeriod: number | null = null;
+  if (series && series.length > 1) {
+    const index = series.findIndex((point) => point.created_at === label);
+    if (index > 0) {
+      const previous = Number(series[index - 1]?.total_price) || 0;
+      if (previous > 0) deltaPercent = ((value - previous) / previous) * 100;
+    }
+    const total = series.reduce((sum, point) => sum + (Number(point.total_price) || 0), 0);
+    if (total > 0) shareOfPeriod = (value / total) * 100;
+  }
+
+  const deltaUp = (deltaPercent ?? 0) >= 0;
 
   return (
     <Paper
-      elevation={8}
+      elevation={0}
       sx={{
-        p: 2,
+        overflow: 'hidden',
         backgroundColor: 'rgba(255, 255, 255, 0.98)',
         backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e4e7eb',
         borderRadius: 2,
-        minWidth: 180,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+        minWidth: 200,
+        boxShadow: '0 20px 44px -24px rgba(16, 24, 32, 0.4)',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+      <Box sx={{ px: 1.75, py: 1, bgcolor: '#101820', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="caption" sx={{ color: '#c3ccd5', fontWeight: 700 }}>
           {new Date(label as string).toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
           })}
         </Typography>
-        <Chip
-          label="Revenue"
-          size="small"
-          sx={{
-            height: 16,
-            fontSize: '0.6rem',
-            backgroundColor: 'rgba(47, 91, 234, 0.10)',
-            color: '#2f5bea',
-            border: '1px solid rgba(47, 91, 234, 0.20)',
-          }}
-        />
+        {deltaPercent !== null && (
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 800, color: deltaUp ? '#6ee7b7' : '#fca5a5', fontFeatureSettings: '"tnum"' }}
+          >
+            {deltaUp ? '↑' : '↓'} {Math.abs(deltaPercent).toFixed(1)}%
+          </Typography>
+        )}
       </Box>
-      
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Box
-          sx={{
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            backgroundColor: data.color,
-            animation: 'pulse 2s ease-in-out infinite',
-            '@keyframes pulse': {
-              '0%, 100%': { opacity: 1 },
-              '50%': { opacity: 0.7 },
-            },
-          }}
-        />
-        <Typography variant="body2" fontWeight={600}>
-          Revenue: ${value.toLocaleString()}
+      <Box sx={{ px: 1.75, py: 1.25 }}>
+        <Typography sx={{ fontWeight: 900, fontSize: '1.15rem', color: '#101820', fontFeatureSettings: '"tnum"', lineHeight: 1.2 }}>
+          ${value.toLocaleString()}
         </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: '#5f6b76', fontWeight: 700 }}>
+            Revenue
+          </Typography>
+          {deltaPercent !== null && (
+            <Typography variant="caption" sx={{ color: '#98a1ab' }}>
+              vs prev. day
+            </Typography>
+          )}
+          {shareOfPeriod !== null && (
+            <Typography variant="caption" sx={{ ml: 'auto', color: '#98a1ab', fontFeatureSettings: '"tnum"' }}>
+              {shareOfPeriod.toFixed(1)}% of period
+            </Typography>
+          )}
+        </Box>
       </Box>
     </Paper>
   );
@@ -251,9 +265,7 @@ const ClassicInsights: React.FC<{ data: RevenueData[] }> = ({ data }) => {
   );
 };
 
-const CustomTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
-  return <EnhancedClassicTooltip active={active} payload={payload} label={label} />;
-};
+
 
 const formatXAxisTick = (tickItem: string) => {
   const date = new Date(tickItem);
@@ -470,7 +482,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         />
       );
 
-      const commonTooltip = <Tooltip content={<CustomTooltip />} />;
+      const commonTooltip = <Tooltip content={<EnhancedClassicTooltip series={processedData} />} />;
 
       switch (chartType) {
         case 'line':
