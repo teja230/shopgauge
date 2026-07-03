@@ -41,7 +41,7 @@ import {
 import LoadingIndicator from './LoadingIndicator';
 import ShareModal from './ShareModal';
 import ExportModal from './ExportModal';
-import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
+import type { RevenuePoint, TooltipProps } from '../../types/charts';
 import { debugLog } from './DebugPanel';
 import { useAuth } from '../../context/AuthContext';
 
@@ -90,9 +90,9 @@ const EnhancedClassicTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, 
           sx={{
             height: 16,
             fontSize: '0.6rem',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            color: '#2563eb',
-            border: '1px solid rgba(37, 99, 235, 0.2)',
+            backgroundColor: 'rgba(47, 91, 234, 0.10)',
+            color: '#2f5bea',
+            border: '1px solid rgba(47, 91, 234, 0.20)',
           }}
         />
       </Box>
@@ -112,7 +112,7 @@ const EnhancedClassicTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, 
           }}
         />
         <Typography variant="body2" fontWeight={600}>
-          📊 Revenue: ${value.toLocaleString()}
+          Revenue: ${value.toLocaleString()}
         </Typography>
       </Box>
     </Paper>
@@ -131,12 +131,12 @@ const PerformanceIndicator: React.FC<{ current: number; previous: number }> = ({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          color: isPositive ? '#10b981' : '#ef4444',
+          color: isPositive ? '#059669' : '#dc2626',
           fontSize: '0.875rem',
           fontWeight: 600,
         }}
       >
-        {isPositive ? '↗️' : '↘️'}
+        {isPositive ? '↑' : '↓'}
         <Typography variant="caption" fontWeight={600} sx={{ ml: 0.5 }}>
           {Math.abs(changePercent).toFixed(1)}%
         </Typography>
@@ -159,22 +159,22 @@ const ClassicInsights: React.FC<{ data: RevenueData[] }> = ({ data }) => {
     {
       label: 'Total Revenue',
       value: `$${totalRevenue.toLocaleString()}`,
-      icon: '💰',
+      icon: '$',
     },
     {
       label: 'Average Daily',
       value: `$${averageRevenue.toLocaleString()}`,
-      icon: '📊',
+      icon: 'Ø',
     },
     {
       label: 'Peak Day',
       value: `$${maxRevenue.toLocaleString()}`,
-      icon: '🏆',
+      icon: '▲',
     },
     {
       label: 'Latest',
       value: `$${latestRevenue.toLocaleString()}`,
-      icon: '📈',
+      icon: '●',
       change: { current: latestRevenue, previous: previousRevenue },
     },
   ];
@@ -210,7 +210,25 @@ const ClassicInsights: React.FC<{ data: RevenueData[] }> = ({ data }) => {
             }
           }}
         >
-          <span style={{ fontSize: '1.2rem' }}>{insight.icon}</span>
+          <Box
+            component="span"
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'rgba(47, 91, 234, 0.08)',
+              color: '#2f5bea',
+              border: '1px solid rgba(47, 91, 234, 0.18)',
+              fontSize: '0.8rem',
+              fontWeight: 900,
+              fontFeatureSettings: '"tnum"',
+            }}
+          >
+            {insight.icon}
+          </Box>
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               {insight.label}
@@ -269,7 +287,6 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   // Responsive helper
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
   // Mobile-optimized dimensions - SIGNIFICANTLY INCREASED for better visibility
   const mobileHeight = Math.min(height * 0.95, 480); // Increased cap from 450 to 480px, 95% scaling
@@ -279,25 +296,25 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     line: {
       icon: <ShowChart />,
       label: 'Line',
-      color: '#2563eb',
+      color: '#2f5bea',
       description: 'Simple trend line',
     },
     area: {
       icon: <Timeline />,
       label: 'Area',
-      color: '#2563eb',
+      color: '#2f5bea',
       description: 'Filled trend area',
     },
     bar: {
       icon: <BarChartIcon />,
       label: 'Bar',
-      color: '#2563eb',
+      color: '#2f5bea',
       description: 'Daily revenue bars',
     },
     candlestick: {
       icon: <CandlestickChart />,
       label: 'Candlestick',
-      color: '#10b981',
+      color: theme.palette.success.main,
       description: 'High/low patterns',
     },
     waterfall: {
@@ -309,13 +326,13 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     stacked: {
       icon: <StackedLineChart />,
       label: 'Stacked',
-      color: '#8b5cf6',
+      color: '#0ea5a6',
       description: 'Multi-series view',
     },
     composed: {
       icon: <Analytics />,
       label: 'Composed',
-      color: '#ef4444',
+      color: '#1539a6',
       description: 'Combined metrics',
     },
   };
@@ -362,8 +379,6 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   // Replace all subsequent uses of `data` with `sanitizedData`
   const totalRevenue = sanitizedData.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
   const averageRevenue = sanitizedData.length && totalRevenue > 0 ? totalRevenue / sanitizedData.length : 0;
-  const maxRevenue = sanitizedData.length ? Math.max(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
-  const minRevenue = sanitizedData.length ? Math.min(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
 
   const handleShareChart = () => {
     setShareModalOpen(true);
@@ -490,8 +505,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             <AreaChart {...commonProps}>
               <defs>
                 <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={chartTypeConfig.area.color} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={chartTypeConfig.area.color} stopOpacity={0.05} />
+                  <stop offset="0%" stopColor={chartTypeConfig.area.color} stopOpacity={0.32} />
+                  <stop offset="100%" stopColor={chartTypeConfig.area.color} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               {commonGrid}
@@ -544,7 +559,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               {commonTooltip}
               <Bar
                 dataKey="total_price"
-                fill="#10b981"
+                fill={theme.palette.success.main}
                 radius={[2, 2, 0, 0]}
                 opacity={0.8}
               />
@@ -567,7 +582,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               {commonTooltip}
               <Bar
                 dataKey="change"
-                fill="#10b981"
+                fill={theme.palette.success.main}
                 radius={[2, 2, 0, 0]}
                 opacity={0.8}
               />
@@ -594,8 +609,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
                   <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
                 </linearGradient>
                 <linearGradient id={`${gradientIdPrefix}-changeGradient`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                  <stop offset="5%" stopColor={theme.palette.success.main} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={theme.palette.success.main} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               {commonGrid}
@@ -613,7 +628,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="change"
-                stroke="#10b981"
+                stroke={theme.palette.success.main}
                 strokeWidth={1}
                 fill={`url(#${gradientIdPrefix}-changeGradient)`}
                 stackId="2"
@@ -637,10 +652,10 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="total_price"
-                stroke="#2563eb"
+                stroke="#2f5bea"
                 strokeWidth={2}
                 dot={{
-                  fill: '#2563eb',
+                  fill: '#2f5bea',
                   strokeWidth: 2,
                   r: 3,
                 }}
@@ -893,7 +908,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               fontSize: '0.7rem',
             }}
           >
-            💡 Scroll horizontally to view full chart
+            Scroll horizontally to view full chart
           </Typography>
         )}
       </Box>
@@ -929,4 +944,4 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   );
 };
 
-export default RevenueChart; 
+export default RevenueChart;

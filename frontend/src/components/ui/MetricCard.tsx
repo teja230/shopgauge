@@ -8,7 +8,6 @@ import {
   IconButton,
   LinearProgress,
   useTheme,
-  useMediaQuery,
   Tooltip,
   Chip,
   Fade,
@@ -57,6 +56,19 @@ const StyledMetricCard = styled(Card)(({ theme }) => ({
   border: `1px solid ${theme.palette.divider}`,
   borderRadius: 8,
   boxShadow: '0 18px 40px -34px rgb(16 24 32 / 0.72)',
+  isolation: 'isolate',
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    width: 132,
+    height: 132,
+    right: -58,
+    top: -62,
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(47,91,234,0.16), transparent 62%)',
+    zIndex: 0,
+    pointerEvents: 'none',
+  },
   '&::before': {
     content: '""',
     position: 'absolute',
@@ -89,11 +101,13 @@ const StyledMetricCard = styled(Card)(({ theme }) => ({
 }));
 
 const StyledCardContent = styled(CardContent)(({ theme }) => ({
-  padding: theme.spacing(3, 3, 2.5),
-  paddingBottom: `${theme.spacing(3)} !important`,
+  padding: theme.spacing(2.25, 2.25, 2),
+  paddingBottom: `${theme.spacing(2.25)} !important`,
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
+  position: 'relative',
+  zIndex: 1,
   // Mobile optimization
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(2.5),
@@ -109,8 +123,8 @@ const MetricHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
-  marginBottom: theme.spacing(2.5),
-  minHeight: 32,
+  marginBottom: theme.spacing(1.5),
+  minHeight: 30,
   gap: theme.spacing(1),
 }));
 
@@ -131,7 +145,7 @@ const MetricLabelContainer = styled(Box)(() => ({
 
 const MetricValue = styled(Typography)(({ theme }) => ({
   fontWeight: 850,
-  fontSize: '1.8rem',
+  fontSize: '1.72rem',
   lineHeight: 1.1,
   color: theme.palette.text.primary,
   marginBottom: theme.spacing(0.5),
@@ -141,13 +155,13 @@ const MetricValue = styled(Typography)(({ theme }) => ({
   textOverflow: 'ellipsis',
   // Mobile responsive font sizes with better scaling
   [theme.breakpoints.down('lg')]: {
-    fontSize: '1.75rem',
+    fontSize: '1.65rem',
   },
   [theme.breakpoints.down('md')]: {
-    fontSize: '1.75rem',
+    fontSize: '1.65rem',
   },
   [theme.breakpoints.down('sm')]: {
-    fontSize: '1.75rem',
+    fontSize: '1.62rem',
   },
   [theme.breakpoints.down('xs')]: {
     fontSize: '1.625rem',
@@ -185,13 +199,27 @@ const DeltaContainer = styled(Box)<{ deltaType: 'up' | 'down' | 'neutral' }>(({ 
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(0.5),
-  fontSize: '0.875rem',
-  fontWeight: 600,
+  alignSelf: 'flex-start',
+  padding: theme.spacing(0.45, 0.8),
+  borderRadius: 999,
+  border: '1px solid',
+  fontSize: '0.78rem',
+  fontWeight: 800,
   color: deltaType === 'up'
     ? theme.palette.success.main
     : deltaType === 'down'
     ? theme.palette.error.main
     : theme.palette.text.secondary,
+  backgroundColor: deltaType === 'up'
+    ? 'rgba(5, 150, 105, 0.10)'
+    : deltaType === 'down'
+    ? 'rgba(220, 38, 38, 0.10)'
+    : 'rgba(16, 24, 32, 0.06)',
+  borderColor: deltaType === 'up'
+    ? 'rgba(5, 150, 105, 0.18)'
+    : deltaType === 'down'
+    ? 'rgba(220, 38, 38, 0.18)'
+    : theme.palette.divider,
   marginBottom: theme.spacing(1),
   '& .MuiSvgIcon-root': {
     fontSize: '1rem',
@@ -232,16 +260,6 @@ const ProgressContainer = styled(Box)(({ theme }) => ({
   },
 }));
 
-const MetricFooter = styled(Box)(({ theme }) => ({
-  marginTop: 'auto',
-  paddingTop: theme.spacing(1),
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  flexWrap: 'wrap',
-  gap: theme.spacing(1),
-}));
-
 // Helper functions
 const getDeltaIcon = (deltaType: 'up' | 'down' | 'neutral') => {
   switch (deltaType) {
@@ -263,6 +281,60 @@ const formatValue = (val: string | number, unit?: string): string => {
     return `${val.toLocaleString()}${unit || ''}`;
   }
   return val + (unit || '');
+};
+
+const parseFormattedMetric = (formattedValue: string) => {
+  const match = formattedValue.match(/^([^0-9-]*)(-?\d[\d,]*\.?\d*)(.*)$/);
+  if (!match) return null;
+
+  const [, prefix, numericValue, suffix] = match;
+  const target = Number(numericValue.replace(/,/g, ''));
+  if (!Number.isFinite(target)) return null;
+
+  const decimals = numericValue.includes('.') ? numericValue.split('.')[1].length : 0;
+  return { prefix, target, suffix, decimals };
+};
+
+const useAnimatedMetricValue = (formattedValue: string) => {
+  const [displayValue, setDisplayValue] = useState(formattedValue);
+
+  React.useEffect(() => {
+    const parsed = parseFormattedMetric(formattedValue);
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!parsed || prefersReducedMotion || parsed.target === 0) {
+      setDisplayValue(formattedValue);
+      return undefined;
+    }
+
+    let frameId = 0;
+    const duration = 250;
+    const start = performance.now();
+
+    const formatAnimatedValue = (value: number) =>
+      `${parsed.prefix}${value.toLocaleString(undefined, {
+        minimumFractionDigits: parsed.decimals,
+        maximumFractionDigits: parsed.decimals,
+      })}${parsed.suffix}`;
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(formatAnimatedValue(parsed.target * eased));
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      }
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [formattedValue]);
+
+  return displayValue;
 };
 
 const renderMiniChart = (trend: number[], theme: any) => {
@@ -301,7 +373,6 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   loading = false,
   error = null,
   onRetry,
-  onLoad,
   icon,
   variant = 'default',
   subtitle,
@@ -313,8 +384,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   period
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [expanded, setExpanded] = useState(false);
+  const formattedValue = formatValue(value, unit);
+  const animatedValue = useAnimatedMetricValue(formattedValue);
 
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -392,7 +464,23 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           <MetricHeader>
             <MetricIconContainer>
               {icon && (
-                <Box sx={{ color: 'primary.main', display: 'flex' }}>
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: 'primary.main',
+                    bgcolor: 'rgba(47, 91, 234, 0.08)',
+                    border: '1px solid rgba(47, 91, 234, 0.18)',
+                    boxShadow: '0 12px 24px -18px rgba(47,91,234,0.9)',
+                    flexShrink: 0,
+                    '& .MuiSvgIcon-root': {
+                      fontSize: 19,
+                    },
+                  }}
+                >
                   {icon}
                 </Box>
               )}
@@ -421,7 +509,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           </MetricHeader>
 
           <MetricValue>
-            {formatValue(value, unit)}
+            {animatedValue}
           </MetricValue>
 
           {delta && (
@@ -497,7 +585,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
             <Box
               sx={{
                 mt: 'auto',
-                pt: 2,
+                pt: 1,
                 display: 'grid',
                 gridTemplateColumns: 'repeat(8, 1fr)',
                 gap: 0.5,
@@ -505,7 +593,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                 opacity: 0.55,
               }}
             >
-              {[18, 24, 20, 32, 28, 38, 34, 42].map((height, index) => (
+              {[10, 14, 12, 20, 18, 26, 22, 30].map((height, index) => (
                 <Box
                   key={index}
                   sx={{

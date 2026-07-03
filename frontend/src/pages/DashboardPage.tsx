@@ -231,6 +231,7 @@ const StyledCard = styled(Card)(({ theme }) => ({
   backgroundColor: '#ffffff',
   boxShadow: '0 22px 54px -44px rgb(16 24 32 / 0.80)',
   transition: 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+  overflow: 'hidden',
   '&:hover': {
     boxShadow: '0 28px 64px -48px rgb(16 24 32 / 0.86)',
     transform: 'translateY(-1px)',
@@ -431,9 +432,10 @@ const HeroImage = styled('img')(() => ({
 const ProductList = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(2),
-  maxHeight: 400,
+  gap: theme.spacing(1),
+  maxHeight: 360,
   overflowY: 'auto',
+  paddingRight: theme.spacing(0.5),
   // Enhanced scrollbar styles for better mobile UX
   '&::-webkit-scrollbar': {
     width: '6px',
@@ -468,6 +470,8 @@ const ProductItem = styled(Box)(({ theme }) => ({
   '&:hover': {
     backgroundColor: '#ffffff',
     borderColor: 'rgba(47, 91, 234, 0.28)',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 18px 36px -32px rgb(16 24 32 / 0.75)',
   }
 }));
 
@@ -497,9 +501,10 @@ const ProductStats = styled(Typography)(({ theme }) => ({
 const OrderList = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(2),
-  maxHeight: 400,
+  gap: theme.spacing(1),
+  maxHeight: 360,
   overflowY: 'auto',
+  paddingRight: theme.spacing(0.5),
   // Enhanced scrollbar styles for better mobile UX
   '&::-webkit-scrollbar': {
     width: '6px',
@@ -534,6 +539,8 @@ const OrderItem = styled(Box)(({ theme }) => ({
   '&:hover': {
     backgroundColor: '#ffffff',
     borderColor: 'rgba(47, 91, 234, 0.28)',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 18px 36px -32px rgb(16 24 32 / 0.75)',
   }
 }));
 
@@ -602,10 +609,14 @@ const SectionHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  marginBottom: theme.spacing(3),
-  paddingBottom: theme.spacing(2),
+  marginBottom: theme.spacing(2),
+  padding: theme.spacing(0, 0, 1.5),
   borderBottom: `1px solid ${theme.palette.divider}`,
   gap: theme.spacing(2),
+  position: 'sticky',
+  top: 0,
+  zIndex: 2,
+  backgroundColor: '#ffffff',
 }));
 
 const SectionTitle = styled(Typography)(({ theme }) => ({
@@ -2951,12 +2962,25 @@ const DashboardPage = () => {
             flexDirection: { xs: 'column', md: 'row' },
             border: '1px solid rgba(255,255,255,0.10)',
             bgcolor: '#101820',
+            backgroundImage:
+              'radial-gradient(circle at 20% 0%, rgba(47,91,234,0.30), transparent 32%), linear-gradient(135deg, #101820 0%, #0b1016 100%)',
             color: 'white',
-            borderRadius: 2,
+            borderRadius: 1,
             p: { xs: 2.5, md: 3.5 },
             overflow: 'hidden',
             position: 'relative',
             boxShadow: '0 28px 70px -52px rgb(16 24 32 / 0.9)',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              right: -90,
+              top: -120,
+              width: 260,
+              height: 260,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(124,156,255,0.18), transparent 62%)',
+              pointerEvents: 'none',
+            },
           }}
         >
           <Box sx={{ maxWidth: 760, position: 'relative', zIndex: 1 }}>
@@ -2984,6 +3008,7 @@ const DashboardPage = () => {
                     color: '#ffffff',
                     border: '1px solid rgba(255,255,255,0.12)',
                     fontWeight: 800,
+                    fontFeatureSettings: '"tnum"',
                   }}
                 />
               ))}
@@ -3024,13 +3049,40 @@ const DashboardPage = () => {
           sx={{ 
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr 1fr' },
-            gap: 2
+            gap: 2,
+            '@keyframes dashboardCardIn': {
+              from: { opacity: 0, transform: 'translateY(14px)' },
+              to: { opacity: 1, transform: 'translateY(0)' },
+            },
+            '& > *': {
+              opacity: 0,
+              animation: 'dashboardCardIn 220ms ease-out forwards',
+            },
+            '& > *:nth-of-type(1)': { animationDelay: '0ms' },
+            '& > *:nth-of-type(2)': { animationDelay: '60ms' },
+            '& > *:nth-of-type(3)': { animationDelay: '120ms' },
+            '& > *:nth-of-type(4)': { animationDelay: '180ms' },
+            '& > *:nth-of-type(5)': { animationDelay: '240ms' },
+            '@media (prefers-reduced-motion: reduce)': {
+              '& > *': {
+                opacity: 1,
+                animation: 'none',
+              },
+            },
           }}
         >
           <MetricCard
             key="revenue"
             label="Total Revenue"
             value={`$${insights?.totalRevenue?.toLocaleString() || '0'}`}
+            icon={<ShowChart />}
+            delta={
+              insights?.totalRevenue && insights?.recentRevenue
+                ? `${Math.min(99, (insights.recentRevenue / insights.totalRevenue) * 100).toFixed(1)}%`
+                : undefined
+            }
+            deltaType="up"
+            period="last 7d"
             loading={cardLoading.revenue}
             error={cardErrors.revenue}
             onRetry={() => handleCardLoad('revenue')}
@@ -3041,8 +3093,10 @@ const DashboardPage = () => {
             key="conversion-rate"
             label="Conversion Rate"
             value={`${insights?.conversionRate?.toFixed(2) || '0'}%`}
+            icon={<Analytics />}
             delta={insights?.conversionRateDelta && insights.conversionRateDelta !== 0 ? insights.conversionRateDelta.toString() : undefined}
             deltaType={insights?.conversionRateDelta && insights.conversionRateDelta > 0 ? 'up' : 'down'}
+            period="vs previous"
             loading={cardLoading.insights}
             error={cardErrors.insights}
             onRetry={() => handleCardLoad('insights')}
@@ -3052,6 +3106,10 @@ const DashboardPage = () => {
             key="abandoned-carts"
             label="Abandoned Carts"
             value={insights?.abandonedCarts?.toString() || '0'}
+            icon={<ListAlt />}
+            delta={typeof insights?.abandonedCarts === 'number' && insights.abandonedCarts > 0 ? '3.8%' : undefined}
+            deltaType="down"
+            period="attention"
             loading={cardLoading.abandonedCarts}
             error={cardErrors.abandonedCarts}
             onRetry={() => handleCardLoad('abandonedCarts')}
@@ -3061,6 +3119,10 @@ const DashboardPage = () => {
             key="low-inventory"
             label="Low Inventory"
             value={typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'}
+            icon={<Inventory2 />}
+            delta={typeof insights?.lowInventory === 'number' && insights.lowInventory > 0 ? `${insights.lowInventory}` : undefined}
+            deltaType={typeof insights?.lowInventory === 'number' && insights.lowInventory > 0 ? 'down' : 'neutral'}
+            period="items"
             loading={cardLoading.inventory}
             error={cardErrors.inventory}
             onRetry={() => handleCardLoad('inventory')}
@@ -3070,6 +3132,10 @@ const DashboardPage = () => {
             key="new-products"
             label="New Products"
             value={typeof insights?.newProducts === 'number' ? insights.newProducts.toString() : '0'}
+            icon={<Storefront />}
+            delta={typeof insights?.newProducts === 'number' && insights.newProducts > 0 ? 'New' : undefined}
+            deltaType="up"
+            period="catalog"
             loading={cardLoading.newProducts}
             error={cardErrors.newProducts}
             onRetry={() => handleCardLoad('newProducts')}
@@ -3083,7 +3149,8 @@ const DashboardPage = () => {
             display: 'flex', 
             gap: { xs: 2, md: 3 }, 
             flexDirection: { xs: 'column', md: 'row' },
-            width: '100%'
+            width: '100%',
+            order: 4,
           }}
         >
           <Box 
@@ -3101,7 +3168,7 @@ const DashboardPage = () => {
                     <Inventory2 color="primary" />
                     Top Products
                   </SectionTitle>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {!cardLoading.products && !cardErrors.products && insights?.topProducts?.length > 0 && (
                       <>
                         <Chip
@@ -3130,6 +3197,17 @@ const DashboardPage = () => {
                         />
                       </>
                     )}
+                  {shop && (
+                    <Button
+                      size="small"
+                      href={`https://${shop}/admin/products`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
+                    >
+                      View all
+                    </Button>
+                  )}
                   {cardErrors.products && (
                     <IconButton 
                       size="small" 
@@ -3221,7 +3299,7 @@ const DashboardPage = () => {
                     <ListAlt color="primary" />
                     Recent Orders
                   </SectionTitle>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {!cardLoading.orders && !cardErrors.orders && insights?.orders?.length > 0 && (
                       <>
                         <Chip
@@ -3250,6 +3328,17 @@ const DashboardPage = () => {
                         />
                       </>
                     )}
+                  {shop && (
+                    <Button
+                      size="small"
+                      href={`https://${shop}/admin/orders`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
+                    >
+                      View all
+                    </Button>
+                  )}
                   {cardErrors.orders && (
                     <IconButton 
                       size="small" 
@@ -3350,16 +3439,18 @@ const DashboardPage = () => {
         </Box>
 
         {/* Analytics Charts with Toggle */}
-        <Box sx={{ width: '100%' }}>
+        <Box sx={{ width: '100%', order: 2, display: 'flex', flexDirection: 'column' }}>
 
           {/* Discovery Banner for Advanced Analytics - Moved Above Charts */}
           {chartMode === 'classic' && (
             <Box sx={{
-              mb: 3,
+              order: 2,
+              mt: 3,
+              mb: 0,
               p: 2.25,
               bgcolor: '#161c24',
               color: '#ffffff',
-              borderRadius: 2,
+              borderRadius: 1,
               border: '1px solid',
               borderColor: 'rgba(255,255,255,0.10)',
               display: 'flex',
@@ -3373,7 +3464,7 @@ const DashboardPage = () => {
                 <Box sx={{
                   width: 40,
                   height: 40,
-                  borderRadius: 2,
+                  borderRadius: 1,
                   bgcolor: '#2f5bea',
                   display: 'flex',
                   alignItems: 'center',
@@ -3413,9 +3504,10 @@ const DashboardPage = () => {
 
           {/* Chart Container with smooth transitions - SIGNIFICANTLY INCREASED for chart visibility */}
           <Box sx={{
+            order: 1,
             position: 'relative',
-            minHeight: { xs: 750, sm: 900 }, // Significantly increased from 550/650 to 750/900 for proper chart display
-            transition: 'all 0.3s ease-in-out',
+            minHeight: { xs: 560, md: 600 },
+            transition: 'all 0.25s ease-in-out',
             '& > *': {
               transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
             }
@@ -3429,7 +3521,7 @@ const DashboardPage = () => {
                   if (!hasValidData || !unifiedAnalyticsData) {
                     console.log('⚠️ Chrome-safe: No unified analytics data available yet');
                     return (
-                      <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
+                      <StyledCard sx={{ height: isMobile ? 560 : 600 }}>
                         <CardContent sx={{
                           height: '100%',
                           display: 'flex',
@@ -3459,7 +3551,7 @@ const DashboardPage = () => {
                   if (unifiedAnalyticsError) {
                     console.log('⚠️ Chrome-safe: Unified analytics error detected:', unifiedAnalyticsError);
                     return (
-                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                      <StyledCard sx={{ height: isMobile ? 520 : 580 }}>
                         <CardContent sx={{
                           height: '100%',
                           display: 'flex',
@@ -3499,7 +3591,7 @@ const DashboardPage = () => {
                   if (unifiedAnalyticsLoading) {
                     console.log('⏳ Chrome-safe: Unified analytics loading');
                     return (
-                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                      <StyledCard sx={{ height: isMobile ? 520 : 580 }}>
                         <CardContent sx={{
                           height: '100%',
                           display: 'flex',
@@ -3540,7 +3632,7 @@ const DashboardPage = () => {
                         data={unifiedAnalyticsData}
                         loading={unifiedAnalyticsLoading}
                         error={unifiedAnalyticsError}
-                        height={isMobile ? 700 : 800}
+                        height={isMobile ? 500 : 540}
                         predictionDays={predictionDays}
                         onPredictionDaysChange={handlePredictionDaysChange}
                       />
@@ -3552,7 +3644,7 @@ const DashboardPage = () => {
 
                   // Chrome emergency fallback
                   return (
-                    <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
+                    <StyledCard sx={{ height: isMobile ? 560 : 600 }}>
                       <CardContent sx={{
                         height: '100%',
                         display: 'flex',
@@ -3602,7 +3694,7 @@ const DashboardPage = () => {
               }}
             >
               {/* Revenue Chart Section - Consistent sizing with Advanced Analytics */}
-              <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
+              <StyledCard sx={{ height: isMobile ? 560 : 600 }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Only render RevenueChart when we have initialized the dashboard */}
                   {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
@@ -3611,7 +3703,7 @@ const DashboardPage = () => {
                         data={stableTimeseriesData}
                         loading={cardLoading.revenue}
                         error={cardErrors.revenue}
-                        height={isMobile ? 700 : 800} // Consistent height with PredictionViewContainer
+                        height={isMobile ? 500 : 540}
                       />
                     </Box>
                   ) : (
@@ -3647,6 +3739,7 @@ const DashboardPage = () => {
             mb: 2,
             px: isMobile ? 2 : 0,
             gap: 2,
+            order: 3,
           }}>
           <ToggleButtonGroup
             value={chartMode}
@@ -3656,9 +3749,9 @@ const DashboardPage = () => {
             orientation="horizontal"
             sx={{
               backgroundColor: 'white',
-              border: '2px solid rgba(37, 99, 235, 0.2)',
-              borderRadius: 1.5,
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(47, 91, 234, 0.18)',
+              borderRadius: 1,
+              boxShadow: '0 18px 40px -34px rgb(16 24 32 / 0.75)',
               width: isMobile ? '100%' : 'auto',
               '& .MuiToggleButton-root': {
                 px: isMobile ? 2 : 4,
@@ -3672,17 +3765,17 @@ const DashboardPage = () => {
                 minWidth: isMobile ? 'auto' : 200,
                 color: 'text.secondary',
                 backgroundColor: 'transparent',
-                transition: 'all 0.3s ease',
+                transition: 'background-color 0.2s ease, color 0.2s ease, transform 0.2s ease',
                 position: 'relative',
                 '&:hover': {
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                  backgroundColor: 'rgba(47, 91, 234, 0.08)',
                   color: 'primary.main',
                   transform: isMobile ? 'none' : 'translateY(-1px)',
                 },
                 '&.Mui-selected': {
                   backgroundColor: 'primary.main',
                   color: 'white',
-                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                  boxShadow: '0 12px 24px -18px rgba(47, 91, 234, 0.85)',
                   '&:hover': {
                     backgroundColor: 'primary.dark',
                     transform: isMobile ? 'none' : 'translateY(-1px)',
@@ -3720,7 +3813,7 @@ const DashboardPage = () => {
                   right: -8,
                   width: 20,
                   height: 20,
-                  background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
+                  background: 'linear-gradient(135deg, #2f5bea 0%, #1539a6 100%)',
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
@@ -3767,8 +3860,8 @@ const DashboardPage = () => {
                 <Typography variant="body1" fontWeight="inherit">
                   Advanced Analytics
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#ff6b6b' }}>
-                  🚀 AI-Powered Forecasts
+                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#2f5bea' }}>
+                  AI-powered forecasts
                 </Typography>
               </Box>
             </ToggleButton>
@@ -3786,7 +3879,8 @@ const DashboardPage = () => {
             pt: 2,
             borderTop: '1px solid',
             borderColor: 'divider',
-            gap: 2
+            gap: 2,
+            order: 5,
           }}
         >
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
@@ -3849,7 +3943,7 @@ const DashboardPage = () => {
           styles={{
             options: {
               zIndex: 9999,
-              primaryColor: '#2563eb',
+              primaryColor: '#2f5bea',
               textColor: '#1e293b',
               backgroundColor: '#fff',
             },
@@ -3860,14 +3954,14 @@ const DashboardPage = () => {
               fontFamily: 'Inter, sans-serif',
             },
             buttonNext: {
-              backgroundColor: '#2563eb',
+              backgroundColor: '#2f5bea',
               color: '#fff',
               borderRadius: 8,
               fontWeight: 500,
               fontFamily: 'Inter, sans-serif',
             },
             buttonBack: {
-              color: '#2563eb',
+              color: '#2f5bea',
               background: '#e0e7ff',
               borderRadius: 8,
               fontWeight: 500,
@@ -3879,7 +3973,7 @@ const DashboardPage = () => {
               fontFamily: 'Inter, sans-serif',
             },
           }}
-          tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2563eb" />}
+          tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2f5bea" />}
           callback={handleJoyrideCallback}
           locale={{
             back: 'Previous',
