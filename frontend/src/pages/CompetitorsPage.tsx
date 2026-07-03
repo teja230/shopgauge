@@ -2877,60 +2877,79 @@ export default function CompetitorsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#f6f7f9] px-4 py-6 sm:px-6">
       <DemoModeBanner />
       <div className="max-w-7xl mx-auto space-y-6">
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white shadow-[0_28px_70px_-52px_rgba(16,24,32,0.9)]">
+          <p className="text-sm font-black uppercase text-[#9db4ff]">Market Intelligence</p>
+          <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-black leading-tight text-white">Competitor price command</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#c3ccd5]">
+                Track price movement, stock status, and market pressure from one retail intelligence board.
+              </p>
+            </div>
+            <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-black text-[#b9c8ff]">
+              {competitors.length} active competitors
+            </div>
+          </div>
+        </div>
+
         {/* Limit Display */}
         <LimitDisplay />
         
         {/* Market Insights Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 market-insights-cards">
-          <div className="bg-white rounded-xl shadow p-4">
+          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#2f5bea]" />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Competitors</p>
-                <p className="text-2xl font-bold text-gray-900">{insights.total}</p>
+                <p className="text-xs font-black uppercase text-[#5f6b76]">Total Competitors</p>
+                <p className="text-3xl font-black text-[#101820]">{insights.total}</p>
               </div>
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <ChartBarIcon className="h-6 w-6 text-blue-600" />
+              <div className="bg-[#e7ecff] p-2 rounded-lg">
+                <ChartBarIcon className="h-6 w-6 text-[#2f5bea]" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-4">
+          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#15b87a]" />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">In Stock</p>
-                <p className="text-2xl font-bold text-green-600">{insights.inStock}</p>
+                <p className="text-xs font-black uppercase text-[#5f6b76]">In Stock</p>
+                <p className="text-3xl font-black text-[#08734c]">{insights.inStock}</p>
               </div>
-              <div className="bg-green-100 p-2 rounded-lg">
-                <CheckCircleIcon className="h-6 w-6 text-green-600" />
+              <div className="bg-[#dff8ea] p-2 rounded-lg">
+                <CheckCircleIcon className="h-6 w-6 text-[#15b87a]" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-4">
+          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#f59e0b]" />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Price Changes</p>
-                <p className="text-2xl font-bold text-orange-600">{insights.priceChanges}</p>
+                <p className="text-xs font-black uppercase text-[#5f6b76]">Price Changes</p>
+                <p className="text-3xl font-black text-[#b45309]">{insights.priceChanges}</p>
               </div>
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <BoltIcon className="h-6 w-6 text-orange-600" />
+              <div className="bg-[#fff1cf] p-2 rounded-lg">
+                <BoltIcon className="h-6 w-6 text-[#f59e0b]" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-4">
+          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#f9734d]" />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Avg Price</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-xs font-black uppercase text-[#5f6b76]">Avg Price</p>
+                <p className="text-3xl font-black text-[#c2410c]">
                   {insights.avgPrice > 0 ? `$${insights.avgPrice.toFixed(2)}` : 'N/A'}
                 </p>
               </div>
-              <div className="bg-purple-100 p-2 rounded-lg">
-                <ArrowTrendingUpIcon className="h-6 w-6 text-purple-600" />
+              <div className="bg-[#ffe4d8] p-2 rounded-lg">
+                <ArrowTrendingUpIcon className="h-6 w-6 text-[#f9734d]" />
               </div>
             </div>
           </div>
@@ -2940,7 +2959,7 @@ export default function CompetitorsPage() {
 
 
         {/* Control Panel */}
-        <div className="bg-white rounded-xl shadow p-4">
+        <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             {/* Left side - Filters and Search */}
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1 filter-controls">
@@ -2949,7 +2968,7 @@ export default function CompetitorsPage() {
                 <div className="relative filter-dropdown">
                   <button
                     onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
-                    className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition-colors"
+                    className="flex items-center gap-2 rounded-md border border-[#cbd5ce] bg-white px-3 py-2 text-sm font-semibold text-[#5f6b76] outline-none transition-colors hover:border-[#2f5bea] hover:bg-[#fafbfc] focus:ring-2 focus:ring-[#2f5bea]/20"
                   >
                     <span className="text-gray-700">
                       {filterStatus === 'all' && 'All Competitors'}
@@ -3021,7 +3040,7 @@ export default function CompetitorsPage() {
                     setSearchQuery(e.target.value);
                     if (e.target.value) trackDemoInteraction('search_competitors');
                   }}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none text-sm bg-white hover:bg-gray-50 transition-colors"
+                  className="w-full rounded-md border border-[#cbd5ce] bg-white py-2 pl-10 pr-4 text-sm font-medium text-[#101820] outline-none transition-colors placeholder:text-[#8b96a2] hover:border-[#2f5bea] focus:border-[#2f5bea] focus:ring-2 focus:ring-[#2f5bea]/20"
                 />
               </div>
             </div>
@@ -3035,7 +3054,7 @@ export default function CompetitorsPage() {
                     toggleDemoMode();
                     trackDemoInteraction('demo_toggle');
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all demo-toggle-button ${
+                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold transition-all demo-toggle-button ${
                     isDemoMode 
                       ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-md' 
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -3057,10 +3076,10 @@ export default function CompetitorsPage() {
                   trackDemoInteraction('discovery_button');
                 }}
                 disabled={isDiscovering || discoveryStatus.isOnCooldown}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md discovery-button ${
+                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold transition-all shadow-md discovery-button ${
                   discoveryStatus.isOnCooldown 
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
                 }`}
                 title={discoveryStatus.isOnCooldown 
                   ? `Discovery available in ${discoveryStatus.hoursRemaining} hours. This helps us manage costs while finding the best competitors for you.`
@@ -3091,7 +3110,7 @@ export default function CompetitorsPage() {
                     }, 'CompetitorsPage');
                     setShowSuggestions(true);
                   }}
-                  className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all shadow-md suggestions-button"
+                  className="suggestions-button relative flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-bold text-blue-700 border border-blue-300 shadow-sm transition-all hover:bg-blue-50"
                 >
                   <SparklesIcon className="h-4 w-4" />
                   <span>{suggestionCount} New</span>
@@ -3103,10 +3122,10 @@ export default function CompetitorsPage() {
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
                 disabled={isAdding}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md add-competitor-button ${
+                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold transition-all shadow-md add-competitor-button ${
                   isAdding 
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                    : 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 {isAdding ? (
@@ -3121,10 +3140,10 @@ export default function CompetitorsPage() {
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing || refreshCooldown > 0}
-                className={`refresh-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                className={`refresh-button flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold transition-all shadow-md ${
                   isRefreshing || refreshCooldown > 0
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50'
                 }`}
                 title={
                   isRefreshing && refreshProgress 
@@ -3152,10 +3171,10 @@ export default function CompetitorsPage() {
               {/* Deleted Competitors Button */}
               <button
                 onClick={() => setShowDeletedCompetitors(!showDeletedCompetitors)}
-                className={`archived-competitors-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
+                className={`archived-competitors-button flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold transition-all shadow-md ${
                   showDeletedCompetitors
                     ? 'bg-orange-600 text-white hover:bg-orange-700'
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                    : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50'
                 }`}
                 title="View and restore archived competitors"
               >
@@ -3169,7 +3188,7 @@ export default function CompetitorsPage() {
 
           {/* Add Form */}
           {showAddForm && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <form onSubmit={(e) => { e.preventDefault(); handleAdd(); }} className="flex flex-col sm:flex-row gap-3">
                 <div className="w-full sm:w-1/2 relative">
                   <div className="relative url-tooltip-container">
@@ -3375,7 +3394,7 @@ export default function CompetitorsPage() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md ${
                     isAdding 
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                      : 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
                   {isAdding ? (
@@ -3405,7 +3424,7 @@ export default function CompetitorsPage() {
         </div>
 
         {/* Competitors Table */}
-        <div className="bg-white rounded-xl shadow overflow-hidden relative">
+        <div className="relative overflow-hidden rounded-lg border border-[#e4e7eb] bg-[#ffffff] shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
           {/* Loading overlay during competitor addition */}
           {isAdding && (
             <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
@@ -3417,12 +3436,12 @@ export default function CompetitorsPage() {
             </div>
           )}
           
-          <div className="p-6 border-b border-gray-200">
+          <div className="border-b border-[#e4e7eb] bg-white/55 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+              <h2 className="flex items-center gap-2 text-xl font-black text-[#101820]">
                 Market Intelligence
               </h2>
-              <div className="text-sm text-gray-500">
+              <div className="rounded-full border border-[#e4e7eb] bg-white px-3 py-1 text-sm font-bold text-[#5f6b76]">
                 {filteredCompetitors.length} of {competitors.length} competitor{competitors.length !== 1 ? 's' : ''}
               </div>
             </div>
@@ -3461,7 +3480,7 @@ export default function CompetitorsPage() {
           ) : (
             <div className="space-y-4">
               {/* Active Competitors Section */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+              <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="competitor-table">
                   <CompetitorTable 
                     data={filteredCompetitors} 
@@ -3488,7 +3507,7 @@ export default function CompetitorsPage() {
               
               {/* Archived Competitors Panel */}
               {showDeletedCompetitors && (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
                   <div className="competitor-table">
                     <ArchivedCompetitorsPanel
                       shopId={isDemoMode ? 'demo' : (shop || 'demo')}
@@ -3593,7 +3612,7 @@ export default function CompetitorsPage() {
       {/* Demo Settings Modal */}
       {showDemoSettings && !isDemoStore(shop) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="mx-4 max-h-[90vh] max-w-lg overflow-y-auto rounded-lg bg-white p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">Demo Settings</h3>
               <button

@@ -76,12 +76,12 @@ const BusinessIntelligencePage: React.FC = () => {
   const { isAuthenticated, shop, isDemoMode } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   // Data state
   const [aggregatedData, setAggregatedData] = useState<AggregatedDashboardData | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
-  
+
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -102,15 +102,15 @@ const BusinessIntelligencePage: React.FC = () => {
   // Smart timeframe detection based on user question
   const detectTimeframeFromQuestion = (question: string): '24h' | '7d' | '30d' | '60d' => {
     const lowerQuestion = question.toLowerCase();
-    
+
     // Recent/immediate timeframes
-    if (lowerQuestion.includes('today') || lowerQuestion.includes('yesterday') || 
+    if (lowerQuestion.includes('today') || lowerQuestion.includes('yesterday') ||
         lowerQuestion.includes('last 24') || lowerQuestion.includes('past day') ||
         lowerQuestion.includes('recent') || lowerQuestion.includes('now') ||
         lowerQuestion.includes('current')) {
       return '24h';
     }
-    
+
     // Two-month / 60 day timeframes
     if (lowerQuestion.includes('60') || lowerQuestion.includes('two months') || lowerQuestion.includes('last 2 months') ||
         lowerQuestion.includes('past 60') || lowerQuestion.includes('bi-month') || lowerQuestion.includes('bimonth')) {
@@ -124,93 +124,93 @@ const BusinessIntelligencePage: React.FC = () => {
         lowerQuestion.includes('total') || lowerQuestion.includes('all time')) {
       return '30d';
     }
-    
+
     // Default to weekly for most questions
     return '7d';
   };
-  
+
   // Insight cards with subtle colors matching Market Intelligence theme
   const [insightCards, setInsightCards] = useState<InsightCard[]>([
-    { 
-      id: 'summary', 
-      type: 'summary', 
-      title: 'Executive Summary', 
+    {
+      id: 'summary',
+      type: 'summary',
+      title: 'Executive Summary',
       description: 'Key performance metrics and business overview',
       icon: AnalyticsIcon,
       color: '#2563eb', // Blue color matching Market Intelligence
-      insight: null, 
-      loading: false, 
-      error: null 
+      insight: null,
+      loading: false,
+      error: null
     },
-    { 
-      id: 'trends', 
-      type: 'trends', 
-      title: 'Performance Trends', 
+    {
+      id: 'trends',
+      type: 'trends',
+      title: 'Performance Trends',
       description: 'Revenue growth patterns and market dynamics',
       icon: TrendingUpIcon,
       color: '#059669', // Green color matching Market Intelligence
-      insight: null, 
-      loading: false, 
-      error: null 
+      insight: null,
+      loading: false,
+      error: null
     },
-    { 
-      id: 'costs', 
-      type: 'costs', 
-      title: 'Cost Analysis', 
+    {
+      id: 'costs',
+      type: 'costs',
+      title: 'Cost Analysis',
       description: 'Market intelligence ROI and optimization opportunities',
       icon: CostIcon,
       color: '#d97706', // Orange color matching Market Intelligence
-      insight: null, 
-      loading: false, 
-      error: null 
+      insight: null,
+      loading: false,
+      error: null
     },
-    { 
-      id: 'recommendations', 
-      type: 'recommendations', 
-      title: 'Strategic Recommendations', 
+    {
+      id: 'recommendations',
+      type: 'recommendations',
+      title: 'Strategic Recommendations',
       description: 'Prioritized action items for business growth',
       icon: RecommendationIcon,
       color: '#7c3aed', // Purple color for recommendations
-      insight: null, 
-      loading: false, 
-      error: null 
+      insight: null,
+      loading: false,
+      error: null
     }
   ]);
 
   // Suggested questions - dynamically generated based on data
   const getSuggestedQuestions = (): SuggestedQuestion[] => {
     const baseQuestions: SuggestedQuestion[] = [
-      { 
-        text: "What are my top performing products today?", 
+      {
+        text: "What are my top performing products today?",
         icon: TrendingUpIcon,
         category: "Performance"
       },
-      { 
-        text: "How is my revenue trending this week?", 
+      {
+        text: "How is my revenue trending this week?",
         icon: AnalyticsIcon,
         category: "Revenue"
       },
-      { 
-        text: "What should I focus on to increase revenue?", 
+      {
+        text: "What should I focus on to increase revenue?",
         icon: CostIcon,
         category: "Growth"
       },
-      { 
-        text: "How can I optimize my business operations?", 
+      {
+        text: "How can I optimize my business operations?",
         icon: RecommendationIcon,
         category: "Optimization"
       },
-      { 
-        text: "What marketing strategies should I prioritize?", 
+      {
+        text: "What marketing strategies should I prioritize?",
         icon: AIIcon,
         category: "Strategy"
       }
     ];
-    
+
     // Add context-specific questions based on aggregated data
     if (aggregatedData) {
       const contextQuestions: SuggestedQuestion[] = [];
-      
+
       if (aggregatedData.products?.lowInventory > 0) {
         contextQuestions.push({
           text: `I have ${aggregatedData.products.lowInventory} low-stock items. What should I do?`,
@@ -218,7 +218,7 @@ const BusinessIntelligencePage: React.FC = () => {
           category: "Urgent"
         });
       }
-      
+
       if (aggregatedData.marketIntelligence?.competitors?.length > 0) {
         contextQuestions.push({
           text: `How do I compare to my ${aggregatedData.marketIntelligence.competitors.length} competitors?`,
@@ -232,7 +232,7 @@ const BusinessIntelligencePage: React.FC = () => {
           category: "Market Intelligence"
         });
       }
-      
+
       if (aggregatedData.orders?.abandonedCarts > 5) {
         contextQuestions.push({
           text: `How can I reduce my ${aggregatedData.orders.abandonedCarts} abandoned carts?`,
@@ -240,14 +240,14 @@ const BusinessIntelligencePage: React.FC = () => {
           category: "Conversion"
         });
       }
-      
+
       // Return context questions first, then base questions
       return [...contextQuestions.slice(0, 2), ...baseQuestions].slice(0, 6);
     }
-    
+
     return baseQuestions;
   };
-  
+
   const suggestedQuestions = getSuggestedQuestions();
 
   // Load data on component mount
@@ -267,20 +267,20 @@ const BusinessIntelligencePage: React.FC = () => {
 
   const loadAggregatedData = useCallback(async (forceRefresh = true) => {
     if (!shop || !isAuthenticated) return;
-    
+
     setDataLoading(true);
     setDataError(null);
-    
+
     try {
-      console.log('🔄 ShopGPT: Loading shop data', { 
-        shop, 
-        isDemoMode, 
+      console.log('🔄 ShopGPT: Loading shop data', {
+        shop,
+        isDemoMode,
         forceRefresh,
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString()
       });
-      
+
       const data = await dataAggregationService.aggregateShopData(shop, forceRefresh);
-      
+
       console.log('✅ ShopGPT: Data loaded successfully', {
         shop: data.metadata.shop,
         revenue: data.revenue?.total,
@@ -289,17 +289,17 @@ const BusinessIntelligencePage: React.FC = () => {
         competitors: data.marketIntelligence?.competitors?.length,
         isDemoMode
       });
-      
+
       setAggregatedData(data);
-      
+
       // Auto-generate insights on initial load
       if (forceRefresh) {
         await generateAllInsights(data);
       }
     } catch (error) {
       console.error('❌ ShopGPT: Failed to load aggregated data:', error);
-      setDataError(isDemoMode 
-        ? 'Failed to load demo data. Please refresh the page.' 
+      setDataError(isDemoMode
+        ? 'Failed to load demo data. Please refresh the page.'
         : 'Failed to load business data. Please try again.');
     } finally {
       setDataLoading(false);
@@ -309,14 +309,14 @@ const BusinessIntelligencePage: React.FC = () => {
   const generateAllInsights = async (data?: AggregatedDashboardData) => {
     const dataToUse = data || aggregatedData;
     if (!dataToUse) return;
-    
+
     // Set all cards to loading
     setInsightCards(prev => prev.map(card => ({
       ...card,
       loading: true,
       error: null
     })));
-    
+
     try {
       const insights = await Promise.all(
         insightCards.map(async (card) => {
@@ -328,7 +328,7 @@ const BusinessIntelligencePage: React.FC = () => {
               focus: [card.type]
             }
           };
-          
+
           try {
             return await aiInsightsService.generateInsight(request);
           } catch (error) {
@@ -337,7 +337,7 @@ const BusinessIntelligencePage: React.FC = () => {
           }
         })
       );
-      
+
       setInsightCards(prev => prev.map((card, index) => ({
         ...card,
         insight: insights[index] || null,
@@ -363,16 +363,16 @@ const BusinessIntelligencePage: React.FC = () => {
 
   const generateSingleInsight = async (cardId: string) => {
     if (!aggregatedData) return;
-    
+
     const card = insightCards.find(c => c.id === cardId);
     if (!card) return;
-    
-    setInsightCards(prev => prev.map(c => 
-      c.id === cardId 
+
+    setInsightCards(prev => prev.map(c =>
+      c.id === cardId
         ? { ...c, loading: true, error: null }
         : c
     ));
-    
+
     try {
       const request: InsightRequest = {
         type: card.type,
@@ -382,19 +382,19 @@ const BusinessIntelligencePage: React.FC = () => {
           focus: [card.type]
         }
       };
-      
+
       const insight = await aiInsightsService.generateInsight(request);
-      
-      setInsightCards(prev => prev.map(c => 
-        c.id === cardId 
+
+      setInsightCards(prev => prev.map(c =>
+        c.id === cardId
           ? { ...c, insight, loading: false, error: null }
           : c
       ));
-      
+
     } catch (error) {
       console.error('Single insight generation failed:', error);
-      setInsightCards(prev => prev.map(c => 
-        c.id === cardId 
+      setInsightCards(prev => prev.map(c =>
+        c.id === cardId
           ? { ...c, loading: false, error: 'Failed to generate insight' }
           : c
       ));
@@ -406,7 +406,7 @@ const BusinessIntelligencePage: React.FC = () => {
     return new Promise<void>((resolve) => {
       let currentIndex = 0;
       const words = text.split(' ');
-      
+
       const interval = setInterval(() => {
         if (currentIndex < words.length) {
           const currentText = words.slice(0, currentIndex + 1).join(' ');
@@ -424,28 +424,28 @@ const BusinessIntelligencePage: React.FC = () => {
   // Determine insight type based on question content
   const determineInsightType = (question: string): InsightRequest['type'] => {
     const lowerQuestion = question.toLowerCase();
-    
+
     // Check for cost/budget related keywords
-    if (lowerQuestion.includes('cost') || lowerQuestion.includes('budget') || 
+    if (lowerQuestion.includes('cost') || lowerQuestion.includes('budget') ||
         lowerQuestion.includes('spend') || lowerQuestion.includes('expense') ||
         lowerQuestion.includes('roi') || lowerQuestion.includes('investment')) {
       return 'costs';
     }
-    
+
     // Check for trend/growth related keywords
-    if (lowerQuestion.includes('trend') || lowerQuestion.includes('growth') || 
+    if (lowerQuestion.includes('trend') || lowerQuestion.includes('growth') ||
         lowerQuestion.includes('performance') || lowerQuestion.includes('revenue') ||
         lowerQuestion.includes('sales') || lowerQuestion.includes('pattern')) {
       return 'trends';
     }
-    
+
     // Check for recommendation/action related keywords
-    if (lowerQuestion.includes('should') || lowerQuestion.includes('recommend') || 
+    if (lowerQuestion.includes('should') || lowerQuestion.includes('recommend') ||
         lowerQuestion.includes('improve') || lowerQuestion.includes('optimize') ||
         lowerQuestion.includes('what to do') || lowerQuestion.includes('how to')) {
       return 'recommendations';
     }
-    
+
     // Default to summary for general questions
     return 'summary';
   };
@@ -453,10 +453,10 @@ const BusinessIntelligencePage: React.FC = () => {
   const handleChatSubmit = async (question?: string) => {
     const messageText = question || chatInput.trim();
     if (!messageText || !aggregatedData) return;
-    
+
     // Hide suggestions while processing
     setShowSuggestions(false);
-    
+
     // Add user message
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -464,22 +464,22 @@ const BusinessIntelligencePage: React.FC = () => {
       content: messageText,
       timestamp: new Date()
     };
-    
+
     setChatMessages(prev => [...prev, userMessage]);
     setChatInput('');
     setChatLoading(true);
-    
+
     try {
       // Determine insight type and timeframe based on question content
       const insightType = determineInsightType(messageText);
       const detectedTimeframe = detectTimeframeFromQuestion(messageText);
-      
+
       // Show timeframe detection if different from selected
       const timeframeChanged = detectedTimeframe !== selectedTimeframe;
       if (timeframeChanged) {
         console.log(`🎯 ShopGPT: Auto-detected timeframe: ${detectedTimeframe} (was ${selectedTimeframe})`);
       }
-      
+
       console.log('🤖 ShopGPT: Processing question', {
         question: messageText,
         insightType,
@@ -488,7 +488,7 @@ const BusinessIntelligencePage: React.FC = () => {
         isDemoMode,
         dataPoints: aggregatedData.metadata.dataPoints
       });
-      
+
       const request: InsightRequest = {
         type: insightType,
         data: aggregatedData,
@@ -498,16 +498,16 @@ const BusinessIntelligencePage: React.FC = () => {
           userQuestion: messageText // Pass the question for context
         }
       };
-      
+
       const insight = await aiInsightsService.generateInsight(request);
-      
+
       console.log('✅ ShopGPT: Generated insight', {
         source: insight.source,
         confidence: insight.confidence,
         fromCache: insight.fromCache,
         cost: insight.cost
       });
-      
+
       // Create assistant message with streaming effect
       const assistantMessageId = (Date.now() + 1).toString();
       const assistantMessage: ChatMessage = {
@@ -518,25 +518,25 @@ const BusinessIntelligencePage: React.FC = () => {
         insight,
         isStreaming: true
       };
-      
+
       setChatMessages(prev => [...prev, assistantMessage]);
       setChatLoading(false);
-      
+
       // Simulate streaming
       await simulateStreamingText(insight.insight, assistantMessageId);
-      
+
       // Update with final content and show suggestions again
-      setChatMessages(prev => prev.map(msg => 
-        msg.id === assistantMessageId 
+      setChatMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
           ? { ...msg, content: insight.insight, isStreaming: false }
           : msg
       ));
-      
+
       // Show suggestions again after answer is complete
       setTimeout(() => {
         setShowSuggestions(true);
       }, 500);
-      
+
     } catch (error) {
       console.error('❌ ShopGPT: Chat insight generation failed:', error);
       setChatLoading(false);
@@ -549,7 +549,7 @@ const BusinessIntelligencePage: React.FC = () => {
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, errorMessage]);
-      
+
       // Show suggestions again even after error
       setTimeout(() => {
         setShowSuggestions(true);
@@ -581,31 +581,64 @@ const BusinessIntelligencePage: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <Box sx={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+      <Box sx={{
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        backgroundColor: '#f6f7f9',
         py: { xs: 3, md: 4 }
       }}>
         <Container maxWidth="xl">
           {/* Header */}
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, justifyContent: 'center' }}>
-                <AIIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                  ShopGPT
-                </Typography>
+          <Paper
+            sx={{
+              mb: 3,
+              p: { xs: 2.5, md: 3.5 },
+              borderRadius: 2,
+              border: '1px solid rgba(255,255,255,0.10)',
+              bgcolor: '#101820',
+              color: 'white',
+              boxShadow: '0 28px 70px -52px rgb(16 24 32 / 0.9)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: '#2f5bea', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <AIIcon sx={{ fontSize: 24 }} />
+                </Box>
+                <Box>
+                  <Typography variant="overline" sx={{ color: '#9db4ff', fontWeight: 900 }}>
+                    AI Analyst
+                  </Typography>
+                  <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1.05 }}>
+                    ShopGPT
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#c3ccd5', mt: 1 }}>
+                    Ask questions about revenue, inventory, competitors, and next actions for {shop}.
+                    {isDemoMode && (
+                      <Chip
+                        label="Demo"
+                        size="small"
+                        sx={{ ml: 1, verticalAlign: 'middle', bgcolor: 'rgba(47, 91, 234, 0.22)', color: '#b9c8ff', border: '1px solid rgba(255,255,255,0.12)' }}
+                      />
+                    )}
+                  </Typography>
+                </Box>
               </Box>
-              
+
               {/* Timeframe Selector */}
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>Timeframe</InputLabel>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel sx={{ color: '#aab5c0', '&.Mui-focused': { color: '#7c9cff' } }}>Timeframe</InputLabel>
                 <Select
                   value={selectedTimeframe}
                   label="Timeframe"
                   onChange={(e) => setSelectedTimeframe(e.target.value as '24h' | '7d' | '30d')}
-                  sx={{ 
-                    '& .MuiSelect-select': { 
+                  sx={{
+                    color: '#ffffff',
+                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.20)' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                    '.MuiSvgIcon-root': { color: '#ffffff' },
+                    '& .MuiSelect-select': {
                       py: 1,
                       fontSize: '0.875rem'
                     }
@@ -626,34 +659,22 @@ const BusinessIntelligencePage: React.FC = () => {
                 </Select>
               </FormControl>
             </Box>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-                Your AI business analyst, ready to provide insights and answer questions about {shop} • {timeframeOptions.find(t => t.value === selectedTimeframe)?.description}
-                {isDemoMode && (
-                  <Chip 
-                    label="Demo Mode" 
-                    size="small" 
-                    color="primary" 
-                    sx={{ ml: 1, verticalAlign: 'middle' }}
-                  />
-                )}
-              </Typography>
-            </Box>
-          </Box>
+          </Paper>
 
           {/* Data Context Info */}
           {aggregatedData && !dataLoading && (
-            <Paper sx={{ 
-              mb: 3, 
-              p: 2.5, 
-              borderRadius: 3,
-              bgcolor: isDemoMode ? 'rgba(37, 99, 235, 0.05)' : 'rgba(5, 150, 105, 0.05)',
+            <Paper sx={{
+              mb: 3,
+              p: 2.5,
+              borderRadius: 2,
+              bgcolor: '#ffffff',
               border: '1px solid',
-              borderColor: isDemoMode ? 'rgba(37, 99, 235, 0.2)' : 'rgba(5, 150, 105, 0.2)'
+              borderColor: '#e4e7eb',
+              boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AIIcon sx={{ fontSize: 20, color: isDemoMode ? 'primary.main' : 'success.main' }} />
+                  <AIIcon sx={{ fontSize: 20, color: isDemoMode ? 'primary.main' : 'secondary.main' }} />
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {isDemoMode ? 'Demo Data Active' : 'Live Data Connected'}
                   </Typography>
@@ -677,20 +698,21 @@ const BusinessIntelligencePage: React.FC = () => {
               </Box>
             </Paper>
           )}
-          
+
           {/* Loading State */}
           {dataLoading && (
             <Box sx={{ mb: 3 }}>
-              <Paper sx={{ 
-                p: 3, 
-                borderRadius: 3, 
-                bgcolor: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)'
+              <Paper sx={{
+                p: 3,
+                borderRadius: 2,
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: 'none',
               }}>
                 <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />
-                <Typography variant="body2" sx={{ 
-                  textAlign: 'center', 
+                <Typography variant="body2" sx={{
+                  textAlign: 'center',
                   color: 'text.secondary',
                   fontWeight: 500
                 }}>
@@ -699,15 +721,14 @@ const BusinessIntelligencePage: React.FC = () => {
               </Paper>
             </Box>
           )}
-          
+
           {/* Error State */}
           {dataError && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 3, 
-                borderRadius: 3,
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
+            <Alert
+              severity="error"
+              sx={{
+                mb: 3,
+                borderRadius: 2,
               }}
             >
               {dataError}
@@ -718,26 +739,29 @@ const BusinessIntelligencePage: React.FC = () => {
           {aggregatedData && (
             <Box>
               {/* Chat Container */}
-              <Card sx={{ 
+              <Card sx={{
                 mb: 4,
                 minHeight: 500,
                 display: 'flex',
                 flexDirection: 'column',
-                borderRadius: 3,
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                borderRadius: 2,
+                boxShadow: '0 24px 58px -46px rgb(16 24 32 / 0.85)',
+                border: '1px solid',
+                borderColor: 'divider',
                 overflow: 'hidden'
               }}>
                 {/* Chat Header */}
-                <Box sx={{ 
-                  p: 3, 
+                <Box sx={{
+                  p: 3,
                   borderBottom: 1,
-                  borderColor: 'divider',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white'
+                  borderColor: 'rgba(255,255,255,0.10)',
+                  bgcolor: '#161c24',
+                  color: '#ffffff'
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ 
-                      bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    <Avatar sx={{
+                      bgcolor: '#2f5bea',
+                      color: '#ffffff',
                       width: 40,
                       height: 40
                     }}>
@@ -747,40 +771,43 @@ const BusinessIntelligencePage: React.FC = () => {
                       <Typography variant="h6" fontWeight={600}>
                         ShopGPT Assistant
                       </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                      <Typography variant="caption" sx={{ color: '#aab5c0' }}>
                         Powered by AI • Always learning
                       </Typography>
                     </Box>
                   </Box>
                 </Box>
-                
+
                 {/* Chat Messages Area */}
-                <Box sx={{ 
+                <Box sx={{
                   flexGrow: 1,
                   p: 3,
                   overflowY: 'auto',
                   minHeight: 350,
                   maxHeight: 500,
-                  background: 'linear-gradient(to bottom, #f8fafc 0%, #ffffff 50%)'
+                  bgcolor: '#f6f7f9'
                 }}>
                   {/* Welcome Message */}
                   {chatMessages.length === 0 && (
                     <Fade in>
                       <Box>
                         <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                          <Avatar sx={{ 
-                            bgcolor: 'primary.main',
+                          <Avatar sx={{
+                            bgcolor: '#101820',
+                            color: '#9db4ff',
                             width: 32,
                             height: 32
                           }}>
                             <BotIcon sx={{ fontSize: 18 }} />
                           </Avatar>
                           <Box sx={{ flexGrow: 1 }}>
-                            <Paper sx={{ 
+                            <Paper sx={{
                               p: 3,
-                              bgcolor: 'rgba(103, 126, 234, 0.05)',
-                              borderRadius: 3,
-                              border: '1px solid rgba(103, 126, 234, 0.1)'
+                              bgcolor: 'background.paper',
+                              borderRadius: 2,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
                             }}>
                               <Typography variant="body1" sx={{ mb: 2 }}>
                                 Hello! I'm your AI business analyst for **{aggregatedData?.metadata?.shop || shop}**. {isDemoMode && 'You\'re in demo mode - feel free to explore! '}I have access to your {aggregatedData && (
@@ -790,12 +817,12 @@ const BusinessIntelligencePage: React.FC = () => {
                                   </>
                                 )}. I can help you understand performance trends, identify opportunities, and provide strategic recommendations. What would you like to know?
                               </Typography>
-                              
+
                               {/* Initial Suggested Questions - Market Intelligence Style */}
                               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
                                 Suggested questions to get you started:
                               </Typography>
-                              <Box sx={{ 
+                              <Box sx={{
                                 display: 'grid',
                                 gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
                                 gap: 1.5
@@ -808,20 +835,19 @@ const BusinessIntelligencePage: React.FC = () => {
                                       onClick={() => handleSuggestedQuestion(q.text)}
                                       sx={{
                                         p: 2,
-                                        borderRadius: 2.5,
+                                        borderRadius: 2,
                                         border: '1px solid',
                                         borderColor: 'divider',
-                                        bgcolor: 'background.paper',
+                                        bgcolor: '#ffffff',
                                         cursor: 'pointer',
                                         transition: 'all 0.2s ease',
                                         display: 'flex',
                                         alignItems: 'flex-start',
                                         gap: 1.5,
                                         '&:hover': {
-                                          bgcolor: 'rgba(103, 126, 234, 0.04)',
-                                          borderColor: 'rgba(103, 126, 234, 0.3)',
-                                          transform: 'translateY(-1px)',
-                                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                                          bgcolor: 'action.hover',
+                                          borderColor: 'primary.light',
+                                          boxShadow: '0 16px 34px -30px rgb(16 24 32 / 0.75)',
                                         }
                                       }}
                                     >
@@ -829,7 +855,7 @@ const BusinessIntelligencePage: React.FC = () => {
                                         <IconComponent />
                                       </Box>
                                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="body2" sx={{ 
+                                        <Typography variant="body2" sx={{
                                           fontWeight: 500,
                                           lineHeight: 1.4,
                                           color: 'text.primary'
@@ -850,18 +876,19 @@ const BusinessIntelligencePage: React.FC = () => {
                       </Box>
                     </Fade>
                   )}
-                  
+
                   {/* Chat Messages */}
                   {chatMessages.map((message) => (
                     <Box key={message.id} sx={{ mb: 3 }}>
                       <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Avatar sx={{ 
-                          bgcolor: message.type === 'user' ? 'primary.main' : 'secondary.main',
+                        <Avatar sx={{
+                          bgcolor: message.type === 'user' ? '#2f5bea' : '#101820',
+                          color: message.type === 'user' ? '#ffffff' : '#7c9cff',
                           width: 32,
                           height: 32
                         }}>
-                          {message.type === 'user' ? 
-                            <PersonIcon sx={{ fontSize: 18 }} /> : 
+                          {message.type === 'user' ?
+                            <PersonIcon sx={{ fontSize: 18 }} /> :
                             <BotIcon sx={{ fontSize: 18 }} />
                           }
                         </Avatar>
@@ -869,24 +896,24 @@ const BusinessIntelligencePage: React.FC = () => {
                           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                             {message.type === 'user' ? 'You' : 'ShopGPT'} • {new Date(message.timestamp).toLocaleTimeString()}
                           </Typography>
-                          <Paper sx={{ 
+                          <Paper sx={{
                             p: 2.5,
-                            bgcolor: message.type === 'user' 
-                              ? 'rgba(37, 99, 235, 0.08)' 
-                              : 'rgba(248, 250, 252, 0.8)',
-                            borderRadius: 3,
-                            border: message.type === 'user' 
-                              ? '1px solid rgba(37, 99, 235, 0.2)' 
+                            bgcolor: message.type === 'user'
+                              ? 'rgba(47, 91, 234, 0.08)'
+                              : '#ffffff',
+                            borderRadius: 2,
+                            border: message.type === 'user'
+                              ? '1px solid rgba(37, 99, 235, 0.2)'
                               : '1px solid rgba(0, 0, 0, 0.05)',
-                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                            boxShadow: 'none'
                           }}>
-                            <Typography variant="body1" sx={{ 
+                            <Typography variant="body1" sx={{
                               whiteSpace: 'pre-wrap',
                               lineHeight: 1.6
                             }}>
                               {message.isStreaming ? streamingMessage : message.content}
                               {message.isStreaming && (
-                                <Box component="span" sx={{ 
+                                <Box component="span" sx={{
                                   display: 'inline-block',
                                   width: 2,
                                   height: 16,
@@ -905,11 +932,11 @@ const BusinessIntelligencePage: React.FC = () => {
                       </Box>
                     </Box>
                   ))}
-                  
+
                   {/* Loading indicator */}
                   {chatLoading && (
                     <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                      <Avatar sx={{ 
+                      <Avatar sx={{
                         bgcolor: 'secondary.main',
                         width: 32,
                         height: 32
@@ -920,12 +947,12 @@ const BusinessIntelligencePage: React.FC = () => {
                         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
                           ShopGPT is thinking...
                         </Typography>
-                        <Paper sx={{ 
+                        <Paper sx={{
                           p: 2.5,
-                          bgcolor: 'rgba(248, 250, 252, 0.8)',
-                          borderRadius: 3,
+                          bgcolor: '#ffffff',
+                          borderRadius: 2,
                           border: '1px solid rgba(0, 0, 0, 0.05)',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                          boxShadow: 'none'
                         }}>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             {[0, 1, 2].map((i) => (
@@ -964,7 +991,7 @@ const BusinessIntelligencePage: React.FC = () => {
                         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
                           Continue the conversation:
                         </Typography>
-                        <Box sx={{ 
+                        <Box sx={{
                           display: 'grid',
                           gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
                           gap: 1.5
@@ -987,17 +1014,15 @@ const BusinessIntelligencePage: React.FC = () => {
                                   alignItems: 'center',
                                   gap: 1.5,
                                   '&:hover': {
-                                    bgcolor: 'rgba(103, 126, 234, 0.04)',
-                                    borderColor: 'rgba(103, 126, 234, 0.3)',
-                                    transform: 'translateY(-1px)',
-                                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+                                    bgcolor: 'action.hover',
+                                    borderColor: 'primary.light',
                                   }
                                 }}
                               >
                                 <Box sx={{ color: 'primary.main', '& > *': { fontSize: '16px' } }}>
                                   <IconComponent />
                                 </Box>
-                                <Typography variant="body2" sx={{ 
+                                <Typography variant="body2" sx={{
                                   fontWeight: 500,
                                   fontSize: '0.8rem',
                                   color: 'text.primary'
@@ -1011,16 +1036,16 @@ const BusinessIntelligencePage: React.FC = () => {
                       </Box>
                     </Fade>
                   )}
-                  
+
                   <div ref={chatEndRef} />
                 </Box>
-                
+
                 {/* Chat Input */}
-                <Box sx={{ 
-                  p: 3, 
+                <Box sx={{
+                  p: 3,
                   borderTop: 1,
                   borderColor: 'divider',
-                  bgcolor: 'grey.50'
+                  bgcolor: '#ffffff'
                 }}>
                   <TextField
                     fullWidth
@@ -1035,7 +1060,7 @@ const BusinessIntelligencePage: React.FC = () => {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <AIIcon sx={{ color: 'primary.main' }} />
+                          <AIIcon sx={{ color: '#2f5bea' }} />
                         </InputAdornment>
                       ),
                       endAdornment: (
@@ -1044,7 +1069,7 @@ const BusinessIntelligencePage: React.FC = () => {
                             onClick={() => handleChatSubmit()}
                             disabled={!chatInput.trim() || chatLoading}
                             sx={{
-                              color: 'primary.main',
+                              color: '#2f5bea',
                               '&.Mui-disabled': {
                                 color: 'action.disabled'
                               }
@@ -1082,13 +1107,13 @@ const BusinessIntelligencePage: React.FC = () => {
                     AI-Generated Insights
                   </Typography>
                 </Box>
-                <Box sx={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: { 
-                    xs: '1fr', 
-                    sm: '1fr 1fr', 
-                    lg: 'repeat(4, 1fr)' 
-                  }, 
+                <Box sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: '1fr 1fr',
+                    lg: 'repeat(4, 1fr)'
+                  },
                   gap: 3,
                   alignItems: 'stretch' // Ensure all cards have equal height
                 }}>
@@ -1109,40 +1134,39 @@ const BusinessIntelligencePage: React.FC = () => {
                           return { bg: 'rgba(0, 0, 0, 0.02)', border: 'rgba(0, 0, 0, 0.1)', iconBg: 'rgba(0, 0, 0, 0.1)' };
                       }
                     };
-                    
+
                     const colors = getCardColors(card.color);
-                    
+
                     return (
-                      <Card key={card.id} sx={{ 
+                      <Card key={card.id} sx={{
                         height: '100%',
                         minHeight: 280, // Ensure minimum consistent height
                         position: 'relative',
-                        borderRadius: 3,
+                        borderRadius: 2,
                         border: `1px solid ${colors.border}`,
                         bgcolor: colors.bg,
                         transition: 'all 0.2s ease-in-out',
                         display: 'flex',
                         flexDirection: 'column',
                         '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
+                          boxShadow: '0 4px 12px -2px rgb(15 23 42 / 0.10)',
                           borderColor: card.color
                         }
                       }}>
-                        <CardContent sx={{ 
-                          p: 3, 
-                          height: '100%', 
-                          display: 'flex', 
-                          flexDirection: 'column' 
+                        <CardContent sx={{
+                          p: 3,
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column'
                         }}>
                           {/* Card Header - Market Intelligence style */}
-                          <Box sx={{ 
-                            display: 'flex', 
+                          <Box sx={{
+                            display: 'flex',
                             alignItems: 'flex-start',
                             mb: 3
                           }}>
                             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
-                              <Box sx={{ 
+                              <Box sx={{
                                 p: 1.5,
                                 borderRadius: 2,
                                 bgcolor: colors.iconBg,
@@ -1156,7 +1180,7 @@ const BusinessIntelligencePage: React.FC = () => {
                                 </Box>
                               </Box>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="h6" sx={{ 
+                                <Typography variant="h6" sx={{
                                   fontWeight: 600,
                                   color: 'text.primary',
                                   fontSize: '1rem',
@@ -1165,7 +1189,7 @@ const BusinessIntelligencePage: React.FC = () => {
                                 }}>
                                   {card.title}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ 
+                                <Typography variant="caption" color="text.secondary" sx={{
                                   lineHeight: 1.3,
                                   display: 'block',
                                   fontSize: '0.75rem'
@@ -1174,14 +1198,14 @@ const BusinessIntelligencePage: React.FC = () => {
                                 </Typography>
                               </Box>
                             </Box>
-                            
+
 
                           </Box>
-                          
+
                           {/* Content - Flexible height */}
-                          <Box sx={{ 
-                            flexGrow: 1, 
-                            display: 'flex', 
+                          <Box sx={{
+                            flexGrow: 1,
+                            display: 'flex',
                             alignItems: card.insight || card.error ? 'flex-start' : 'center',
                             minHeight: 100
                           }}>
@@ -1192,11 +1216,11 @@ const BusinessIntelligencePage: React.FC = () => {
                                 <Skeleton variant="text" height={20} width="60%" />
                               </Box>
                             )}
-                            
+
                             {card.error && (
-                              <Alert severity="error" sx={{ 
-                                py: 1, 
-                                px: 2, 
+                              <Alert severity="error" sx={{
+                                py: 1,
+                                px: 2,
                                 borderRadius: 2,
                                 fontSize: '0.875rem',
                                 width: '100%'
@@ -1204,10 +1228,10 @@ const BusinessIntelligencePage: React.FC = () => {
                                 {card.error}
                               </Alert>
                             )}
-                            
+
                             {card.insight && !card.loading && (
                               <Box sx={{ width: '100%' }}>
-                                <Typography variant="body2" sx={{ 
+                                <Typography variant="body2" sx={{
                                   color: 'text.primary',
                                   lineHeight: 1.5,
                                   fontSize: '0.875rem',
@@ -1215,13 +1239,13 @@ const BusinessIntelligencePage: React.FC = () => {
                                 }}>
                                   {card.insight.insight}
                                 </Typography>
-                                
+
                                 {/* Insight metadata footer */}
-                                <Box sx={{ 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  gap: 1, 
-                                  pt: 1.5, 
+                                <Box sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  pt: 1.5,
                                   borderTop: '1px solid',
                                   borderColor: 'divider',
                                   flexWrap: 'nowrap',
@@ -1229,27 +1253,27 @@ const BusinessIntelligencePage: React.FC = () => {
                                 }}>
                                   {debugLog.isEnabled() && (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Chip 
-                                        label={card.insight.source === 'ai' ? 'AI Generated' : 
-                                               card.insight.source === 'local' ? 'Rule-Based' : 
+                                      <Chip
+                                        label={card.insight.source === 'ai' ? 'AI Generated' :
+                                               card.insight.source === 'local' ? 'Rule-Based' :
                                                'Fallback'}
                                         size="small"
-                                        sx={{ 
+                                        sx={{
                                           fontSize: '0.7rem',
                                           height: 20,
-                                          bgcolor: card.insight.source === 'ai' ? 'rgba(37, 99, 235, 0.1)' : 
-                                                   card.insight.source === 'local' ? 'rgba(5, 150, 105, 0.1)' : 
+                                          bgcolor: card.insight.source === 'ai' ? 'rgba(37, 99, 235, 0.1)' :
+                                                   card.insight.source === 'local' ? 'rgba(5, 150, 105, 0.1)' :
                                                    'rgba(156, 163, 175, 0.1)',
-                                          color: card.insight.source === 'ai' ? 'primary.main' : 
-                                                 card.insight.source === 'local' ? 'success.main' : 
+                                          color: card.insight.source === 'ai' ? 'primary.main' :
+                                                 card.insight.source === 'local' ? 'success.main' :
                                                  'text.secondary'
                                         }}
                                       />
                                       {card.insight.fromCache && (
-                                        <Chip 
-                                          label="Cached" 
+                                        <Chip
+                                          label="Cached"
                                           size="small"
-                                          sx={{ 
+                                          sx={{
                                             fontSize: '0.7rem',
                                             height: 20,
                                             bgcolor: 'rgba(217, 119, 6, 0.1)',
@@ -1259,17 +1283,17 @@ const BusinessIntelligencePage: React.FC = () => {
                                       )}
                                     </Box>
                                   )}
-                                  <Typography 
-                                    variant="caption" 
-                                    color="text.secondary" 
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
                                     sx={{ ml: 'auto', fontSize: '0.72rem' }}
                                   >
                                     Insight confidence: {Math.round((card.insight.confidence || 0) * 100)}%
                                   </Typography>
-                                  <IconButton 
-                                    size="small" 
+                                  <IconButton
+                                    size="small"
                                     onClick={() => generateSingleInsight(card.id)}
-                                    sx={{ 
+                                    sx={{
                                       ml: 1,
                                       p: 0.5,
                                       color: card.color
@@ -1280,9 +1304,9 @@ const BusinessIntelligencePage: React.FC = () => {
                                 </Box>
                               </Box>
                             )}
-                            
+
                             {!card.insight && !card.loading && !card.error && (
-                              <Box sx={{ 
+                              <Box sx={{
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',

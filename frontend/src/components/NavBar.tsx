@@ -14,6 +14,7 @@ import {
   ListItemIcon,
   ListItemText,
   Badge,
+  Chip,
   Divider,
   useTheme,
   useMediaQuery,
@@ -36,19 +37,26 @@ import { adminLogout, getAdminStatus } from '../api/admin';
 import { getSuggestionCount } from '../api';
 
 const NavBar: React.FC = () => {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, isDemoMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [suggestionCount, setSuggestionCount] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(0);
+  const [, setNotificationCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
   const handleLogout = () => {
     // Handle regular logout
     logout();
+  };
+
+  const handleExitDemo = () => {
+    localStorage.removeItem('demo_mode_active');
+    sessionStorage.removeItem('demo_mode_active');
+    sessionStorage.removeItem('demo_session_started');
+    navigate('/');
   };
 
   // Admin-specific functions
@@ -87,7 +95,7 @@ const NavBar: React.FC = () => {
           // Only fetch if cache is expired (24 hours) or no data
           const now = Date.now();
           const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours for costly APIs
-          
+
           if (now - lastFetchTime < CACHE_DURATION && suggestionCount > 0) {
             return; // Use cached value
           }
@@ -111,8 +119,13 @@ const NavBar: React.FC = () => {
   }, [isAuthenticated]); // Removed polling dependencies
 
   const showAdmin = location.pathname.startsWith('/admin');
+  const appShellActive =
+    isAuthenticated ||
+    isDemoMode ||
+    localStorage.getItem('demo_mode_active') === 'true' ||
+    new URLSearchParams(location.search).get('demo') === 'true';
 
-  const menuItems = isAuthenticated ? [
+  const menuItems = appShellActive ? [
     {
       text: 'Home',
       icon: <HomeIcon />,
@@ -129,7 +142,7 @@ const NavBar: React.FC = () => {
       text: 'Market Intelligence',
       icon: <BusinessIcon />,
       path: '/competitors',
-      badge: 0
+      badge: suggestionCount
     },
     {
       text: 'ShopGPT',
@@ -153,7 +166,9 @@ const NavBar: React.FC = () => {
       sx={{
         '& .MuiDrawer-paper': {
           width: 280,
-          backgroundColor: theme.palette.background.default,
+          backgroundColor: '#101820',
+          color: '#ffffff',
+          borderLeft: '1px solid rgba(255,255,255,0.12)',
         },
       }}
     >
@@ -163,12 +178,26 @@ const NavBar: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           p: 2,
-          backgroundColor: theme.palette.primary.main,
-          color: 'white',
+          backgroundColor: '#0b1016',
+          color: '#ffffff',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <InsightsIcon sx={{ mr: 1 }} />
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 34,
+              height: 34,
+              borderRadius: '8px',
+              backgroundColor: '#2f5bea',
+              color: '#ffffff',
+              mr: 1.25,
+            }}
+          >
+            <InsightsIcon sx={{ fontSize: 21 }} />
+          </Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             ShopGauge
           </Typography>
@@ -188,11 +217,23 @@ const NavBar: React.FC = () => {
               onClick={() => handleNavigation(item.path)}
               selected={location.pathname === item.path}
               sx={{
+                mx: 1,
+                my: 0.5,
+                borderRadius: 1,
+                color: '#c3ccd5',
+                '& .MuiListItemIcon-root': {
+                  color: 'inherit',
+                  minWidth: 40,
+                },
                 '&.Mui-selected': {
-                  backgroundColor: `${theme.palette.primary.main}15`,
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  color: '#ffffff',
                   '&:hover': {
-                    backgroundColor: `${theme.palette.primary.main}25`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.16)',
                   },
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
                 },
               }}
             >
@@ -211,9 +252,9 @@ const NavBar: React.FC = () => {
         ))}
       </List>
 
-      {isAuthenticated && (
+      {appShellActive && (
         <>
-          <Divider />
+          <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
           <Box sx={{ p: 2 }}>
             <Button
               fullWidth
@@ -221,11 +262,11 @@ const NavBar: React.FC = () => {
               startIcon={<LogoutIcon />}
               onClick={handleLogout}
               sx={{
-                borderColor: theme.palette.error.main,
-                color: theme.palette.error.main,
+                borderColor: 'rgba(255,255,255,0.20)',
+                color: '#ffffff',
                 '&:hover': {
-                  borderColor: theme.palette.error.dark,
-                  backgroundColor: `${theme.palette.error.main}10`,
+                  borderColor: 'rgba(255,255,255,0.45)',
+                  backgroundColor: 'rgba(255,255,255,0.10)',
                 },
               }}
             >
@@ -234,7 +275,7 @@ const NavBar: React.FC = () => {
           </Box>
         </>
       )}
-      
+
       {/* Admin-specific buttons in mobile menu */}
       {showAdmin && (
         <>
@@ -271,142 +312,240 @@ const NavBar: React.FC = () => {
     </Drawer>
   );
 
-  return (
-    <>
-    <AppBar position="static">
-      <Toolbar>
+  const BrandMark = ({ dark = false }: { dark?: boolean }) => (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}
+      onClick={() => navigate(appShellActive ? '/dashboard' : '/')}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 40,
+          height: 40,
+          borderRadius: '10px',
+          backgroundColor: dark ? '#2f5bea' : '#101820',
+          color: '#ffffff',
+          boxShadow: dark ? '0 16px 30px -22px rgba(47,91,234,0.7)' : '0 16px 30px -24px #101820',
+        }}
+      >
+        <InsightsIcon sx={{ fontSize: 23 }} />
+      </Box>
+      <Box>
+        <Typography variant="h6" component="div" sx={{ fontWeight: 800, letterSpacing: 0, lineHeight: 1.1 }}>
+          ShopGauge
+        </Typography>
+        <Typography variant="caption" sx={{ color: dark ? '#8b96a2' : 'text.secondary', fontWeight: 700 }}>
+          Commerce intelligence
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  if (!appShellActive) {
+    return (
+      <AppBar
+        position="sticky"
+        color="transparent"
+        sx={{
+          bgcolor: 'rgba(251, 252, 247, 0.86)',
+          color: 'text.primary',
+          borderBottom: '1px solid',
+          borderColor: 'rgba(16, 24, 32, 0.08)',
+          backdropFilter: 'blur(16px)',
+          zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
+        }}
+      >
+        <Toolbar sx={{ minHeight: { xs: 64, md: 72 }, px: { xs: 2, md: 4 } }}>
+          <BrandMark />
+          <Box sx={{ flexGrow: 1 }} />
+          <Chip
+            label="3-day trial"
+            size="small"
+            sx={{ bgcolor: '#e8edff', color: '#1d3db8', border: '1px solid #b3c4f5' }}
+          />
+        </Toolbar>
+      </AppBar>
+    );
+  }
+
+  if (!isMobile) {
+    return (
+      <Box
+        component="aside"
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 256,
+          zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
+          bgcolor: '#0b1016',
+          color: '#ffffff',
+          borderRight: '1px solid rgba(255,255,255,0.10)',
+          display: 'flex',
+          flexDirection: 'column',
+          p: 2,
+        }}
+      >
+        <Box sx={{ p: 1, pb: 3 }}>
+          <BrandMark dark />
+        </Box>
+
+        <Box sx={{ px: 1, pb: 2 }}>
+          <Typography variant="caption" sx={{ color: '#7f9188', fontWeight: 800, textTransform: 'uppercase' }}>
+            Workspace
+          </Typography>
+        </Box>
+
+        <List sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, flex: 1, px: 0 }}>
+          {menuItems.map((item) => {
+            const isActive = location.pathname === item.path.split('?')[0];
+            return (
+              <ListItem key={item.text} disablePadding>
+                <ListItemButton
+                  onClick={() => handleNavigation(item.path)}
+                  selected={isActive}
+                  sx={{
+                    borderRadius: 1,
+                    minHeight: 46,
+                    color: isActive ? '#ffffff' : '#b9c7c0',
+                    '& .MuiListItemIcon-root': {
+                      color: 'inherit',
+                      minWidth: 38,
+                    },
+                    '&.Mui-selected': {
+                      bgcolor: 'rgba(255, 255, 255, 0.12)',
+                      '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.16)' },
+                    },
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.08)',
+                      color: '#ffffff',
+                    },
+                  }}
+                >
+                  <ListItemIcon>
+                    {item.badge > 0 ? (
+                      <Badge badgeContent={item.badge} color="error">
+                        {item.icon}
+                      </Badge>
+                    ) : (
+                      item.icon
+                    )}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    primaryTypographyProps={{ fontSize: 14, fontWeight: isActive ? 800 : 700 }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            cursor: 'pointer',
-            mr: 2,
-            userSelect: 'none',
-          }}
-          onClick={() => {
-            // Smart navigation: go to dashboard if authenticated, home if not
-            if (isAuthenticated) {
-              navigate('/dashboard');
-            } else {
-              navigate('/');
-            }
+            border: '1px solid rgba(255,255,255,0.10)',
+            bgcolor: 'rgba(255,255,255,0.05)',
+            borderRadius: 1,
+            p: 1.5,
+            mb: 1.5,
           }}
         >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 36,
-              height: 36,
-              borderRadius: '10px',
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
-              mr: 1.5,
-            }}
-          >
-            <InsightsIcon sx={{ fontSize: 22 }} />
+          <Typography variant="caption" sx={{ color: '#8b96a2', fontWeight: 700 }}>
+            Status
+          </Typography>
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Chip
+              label={isDemoMode ? 'Demo mode' : 'Live store'}
+              size="small"
+              onClick={isDemoMode ? handleExitDemo : undefined}
+              sx={{
+                bgcolor: isDemoMode ? 'rgba(47, 91, 234, 0.22)' : 'rgba(21, 184, 122, 0.18)',
+                color: isDemoMode ? '#b9c8ff' : '#7df0bc',
+                border: '1px solid rgba(255,255,255,0.10)',
+              }}
+            />
+            <NotificationCenter onNotificationCountChange={(count) => setNotificationCount(count)} />
           </Box>
-          <Typography variant="h6" component="div" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
-            ShopGauge
-        </Typography>
         </Box>
-          
+
+        {showAdmin && (
+          <Box sx={{ display: 'grid', gap: 1, mb: 1 }}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={checkAuthStatus}>
+              Refresh Session
+            </Button>
+            <Button variant="outlined" startIcon={<LogoutIcon />} onClick={handleAdminLogout}>
+              Logout Admin
+            </Button>
+          </Box>
+        )}
+
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<LogoutIcon />}
+          onClick={handleLogout}
+          sx={{
+            borderColor: 'rgba(255,255,255,0.16)',
+            color: '#ffffff',
+            '&:hover': {
+              borderColor: 'rgba(255,255,255,0.45)',
+              backgroundColor: 'rgba(255,255,255,0.10)',
+            },
+          }}
+        >
+          Logout
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <>
+      <AppBar
+        position="sticky"
+        color="default"
+        sx={{
+          bgcolor: '#0b1016',
+          color: '#ffffff',
+          borderBottom: '1px solid rgba(255,255,255,0.10)',
+          zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
+        }}
+      >
+        <Toolbar>
+          <BrandMark dark />
           <Box sx={{ flexGrow: 1 }} />
-
-          {/* Desktop Navigation */}
-          {!isMobile && (
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {isAuthenticated ? (
-            <>
-              {menuItems.map((item) => {
-                const isActive = location.pathname === item.path.split('?')[0];
-                return (
-                  <Button
-                    key={item.text}
-                    color="inherit"
-                    onClick={() => navigate(item.path)}
-                    sx={{
-                      borderRadius: '8px',
-                      px: 2,
-                      fontWeight: isActive ? 700 : 600,
-                      backgroundColor: isActive ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
-                      '&:hover': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                      }
-                    }}
-                  >
-                    {item.text}
-                  </Button>
-                );
-              })}
-
-              {/* Admin-specific buttons */}
-              {showAdmin && (
-                <>
-                  <Button
-                    color="inherit"
-                    onClick={checkAuthStatus}
-                    startIcon={<RefreshIcon />}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                      }
-                    }}
-                  >
-                    Refresh Session
-                  </Button>
-                  <Button
-                    color="inherit"
-                    onClick={handleAdminLogout}
-                    startIcon={<LogoutIcon />}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                      }
-                    }}
-                  >
-                    Logout Admin
-                  </Button>
-                </>
-              )}
-              
-              {/* Notification Center positioned near Profile */}
-              <Box sx={{ ml: 1 }}>
-                <NotificationCenter 
-                  onNotificationCountChange={(count) => setNotificationCount(count)}
-                />
-              </Box>
-                
-              <Button color="inherit" onClick={handleLogout}>
-                Logout
-              </Button>
-            </>
-              ) : null}
-            </Box>
+          {isDemoMode && (
+            <Chip
+              label="Demo"
+              size="small"
+              onClick={handleExitDemo}
+              sx={{
+                bgcolor: 'rgba(47, 91, 234, 0.22)',
+                color: '#b9c8ff',
+                border: '1px solid rgba(255,255,255,0.12)',
+                fontWeight: 800,
+              }}
+            />
           )}
+          <NotificationCenter onNotificationCountChange={(count) => setNotificationCount(count)} />
+          <IconButton color="inherit" onClick={toggleMobileMenu} sx={{ ml: 1 }}>
+            <MenuIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
 
-                    {/* Mobile Menu Button - Only show when authenticated */}
-          {isMobile && isAuthenticated && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <NotificationCenter 
-                onNotificationCountChange={(count) => setNotificationCount(count)}
-              />
-              <IconButton
-                color="inherit"
-                onClick={toggleMobileMenu}
-                sx={{ ml: 1 }}
-              >
-                <MenuIcon />
-              </IconButton>
-        </Box>
-          )}
-      </Toolbar>
-    </AppBar>
-
-      {/* Mobile Drawer - Only render when authenticated */}
-      {isMobile && isAuthenticated && <MobileDrawer />}
+      <MobileDrawer />
     </>
   );
 };
 
-export default NavBar; 
+export default NavBar;

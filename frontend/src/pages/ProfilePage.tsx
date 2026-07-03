@@ -1011,7 +1011,7 @@ export default function ProfilePage() {
           {showStoreSwitcher && (
             <div className="border-t pt-6 space-y-6">
               {/* Current Store - Enhanced */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-200">
+              <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-semibold text-blue-900 mb-1">Current Store</h4>
@@ -1039,21 +1039,21 @@ export default function ProfilePage() {
               
               {/* Past Stores - New Section */}
               {pastStores.length > 0 && (
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-5 rounded-xl border border-purple-200">
-                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center">
+                <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
                     <span className="mr-2">🕒</span>
                     Recent Stores
                   </h4>
                   <div className="space-y-2">
                     {pastStores.slice(0, 3).map((pastStore, index) => (
-                      <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-purple-200">
+                      <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
                         <div className="flex items-center">
-                          <div className="w-2 h-2 bg-purple-400 rounded-full mr-3"></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
                           <span className="text-sm font-mono text-gray-700">{pastStore}</span>
                         </div>
                         <button
                           onClick={() => handleReconnectPastStore(pastStore)}
-                          className="inline-flex items-center px-3 py-1 border border-purple-300 text-xs font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-blue-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                         >
                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1177,13 +1177,13 @@ export default function ProfilePage() {
       </div>
 
       {/* Privacy & Data Rights Section - Enhanced */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm rounded-lg p-6 mb-8 border border-blue-200">
+      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <Lock className="w-5 h-5 mr-3 text-blue-600" />
           Privacy & Data Rights
         </h2>
         <p className="text-sm text-gray-700 mb-6">
-          StoreSignt respects your privacy and provides full transparency about data processing. 
+          ShopGauge respects your privacy and provides full transparency about data processing. 
           Exercise your data rights using the controls below. All actions are GDPR/CCPA compliant.
         </p>
         
@@ -1326,7 +1326,7 @@ export default function ProfilePage() {
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-6">
                 {/* Compliance Status - Enhanced */}
-                <div className="relative bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-6 rounded-2xl border-2 border-green-200 shadow-lg overflow-hidden">
+                <div className="relative bg-green-50 p-6 rounded-xl border border-green-200 overflow-hidden">
                   {/* Decorative background pattern */}
                   <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
                     <svg viewBox="0 0 100 100" className="w-full h-full text-green-600">
@@ -1425,7 +1425,7 @@ export default function ProfilePage() {
                 </div>
                 
                 {/* Access Statistics */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                   <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
                     <span className="mr-2">📈</span>
                     Data Access Activity Summary
@@ -1442,9 +1442,9 @@ export default function ProfilePage() {
                       <div className="text-xs text-indigo-400 mt-1">Weekly activity</div>
               </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-purple-600">{privacyReport.recent_audit_activity || 0}</div>
-                      <div className="text-sm text-purple-500">30-Day Total</div>
-                      <div className="text-xs text-purple-400 mt-1">Monthly activity</div>
+                      <div className="text-3xl font-bold text-blue-600">{privacyReport.recent_audit_activity || 0}</div>
+                      <div className="text-sm text-blue-500">30-Day Total</div>
+                      <div className="text-xs text-blue-400 mt-1">Monthly activity</div>
             </div>
                     <div className="text-center">
                       <div className="text-3xl font-bold text-green-600">100%</div>
@@ -1515,7 +1515,7 @@ export default function ProfilePage() {
       )}
 
       {/* Session Management Section */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 shadow-sm rounded-lg p-6 mb-8 border border-purple-200">
+      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <span className="mr-3 text-2xl">🖥️</span>
           Active Sessions
@@ -1566,7 +1566,7 @@ export default function ProfilePage() {
                       return (
                         <div key={session.sessionId} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                           session.isCurrentSession 
-                            ? 'bg-gradient-to-r from-green-50 to-blue-50 border-green-300 shadow-md' 
+                            ? 'bg-green-50 border-green-300 shadow-sm' 
                             : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                         }`}>
                           <div className="flex items-center space-x-3 flex-1">
@@ -1675,7 +1675,7 @@ export default function ProfilePage() {
               <button
                 onClick={openSessionDialog}
                 disabled={(!sessionLimitData || sessionLimitData.sessions.length === 0) && !sessionLimitError}
-                className="w-full inline-flex items-center justify-center px-4 py-3 border border-purple-300 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition-colors"
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-blue-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -1722,7 +1722,7 @@ export default function ProfilePage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-red-900 mb-2">Disconnect Store</h3>
                 <p className="text-sm text-red-700 mb-3">
-                  Safely disconnect your store from StoreSignt. This will log you out and require re-authentication 
+                  Safely disconnect your store from ShopGauge. This will log you out and require re-authentication 
                   to access your data again. Your data will be preserved.
                 </p>
                 <div className="text-xs text-red-600">

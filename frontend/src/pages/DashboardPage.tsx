@@ -226,11 +226,14 @@ const StyledCard = styled(Card)(({ theme }) => ({
   height: '100%',
   display: 'flex',
   flexDirection: 'column',
-  borderRadius: theme.shape.borderRadius,
-  transition: 'all 0.3s ease',
+  borderRadius: 8,
+  borderColor: theme.palette.divider,
+  backgroundColor: '#ffffff',
+  boxShadow: '0 22px 54px -44px rgb(16 24 32 / 0.80)',
+  transition: 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
   '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadows[8],
+    boxShadow: '0 28px 64px -48px rgb(16 24 32 / 0.86)',
+    transform: 'translateY(-1px)',
   },
 }));
 
@@ -263,7 +266,7 @@ const MetricValue = styled(Typography)(({ theme }) => ({
   background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  letterSpacing: '-1px',
+  letterSpacing: 0,
 }));
 
 const MetricLabel = styled(Typography)(({ theme }) => ({
@@ -402,7 +405,7 @@ const HeroTitle = styled(Typography)(({ theme }) => ({
   fontWeight: 800,
   color: theme.palette.primary.main,
   marginBottom: theme.spacing(1),
-  letterSpacing: '-1px',
+  letterSpacing: 0,
 }));
 
 const HeroSubtitle = styled(Typography)(({ theme }) => ({
@@ -457,12 +460,14 @@ const ProductItem = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(2),
-  padding: theme.spacing(1.5),
+  padding: theme.spacing(1.6, 1.75),
   borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.default,
+  backgroundColor: 'rgba(255,255,255,0.66)',
+  border: `1px solid ${theme.palette.divider}`,
   transition: 'all 0.2s ease',
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(47, 91, 234, 0.28)',
   }
 }));
 
@@ -521,12 +526,14 @@ const OrderItem = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(2),
-  padding: theme.spacing(1.5),
+  padding: theme.spacing(1.6, 1.75),
   borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.default,
+  backgroundColor: 'rgba(255,255,255,0.66)',
+  border: `1px solid ${theme.palette.divider}`,
   transition: 'all 0.2s ease',
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(47, 91, 234, 0.28)',
   }
 }));
 
@@ -598,11 +605,12 @@ const SectionHeader = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(3),
   paddingBottom: theme.spacing(2),
   borderBottom: `1px solid ${theme.palette.divider}`,
+  gap: theme.spacing(2),
 }));
 
 const SectionTitle = styled(Typography)(({ theme }) => ({
   fontSize: '1.25rem',
-  fontWeight: 600,
+  fontWeight: 800,
   color: theme.palette.text.primary,
   display: 'flex',
   alignItems: 'center',
@@ -2934,6 +2942,82 @@ const DashboardPage = () => {
           </Alert>
         )}
 
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            border: '1px solid rgba(255,255,255,0.10)',
+            bgcolor: '#101820',
+            color: 'white',
+            borderRadius: 2,
+            p: { xs: 2.5, md: 3.5 },
+            overflow: 'hidden',
+            position: 'relative',
+            boxShadow: '0 28px 70px -52px rgb(16 24 32 / 0.9)',
+          }}
+        >
+          <Box sx={{ maxWidth: 760, position: 'relative', zIndex: 1 }}>
+            <Typography variant="overline" sx={{ color: '#9db4ff', fontWeight: 900 }}>
+              Operating overview
+            </Typography>
+            <Typography variant="h3" sx={{ fontWeight: 900, mt: 0.5, lineHeight: 1.05 }}>
+              Dashboard
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#c3ccd5', mt: 1.5, maxWidth: 660 }}>
+              Revenue, orders, inventory risk, and forecast signals for {shop || 'your Shopify store'}.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2.5 }}>
+              {[
+                ['Revenue', `$${insights?.totalRevenue?.toLocaleString() || '0'}`],
+                ['Low inventory', typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'],
+                ['Orders', sortedOrders?.length ? sortedOrders.length.toString() : '0'],
+              ].map(([label, value]) => (
+                <Chip
+                  key={label}
+                  label={`${label}: ${value}`}
+                  size="small"
+                  sx={{
+                    bgcolor: 'rgba(255,255,255,0.08)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    fontWeight: 800,
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
+            {lastRefreshTime > 0 && (
+              <Chip
+                label={`Updated ${new Date(lastRefreshTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  color: '#d7e4dd',
+                  borderColor: 'rgba(255,255,255,0.18)',
+                }}
+              />
+            )}
+            <RefreshButton
+              className="dashboard-refresh-button"
+              variant="contained"
+              startIcon={<Refresh />}
+              onClick={handleRefreshAll}
+              disabled={isRefreshing || debounceCountdown > 0}
+              sx={{
+                bgcolor: '#2f5bea',
+                color: '#ffffff',
+                '&:hover': { bgcolor: '#244bd4' },
+              }}
+            >
+              {isRefreshing ? 'Refreshing...' : debounceCountdown > 0 ? `${debounceCountdown}s` : 'Refresh'}
+            </RefreshButton>
+          </Box>
+        </Box>
+
         {/* Metrics Overview */}
         <Box
           className="dashboard-metrics"
@@ -3272,39 +3356,37 @@ const DashboardPage = () => {
           {chartMode === 'classic' && (
             <Box sx={{
               mb: 3,
-              p: 2,
-              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
+              p: 2.25,
+              bgcolor: '#161c24',
+              color: '#ffffff',
               borderRadius: 2,
-              border: '1px solid rgba(37, 99, 235, 0.2)',
+              border: '1px solid',
+              borderColor: 'rgba(255,255,255,0.10)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexDirection: isMobile ? 'column' : 'row',
               gap: 2,
+              boxShadow: '0 24px 58px -46px rgb(16 24 32 / 0.85)',
             }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box sx={{
                   width: 40,
                   height: 40,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  borderRadius: 2,
+                  bgcolor: '#2f5bea',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  animation: 'float 3s ease-in-out infinite',
-                  '@keyframes float': {
-                    '0%, 100%': { transform: 'translateY(0px)' },
-                    '50%': { transform: 'translateY(-5px)' },
-                  },
                 }}>
-                  <Analytics sx={{ color: 'white', fontSize: '1.25rem' }} />
+                  <Analytics sx={{ color: '#ffffff', fontSize: '1.25rem' }} />
                 </Box>
                 <Box>
-                  <Typography variant="h6" fontWeight={600} color="primary.main">
-                    🔮 Unlock AI-Powered Forecasting
+                  <Typography variant="h6" fontWeight={800} color="inherit">
+                    AI-powered forecasting is available
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Predict revenue trends 7-60 days ahead with 7 chart types, confidence intervals, and professional exports
+                  <Typography variant="body2" sx={{ color: '#aab5c0' }}>
+                    Switch to advanced analytics for forecasts, confidence intervals, and export-ready charts.
                   </Typography>
                 </Box>
               </Box>
@@ -3312,19 +3394,13 @@ const DashboardPage = () => {
                 variant="contained"
                 onClick={() => handleChartModeChange(null as any, 'unified')}
                 sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
                   borderRadius: 2,
                   px: 3,
                   py: 1,
-                  fontWeight: 600,
+                  fontWeight: 800,
                   textTransform: 'none',
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
-                  },
                   minWidth: isMobile ? '100%' : 'auto',
+                  bgcolor: '#2f5bea',
                 }}
                 startIcon={<Analytics />}
               >
@@ -3699,7 +3775,7 @@ const DashboardPage = () => {
           </ToggleButtonGroup>
         </Box>
 
-        {/* Dashboard Status and Refresh Controls */}
+        {/* Dashboard Status */}
         <Box
           sx={{
             display: 'flex',
@@ -3716,39 +3792,14 @@ const DashboardPage = () => {
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
             {insights ? (
               hasRateLimit ?
-                '⚠️ Some data temporarily unavailable due to API rate limits. Refreshing automatically...' :
-                '✅ Dashboard updated with latest available data'
+                'Some data is temporarily unavailable due to API rate limits. Refreshing automatically.' :
+                'Dashboard updated with latest available data'
             ) : 'Loading your store analytics...'}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                    <LastUpdatedText>
-          Last updated: {getLastUpdatedText()}
-        </LastUpdatedText>
-
-            <RefreshButton
-              className="dashboard-refresh-button"
-              variant="outlined"
-              size="small"
-              disabled={isRefreshing || debounceCountdown > 0}
-              onClick={handleRefreshAll}
-              startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
-              title={
-                isRefreshing
-                  ? 'Updating dashboard data...'
-                  : debounceCountdown > 0
-                    ? `Please wait ${Math.ceil(debounceCountdown / 1000)}s before refreshing again`
-                    : 'Refresh all dashboard data'
-              }
-            >
-              {isRefreshing
-                ? 'Updating...'
-                : debounceCountdown > 0
-                  ? `Wait ${Math.ceil(debounceCountdown / 1000)}s`
-                  : 'Refresh Data'
-              }
-            </RefreshButton>
-          </Box>
+          <LastUpdatedText>
+            Last updated: {getLastUpdatedText()}
+          </LastUpdatedText>
         </Box>
 
 
@@ -3772,14 +3823,13 @@ const DashboardPage = () => {
               width: 56,
               height: 56,
               minWidth: 'unset',
-              boxShadow: '0 4px 20px rgba(37, 99, 235, 0.3)',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              boxShadow: '0 4px 12px -2px rgb(15 23 42 / 0.18)',
+              backgroundColor: 'primary.main',
               '&:hover': {
-                background: 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 6px 24px rgba(37, 99, 235, 0.4)',
+                backgroundColor: 'primary.dark',
+                boxShadow: '0 6px 16px -4px rgb(15 23 42 / 0.24)',
               },
-              transition: 'all 0.3s ease',
+              transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
             }}
             title="Start Dashboard Tutorial"
             aria-label="Start Dashboard Tutorial"

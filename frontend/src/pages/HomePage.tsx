@@ -162,9 +162,9 @@ const faqs = [
 ];
 
 const heroPrimaryButton =
-  'inline-flex items-center justify-center px-6 py-3 rounded-xl font-semibold bg-white text-blue-700 shadow-lg transition-colors duration-200 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed';
+  'inline-flex min-h-11 items-center justify-center rounded-md bg-[#2f5bea] px-5 py-3 text-sm font-bold text-white shadow-[0_18px_34px_-24px_rgba(47,91,234,0.9)] transition-colors duration-200 hover:bg-[#244bd4] disabled:cursor-not-allowed disabled:opacity-50';
 const heroSecondaryButton =
-  'inline-flex items-center justify-center px-6 py-3 rounded-xl font-semibold bg-white/10 border border-white/30 text-white transition-colors duration-200 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed';
+  'inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white transition-colors duration-200 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50';
 
 interface ConnectStoreFormProps {
   shopDomain: string;
@@ -186,7 +186,7 @@ const ConnectStoreForm: React.FC<ConnectStoreFormProps> = ({
         value={shopDomain}
         onChange={(e) => onShopDomainChange(e.target.value)}
         placeholder="Enter your store name or full URL"
-        className="flex-1 px-4 py-3 rounded-xl border border-white/30 bg-white/95 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-white outline-none"
+        className="flex-1 rounded-md border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         disabled={isLoading}
       />
       <button type="submit" disabled={isLoading || !normalizeShopDomain(shopDomain)} className={heroPrimaryButton}>
@@ -390,81 +390,177 @@ const HomePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f6f7f9] text-[#101820]">
       {/* Hero */}
-      <section className="bg-gradient-to-br from-blue-600 to-blue-800 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24 flex flex-col items-center text-center">
-          <span className="inline-flex items-center rounded-full bg-white/15 border border-white/25 px-4 py-1.5 text-sm font-medium mb-6">
-            3-day free trial · $19.99/month after · Cancel anytime
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">ShopGauge</h1>
-          <p className="text-lg sm:text-xl text-blue-100 max-w-2xl mx-auto mb-10">
-            AI-powered analytics for your Shopify store — predictive forecasting, professional shareable charts,
-            automated competitor discovery, and enterprise-grade collaboration for data-driven decisions.
-          </p>
+      <section className="bg-[#101820] text-white">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:min-h-[calc(100vh-72px)] lg:grid-cols-[0.82fr_1.18fr] lg:px-8 lg:py-14">
+          <div>
+            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold text-[#b9c8ff]">
+              Commerce command center · 3-day trial
+            </span>
+            <h1 className="mt-6 text-5xl font-black leading-none text-white sm:text-6xl lg:text-7xl">
+              ShopGauge
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-8 text-[#c3ccd5]">
+              A focused operating room for Shopify merchants: forecast revenue, watch competitors,
+              spot inventory risk, and ask AI what to do next.
+            </p>
 
-          {showAuthConnected ? (
-            showConnectForm ? (
-              <ConnectStoreForm
-                shopDomain={shopDomain}
-                onShopDomainChange={setShopDomain}
-                onSubmit={handleLogin}
-                isLoading={isLoading}
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-3 bg-white/95 rounded-2xl px-8 py-4 shadow-lg">
-                  <span className="flex items-center justify-center w-10 h-10 bg-green-100 text-green-600 rounded-full">
-                    <CheckCircle2 className="w-6 h-6" />
-                  </span>
-                  <div className="text-left">
-                    <p className="text-gray-900 font-bold text-lg">Successfully connected</p>
-                    <p className="text-gray-600 text-sm">Your store is ready for analytics</p>
-                  </div>
+            <div className="mt-7 grid max-w-xl grid-cols-3 gap-3 text-sm">
+              {[
+                ['Forecast', '7-60 day outlook'],
+                ['Monitor', 'Price movement'],
+                ['Act', 'AI next steps'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-md border border-white/10 bg-white/[0.06] p-3">
+                  <p className="font-bold text-white">{label}</p>
+                  <p className="mt-1 text-xs text-[#9aa5b1]">{value}</p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button onClick={() => navigate('/dashboard')} className={heroPrimaryButton}>
-                    <LayoutDashboard className="w-5 h-5 mr-2" />
-                    Go to Dashboard
+              ))}
+            </div>
+
+            <div className="mt-8">
+              {showAuthConnected ? (
+                showConnectForm ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+                    <ConnectStoreForm
+                      shopDomain={shopDomain}
+                      onShopDomainChange={setShopDomain}
+                      onSubmit={handleLogin}
+                      isLoading={isLoading}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex max-w-md items-center gap-3 rounded-lg border border-[#15b87a]/40 bg-[#15b87a]/15 px-4 py-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#15b87a] text-white">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="font-bold text-white">Store connected</p>
+                        <p className="text-sm text-[#aab5c0]">Your command center is ready.</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button onClick={() => navigate('/dashboard')} className={heroPrimaryButton}>
+                        <LayoutDashboard className="mr-2 h-5 w-5" />
+                        Go to Dashboard
+                      </button>
+                      <button onClick={handleSwitchStore} className={heroSecondaryButton}>
+                        <ArrowRightLeft className="mr-2 h-5 w-5" />
+                        Switch Store
+                      </button>
+                    </div>
+                  </div>
+                )
+              ) : showConnectForm ? (
+                <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+                  <ConnectStoreForm
+                    shopDomain={shopDomain}
+                    onShopDomainChange={setShopDomain}
+                    onSubmit={handleLogin}
+                    isLoading={isLoading}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button onClick={() => setShowConnectForm(true)} className={heroPrimaryButton}>
+                    <Store className="mr-2 h-5 w-5" />
+                    Connect Store
                   </button>
-                  <button onClick={handleSwitchStore} className={heroSecondaryButton}>
-                    <ArrowRightLeft className="w-5 h-5 mr-2" />
-                    Switch Store
+                  <button onClick={handleDemoMode} disabled={isLoading} className={heroSecondaryButton}>
+                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />}
+                    Try Demo
                   </button>
+                </div>
+              )}
+            </div>
+
+            <p className="mt-5 text-sm text-[#8b96a2]">
+              No credit card required for trial. Explore instantly with sample data.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-[#0b1016] p-3 shadow-[0_34px_90px_-48px_rgba(0,0,0,0.9)]">
+            <div className="grid overflow-hidden rounded-md border border-white/10 bg-[#161c24] lg:grid-cols-[76px_1fr]">
+              <div className="hidden border-r border-white/10 bg-[#0d1218] p-3 lg:block">
+                <div className="mb-6 h-9 w-9 rounded-md bg-[#2f5bea]" />
+                <div className="space-y-3">
+                  {[0, 1, 2, 3].map((item) => (
+                    <div key={item} className={item === 1 ? 'h-9 rounded-md bg-white/12' : 'h-9 rounded-md bg-white/[0.05]'} />
+                  ))}
                 </div>
               </div>
-            )
-          ) : showConnectForm ? (
-            <ConnectStoreForm
-              shopDomain={shopDomain}
-              onShopDomainChange={setShopDomain}
-              onSubmit={handleLogin}
-              isLoading={isLoading}
-            />
-          ) : (
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <button onClick={() => setShowConnectForm(true)} className={heroPrimaryButton}>
-                <Store className="w-5 h-5 mr-2" />
-                Connect Store
-              </button>
-              <button onClick={handleDemoMode} disabled={isLoading} className={heroSecondaryButton}>
-                {isLoading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}
-                Try Demo
-              </button>
+              <div className="bg-[#f6f7f9] p-4 text-[#101820]">
+                <div className="flex flex-col gap-3 border-b border-[#e4e7eb] pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-[#5f6b76]">Today&apos;s command queue</p>
+                    <p className="mt-1 text-xl font-black">Revenue pulse</p>
+                  </div>
+                  <span className="rounded-full border border-[#b3c4f5] bg-[#e8edff] px-3 py-1 text-xs font-black text-[#1d3db8]">
+                    demo-shopgauge.myshopify.com
+                  </span>
+                </div>
+
+                <div className="grid gap-3 py-4 sm:grid-cols-4">
+                  {[
+                    ['$26.9K', 'Revenue', '#2f5bea'],
+                    ['187', 'Orders', '#15b87a'],
+                    ['8', 'Low stock', '#f59e0b'],
+                    ['8', 'Price moves', '#f9734d'],
+                  ].map(([value, label, color]) => (
+                    <div key={label} className="rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm">
+                      <div className="mb-3 h-1.5 w-10 rounded-full" style={{ backgroundColor: color }} />
+                      <p className="text-2xl font-black text-[#101820]">{value}</p>
+                      <p className="mt-1 text-xs font-bold text-[#5f6b76]">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+                  <div className="rounded-md border border-[#e4e7eb] bg-white p-4 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-sm font-black">Forecast curve</p>
+                      <p className="text-xs font-bold text-[#15b87a]">+12.4% projected</p>
+                    </div>
+                    <div className="flex h-56 items-end gap-2">
+                      {[36, 48, 42, 64, 58, 72, 68, 83, 78, 90, 86, 96].map((height, index) => (
+                        <div key={index} className="flex h-full flex-1 flex-col justify-end">
+                          <div
+                            className={index > 8 ? 'rounded-t bg-[#15b87a]' : 'rounded-t bg-[#2f5bea]'}
+                            style={{ height: `${height}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {[
+                      ['AI next action', 'Restock 8 low-inventory products before the weekend.', '#2f5bea'],
+                      ['Market signal', 'Competitors moved prices on 8 tracked products.', '#7c9cff'],
+                      ['Margin watch', 'Two products are under your safe floor.', '#f9734d'],
+                    ].map(([label, text, color]) => (
+                      <div key={label} className="rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm">
+                        <div className="mb-2 h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                        <p className="text-xs font-black uppercase text-[#5f6b76]">{label}</p>
+                        <p className="mt-1 text-sm font-semibold leading-5 text-[#24312b]">{text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-          <p className="text-sm text-blue-100/90 mt-6">
-            No credit card required for trial · Explore instantly with sample data
-          </p>
+          </div>
         </div>
       </section>
 
       {/* Error Display */}
       {errorMessage && (
-        <div className="max-w-2xl mx-auto px-4 mt-10">
-          <div className="bg-white border border-red-200 rounded-2xl p-6 shadow-sm">
+        <div className="mx-auto mt-10 max-w-2xl px-4">
+          <div className="rounded-lg border border-red-200 bg-white p-6 shadow-sm">
             <div className="flex items-start">
-              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 text-red-500 flex-shrink-0">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-red-50 text-red-500">
                 <AlertTriangle className="w-5 h-5" />
               </span>
               <div className="ml-4">
@@ -488,28 +584,33 @@ const HomePage = () => {
       )}
 
       {/* Feature Categories */}
-      <section className="max-w-6xl mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-gray-900 text-center mb-10">Enterprise-Grade Analytics Platform</h2>
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mb-10 max-w-3xl">
+          <h2 className="text-3xl font-black text-[#101820]">Built for daily merchant decisions</h2>
+          <p className="mt-3 text-[#5f6b76]">
+            The product experience should put revenue, inventory, competition, and AI guidance within one scan.
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {featureCategories.map(({ icon: Icon, title, items, note }) => (
             <div
               key={title}
-              className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow"
+              className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]"
             >
-              <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-primary-50 text-primary-600 mb-4">
+              <span className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-md bg-[#e8edff] text-[#1d3db8]">
                 <Icon className="w-6 h-6" />
               </span>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">{title}</h3>
-              <ul className="space-y-2 text-sm leading-relaxed text-gray-600">
-                {items.map((item) => (
+              <h3 className="mb-3 text-lg font-black text-[#101820]">{title}</h3>
+              <ul className="space-y-2 text-sm leading-relaxed text-[#5f6b76]">
+                {items.slice(0, 3).map((item) => (
                   <li key={item} className="flex items-start">
-                    <span className="mt-1.5 mr-2 h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
+                    <span className="mr-2 mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#15b87a]" />
                     {item}
                   </li>
                 ))}
                 {note && (
-                  <li className="flex items-start font-medium text-primary-600">
-                    <span className="mt-1.5 mr-2 h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
+                  <li className="flex items-start font-bold text-[#2f5bea]">
+                    <span className="mr-2 mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#2f5bea]" />
                     {note}
                   </li>
                 )}
@@ -519,13 +620,13 @@ const HomePage = () => {
         </div>
 
         {/* Core Features List */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-          <h3 className="text-2xl font-bold mb-6 text-gray-900 text-center">Complete Feature Set</h3>
+        <div className="border-y border-[#e4e7eb] py-8">
+          <h3 className="mb-6 text-2xl font-black text-[#101820]">Complete feature set</h3>
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {features.map((f) => (
-              <li key={f} className="flex items-start p-3 rounded-xl hover:bg-blue-50/60 transition-colors">
-                <CheckCircle2 className="w-5 h-5 text-primary-500 mr-3 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-700">{f}</span>
+            {features.slice(0, 9).map((f) => (
+              <li key={f} className="flex items-start rounded-md bg-white/50 p-3 transition-colors hover:bg-white">
+                <CheckCircle2 className="mr-3 mt-0.5 h-5 w-5 flex-shrink-0 text-[#15b87a]" />
+                <span className="text-[#5f6b76]">{f}</span>
               </li>
             ))}
           </ul>
@@ -533,15 +634,15 @@ const HomePage = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="max-w-6xl mx-auto px-4 pb-16">
-        <h2 className="text-2xl font-bold mb-8 text-gray-900 text-center">What Merchants Say</h2>
+      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+        <h2 className="mb-8 text-2xl font-black text-[#101820]">What merchants say</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {testimonials.map((t) => (
-            <figure key={t.name} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-              <blockquote className="text-gray-600 mb-4">“{t.quote}”</blockquote>
+            <figure key={t.name} className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+              <blockquote className="mb-4 text-[#5f6b76]">“{t.quote}”</blockquote>
               <figcaption>
-                <div className="font-semibold text-gray-900">{t.name}</div>
-                <div className="text-sm text-gray-500 mt-1">{t.stat}</div>
+                <div className="font-bold text-[#101820]">{t.name}</div>
+                <div className="mt-1 text-sm text-[#5f6b76]">{t.stat}</div>
               </figcaption>
             </figure>
           ))}
@@ -549,13 +650,13 @@ const HomePage = () => {
       </section>
 
       {/* FAQ */}
-      <section className="max-w-6xl mx-auto px-4 pb-20">
-        <h2 className="text-2xl font-bold mb-8 text-gray-900 text-center">Frequently Asked Questions</h2>
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <h2 className="mb-8 text-2xl font-black text-[#101820]">Frequently asked questions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {faqs.map((faq) => (
-            <div key={faq.question} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-lg font-semibold mb-3 text-gray-900">{faq.question}</h3>
-              <p className="text-gray-600">{faq.answer}</p>
+            <div key={faq.question} className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+              <h3 className="mb-3 text-lg font-black text-[#101820]">{faq.question}</h3>
+              <p className="text-[#5f6b76]">{faq.answer}</p>
             </div>
           ))}
         </div>

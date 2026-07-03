@@ -52,15 +52,24 @@ const StyledMetricCard = styled(Card)(({ theme }) => ({
   transition: 'box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease',
   cursor: 'default',
   position: 'relative',
-  overflow: 'visible',
+  overflow: 'hidden',
   backgroundColor: theme.palette.background.paper,
   border: `1px solid ${theme.palette.divider}`,
-  borderRadius: 16,
-  boxShadow: '0 1px 2px rgb(15 23 42 / 0.06)',
+  borderRadius: 8,
+  boxShadow: '0 18px 40px -34px rgb(16 24 32 / 0.72)',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    background: 'linear-gradient(90deg, #2f5bea 0%, #7c9cff 100%)',
+  },
   '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px -2px rgb(15 23 42 / 0.10)',
-    borderColor: theme.palette.primary.light,
+    boxShadow: '0 26px 58px -40px rgb(16 24 32 / 0.82)',
+    borderColor: 'rgba(47, 91, 234, 0.32)',
+    transform: 'translateY(-1px)',
   },
   // Mobile-first responsive design - disable hover effects on touch devices
   '@media (hover: none)': {
@@ -72,7 +81,7 @@ const StyledMetricCard = styled(Card)(({ theme }) => ({
   },
   // Better mobile spacing and sizing
   [theme.breakpoints.down('sm')]: {
-    borderRadius: 12,
+    borderRadius: 8,
     '&:hover': {
       transform: 'none',
     },
@@ -80,7 +89,7 @@ const StyledMetricCard = styled(Card)(({ theme }) => ({
 }));
 
 const StyledCardContent = styled(CardContent)(({ theme }) => ({
-  padding: theme.spacing(3),
+  padding: theme.spacing(3, 3, 2.5),
   paddingBottom: `${theme.spacing(3)} !important`,
   display: 'flex',
   flexDirection: 'column',
@@ -100,7 +109,7 @@ const MetricHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
-  marginBottom: theme.spacing(2),
+  marginBottom: theme.spacing(2.5),
   minHeight: 32,
   gap: theme.spacing(1),
 }));
@@ -113,7 +122,7 @@ const MetricIconContainer = styled(Box)(({ theme }) => ({
   minWidth: 0, // Allow text truncation
 }));
 
-const MetricLabelContainer = styled(Box)(({ theme }) => ({
+const MetricLabelContainer = styled(Box)(() => ({
   display: 'flex',
   flexDirection: 'column',
   flex: 1,
@@ -121,19 +130,21 @@ const MetricLabelContainer = styled(Box)(({ theme }) => ({
 }));
 
 const MetricValue = styled(Typography)(({ theme }) => ({
-  fontWeight: 700,
-  fontSize: '2.25rem',
+  fontWeight: 850,
+  fontSize: '1.8rem',
   lineHeight: 1.1,
   color: theme.palette.text.primary,
   marginBottom: theme.spacing(0.5),
   fontFeatureSettings: '"tnum"', // Tabular numbers for better alignment
-  wordBreak: 'break-word',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
   // Mobile responsive font sizes with better scaling
   [theme.breakpoints.down('lg')]: {
-    fontSize: '2rem',
+    fontSize: '1.75rem',
   },
   [theme.breakpoints.down('md')]: {
-    fontSize: '1.875rem',
+    fontSize: '1.75rem',
   },
   [theme.breakpoints.down('sm')]: {
     fontSize: '1.75rem',
@@ -144,11 +155,11 @@ const MetricValue = styled(Typography)(({ theme }) => ({
 }));
 
 const MetricLabel = styled(Typography)(({ theme }) => ({
-  fontSize: '0.875rem',
+  fontSize: '0.72rem',
   color: theme.palette.text.secondary,
-  fontWeight: 600,
+  fontWeight: 800,
   lineHeight: 1.3,
-  letterSpacing: '0.025em',
+  letterSpacing: 0,
   textTransform: 'uppercase',
   marginBottom: theme.spacing(0.5),
   // Better mobile readability
@@ -176,10 +187,10 @@ const DeltaContainer = styled(Box)<{ deltaType: 'up' | 'down' | 'neutral' }>(({ 
   gap: theme.spacing(0.5),
   fontSize: '0.875rem',
   fontWeight: 600,
-  color: deltaType === 'up' 
-    ? theme.palette.success.main 
-    : deltaType === 'down' 
-    ? theme.palette.error.main 
+  color: deltaType === 'up'
+    ? theme.palette.success.main
+    : deltaType === 'down'
+    ? theme.palette.error.main
     : theme.palette.text.secondary,
   marginBottom: theme.spacing(1),
   '& .MuiSvgIcon-root': {
@@ -198,14 +209,14 @@ const ActionButton = styled(IconButton)(({ theme }) => ({
 }));
 
 const TrendVisualization = styled(Box)(({ theme }) => ({
-  height: 40,
-  marginTop: theme.spacing(1),
+  height: 34,
+  marginTop: theme.spacing(1.5),
   display: 'flex',
   alignItems: 'end',
   gap: 1,
   '& .trend-bar': {
     backgroundColor: theme.palette.primary.main,
-    opacity: 0.7,
+    opacity: 0.82,
     borderRadius: '2px 2px 0 0',
     flex: 1,
     minWidth: 2,
@@ -256,11 +267,11 @@ const formatValue = (val: string | number, unit?: string): string => {
 
 const renderMiniChart = (trend: number[], theme: any) => {
   if (!trend || trend.length === 0) return null;
-  
+
   const max = Math.max(...trend);
   const min = Math.min(...trend);
   const range = max - min || 1;
-  
+
   return (
     <TrendVisualization>
       {trend.map((value, index) => {
@@ -269,10 +280,10 @@ const renderMiniChart = (trend: number[], theme: any) => {
           <div
             key={index}
             className="trend-bar"
-            style={{ 
+            style={{
               height: `${height}px`,
-              backgroundColor: value > (trend[index - 1] || value) 
-                ? theme.palette.success.main 
+              backgroundColor: value > (trend[index - 1] || value)
+                ? theme.palette.success.main
                 : theme.palette.error.main
             }}
           />
@@ -282,10 +293,10 @@ const renderMiniChart = (trend: number[], theme: any) => {
   );
 };
 
-export const MetricCard: React.FC<MetricCardProps> = ({ 
-  label, 
-  value, 
-  delta, 
+export const MetricCard: React.FC<MetricCardProps> = ({
+  label,
+  value,
+  delta,
   deltaType = 'neutral',
   loading = false,
   error = null,
@@ -304,7 +315,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [expanded, setExpanded] = useState(false);
-  
+
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation();
     onRetry?.();
@@ -330,10 +341,10 @@ export const MetricCard: React.FC<MetricCardProps> = ({
               </MetricLabelContainer>
             </MetricIconContainer>
           </MetricHeader>
-          
+
           <Skeleton variant="text" width="80%" height={48} sx={{ mb: 1 }} />
           <Skeleton variant="text" width="50%" height={20} />
-          
+
           {variant === 'detailed' && (
             <Box sx={{ mt: 2 }}>
               <Skeleton variant="rectangular" width="100%" height={40} />
@@ -365,7 +376,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
               </Tooltip>
             )}
           </MetricHeader>
-          
+
           <Typography variant="body2" color="error" sx={{ mt: 1 }}>
             {error}
           </Typography>
@@ -390,14 +401,14 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                 {subtitle && <MetricSubtitle>{subtitle}</MetricSubtitle>}
               </MetricLabelContainer>
             </MetricIconContainer>
-            
+
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {(description || trend) && (
                 <Tooltip title={expanded ? "Show less" : "Show more"}>
-                  <ActionButton 
+                  <ActionButton
                     onClick={handleExpand}
                     size="small"
-                    sx={{ 
+                    sx={{
                       transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
                       transition: 'transform 0.3s ease'
                     }}
@@ -408,11 +419,11 @@ export const MetricCard: React.FC<MetricCardProps> = ({
               )}
             </Box>
           </MetricHeader>
-          
+
           <MetricValue>
             {formatValue(value, unit)}
           </MetricValue>
-          
+
           {delta && (
             <DeltaContainer deltaType={deltaType}>
               {getDeltaIcon(deltaType)}
@@ -437,15 +448,15 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                   {progress}%
                 </Typography>
               </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={progress} 
+              <LinearProgress
+                variant="determinate"
+                value={progress}
                 sx={{
                   '& .MuiLinearProgress-bar': {
-                    backgroundColor: progress >= 80 
-                      ? theme.palette.success.main 
-                      : progress >= 50 
-                      ? theme.palette.warning.main 
+                    backgroundColor: progress >= 80
+                      ? theme.palette.success.main
+                      : progress >= 50
+                      ? theme.palette.warning.main
                       : theme.palette.error.main
                   }
                 }}
@@ -471,7 +482,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
                   {description}
                 </Typography>
               )}
-              
+
               {trend && renderMiniChart(trend, theme)}
             </Box>
           </Collapse>
@@ -479,6 +490,31 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           {variant === 'detailed' && !expanded && trend && (
             <Box sx={{ mt: 1 }}>
               {renderMiniChart(trend, theme)}
+            </Box>
+          )}
+
+          {!trend && (
+            <Box
+              sx={{
+                mt: 'auto',
+                pt: 2,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(8, 1fr)',
+                gap: 0.5,
+                alignItems: 'end',
+                opacity: 0.55,
+              }}
+            >
+              {[18, 24, 20, 32, 28, 38, 34, 42].map((height, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    height,
+                    borderRadius: '3px 3px 0 0',
+                    bgcolor: index > 4 ? 'secondary.main' : 'primary.main',
+                  }}
+                />
+              ))}
             </Box>
           )}
         </StyledCardContent>
@@ -496,4 +532,4 @@ export const DetailedMetricCard: React.FC<Omit<MetricCardProps, 'variant'>> = (p
   <MetricCard {...props} variant="detailed" />
 );
 
-export default MetricCard; 
+export default MetricCard;
