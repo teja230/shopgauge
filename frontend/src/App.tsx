@@ -110,10 +110,10 @@ const RouteErrorCleaner: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
+  const location = useLocation();
   const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, isDemoMode: contextDemoMode } = useAuth();
   const { addNotification } = useNotifications();
   const [showDebugPanel, setShowDebugPanel] = React.useState(false);
-  const location = useLocation();
 
   // Session limit management
   const {
@@ -412,6 +412,7 @@ const AppContent: React.FC = () => {
       )}
 
       <main className="flex-1">
+        <div key={location.pathname} className="route-transition">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
@@ -423,6 +424,7 @@ const AppContent: React.FC = () => {
           <Route path="/service-unavailable" element={<ServiceUnavailablePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </div>
       </main>
       <Footer />
     </div>

@@ -3,13 +3,14 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton, useMediaQuery, useTheme, Menu, MenuItem, Chip } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import PredictionViewContainer from '../components/ui/PredictionViewContainer';
+import { ListSkeleton } from '../components/ui/SkeletonLoaders';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
 import { MetricCard } from '../components/ui/MetricCard';
 import { fetchWithAuth, retryWithBackoff, getRevenue, getInsights, getProducts, getOrders } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
-import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart, Sort, ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart, Sort, ArrowUpward, ArrowDownward, Close, ShoppingCartCheckout, AutoAwesome } from '@mui/icons-material';
 import { formatDate } from '../utils/dateUtils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
@@ -815,6 +816,7 @@ const DASHBOARD_TUTORIAL_STEPS: Step[] = [
 const DashboardPage = () => {
   const { isAuthenticated, shop, authLoading, isAuthReady } = useAuth();
   const navigate = useNavigate();
+  const [, setQueueVersion] = useState(0);
   const location = useLocation();
   const notifications = useNotifications();
   
@@ -2620,6 +2622,13 @@ const DashboardPage = () => {
     notifications
   ]);
 
+  // Command palette: "Refresh dashboard data"
+  useEffect(() => {
+    const refreshHandler = () => handleRefreshAll();
+    window.addEventListener('shopgauge:refresh-dashboard', refreshHandler);
+    return () => window.removeEventListener('shopgauge:refresh-dashboard', refreshHandler);
+  }, [handleRefreshAll]);
+
   // Handle URL parameters and optimize post-OAuth loading experience
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -3223,6 +3232,111 @@ const DashboardPage = () => {
           />
         </Box>
 
+        {/* Action queue — deterministic, derived client-side from existing insights */}
+        {(() => {
+          const dismissed: string[] = JSON.parse(sessionStorage.getItem('dashboard-queue-dismissed') || '[]');
+          const dismiss = (id: string) => {
+            sessionStorage.setItem('dashboard-queue-dismissed', JSON.stringify([...dismissed, id]));
+            setQueueVersion((v) => v + 1);
+          };
+          const queueItems = [
+            typeof insights?.lowInventory === 'number' && insights.lowInventory > 0
+              ? {
+                  id: 'low-stock',
+                  icon: <Inventory2 sx={{ fontSize: 18 }} />,
+                  tone: { fg: '#b45309', bg: 'rgba(245, 158, 11, 0.10)', border: 'rgba(245, 158, 11, 0.35)' },
+                  title: `${insights.lowInventory} product${insights.lowInventory === 1 ? '' : 's'} low on stock`,
+                  sub: 'Restock before you miss sales.',
+                  cta: 'Review products',
+                  onClick: () => shop && window.open(`https://${shop}/admin/products?inventory_status=low`, '_blank', 'noopener'),
+                }
+              : null,
+            typeof insights?.abandonedCarts === 'number' && insights.abandonedCarts > 0
+              ? {
+                  id: 'abandoned-carts',
+                  icon: <ShoppingCartCheckout sx={{ fontSize: 18 }} />,
+                  tone: { fg: '#1d3db8', bg: 'rgba(47, 91, 234, 0.08)', border: 'rgba(47, 91, 234, 0.30)' },
+                  title: `${insights.abandonedCarts} abandoned checkout${insights.abandonedCarts === 1 ? '' : 's'}`,
+                  sub: 'Recover potential revenue with follow-ups.',
+                  cta: 'View checkouts',
+                  onClick: () => shop && window.open(`https://${shop}/admin/checkouts`, '_blank', 'noopener'),
+                }
+              : null,
+            {
+              id: 'ask-shopgpt',
+              icon: <AutoAwesome sx={{ fontSize: 18 }} />,
+              tone: { fg: '#0f766e', bg: 'rgba(14, 165, 166, 0.08)', border: 'rgba(14, 165, 166, 0.30)' },
+              title: 'Not sure what to tackle first?',
+              sub: 'Ask ShopGPT for a prioritized plan.',
+              cta: 'Ask ShopGPT',
+              onClick: () => navigate('/business-intelligence?ask=' + encodeURIComponent('What should I focus on today to increase revenue?')),
+            },
+          ].filter((item): item is NonNullable<typeof item> => Boolean(item) && !dismissed.includes(item!.id));
+
+          if (queueItems.length === 0) return null;
+          return (
+            <Box
+              className="dashboard-action-queue"
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: `repeat(${Math.min(queueItems.length, 3)}, 1fr)` },
+                gap: 2,
+              }}
+            >
+              {queueItems.map((item) => (
+                <Box
+                  key={item.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 1.5,
+                    p: 2,
+                    borderRadius: 1,
+                    border: `1px solid ${item.tone.border}`,
+                    bgcolor: '#ffffff',
+                    boxShadow: '0 14px 34px -30px rgb(16 24 32 / 0.6)',
+                    transition: 'box-shadow 0.2s ease, transform 0.2s ease',
+                    '&:hover': { boxShadow: '0 20px 44px -32px rgb(16 24 32 / 0.7)', transform: 'translateY(-1px)' },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 1,
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: item.tone.fg,
+                      bgcolor: item.tone.bg,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.icon}
+                  </Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#101820', lineHeight: 1.3 }}>
+                      {item.title}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#5f6b76', display: 'block', mt: 0.25 }}>
+                      {item.sub}
+                    </Typography>
+                    <Button
+                      size="small"
+                      onClick={item.onClick}
+                      sx={{ mt: 0.75, px: 1, minHeight: 28, fontWeight: 800, color: item.tone.fg, '&:hover': { bgcolor: item.tone.bg } }}
+                    >
+                      {item.cta}
+                    </Button>
+                  </Box>
+                  <IconButton size="small" aria-label="Dismiss" onClick={() => dismiss(item.id)} sx={{ color: '#98a1ab', mt: -0.5, mr: -0.5 }}>
+                    <Close sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          );
+        })()}
+
         {/* Products and Orders */}
         <Box 
           sx={{ 
@@ -3307,11 +3421,8 @@ const DashboardPage = () => {
                   )}
                 </SectionHeader>
                 {cardLoading.products ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <CircularProgress size={24} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Loading products...
-                    </Typography>
+                  <Box sx={{ px: 1, py: 1 }}>
+                    <ListSkeleton items={5} showAvatar />
                   </Box>
                 ) : cardErrors.products ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3516,11 +3627,8 @@ const DashboardPage = () => {
                   )}
                 </SectionHeader>
                 {cardLoading.orders ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <CircularProgress size={24} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Loading orders...
-                    </Typography>
+                  <Box sx={{ px: 1, py: 1 }}>
+                    <ListSkeleton items={5} showAvatar />
                   </Box>
                 ) : cardErrors.orders ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>

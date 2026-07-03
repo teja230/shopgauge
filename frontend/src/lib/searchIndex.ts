@@ -6,10 +6,12 @@ export interface SearchItem {
 
 // You can extend this list with dynamic entities (shops, settings, etc.) by reading from API at runtime.
 export const searchIndex: SearchItem[] = [
-  { name: 'Dashboard', keywords: 'dashboard home analytics', action: '/dashboard' },
-  { name: 'Competitors', keywords: 'competitor competitor discovery', action: '/competitors' },
+  { name: 'Home', keywords: 'home landing start', action: '/' },
+  { name: 'Dashboard', keywords: 'dashboard analytics revenue orders overview', action: '/dashboard' },
+  { name: 'Market Intelligence', keywords: 'competitor competitors discovery prices market', action: '/competitors' },
+  { name: 'ShopGPT', keywords: 'ai assistant chat insights business intelligence shopgpt', action: '/business-intelligence' },
+  { name: 'Profile & Settings', keywords: 'profile user settings store connection privacy', action: '/profile' },
   { name: 'Admin', keywords: 'admin audit logs health', action: '/admin' },
-  { name: 'Profile', keywords: 'profile user settings', action: '/profile' },
   { name: 'Privacy Policy', keywords: 'privacy legal policy', action: '/privacy-policy' },
   { name: 'Logout', keywords: 'logout sign out', action: '!logout' },
-]; 
+];

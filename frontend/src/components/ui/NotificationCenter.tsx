@@ -532,6 +532,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     onNotificationCountChange?.(unreadCount);
   }, [unreadCount, onNotificationCountChange]);
 
+  // Allow the command palette (and others) to open the panel
+  useEffect(() => {
+    const openHandler = () => setIsOpen(true);
+    window.addEventListener('shopgauge:open-notifications', openHandler);
+    return () => window.removeEventListener('shopgauge:open-notifications', openHandler);
+  }, []);
+
   // Get icon for notification type with theme colors
   const getNotificationIcon = (type: string) => {
     const iconProps = { size: 18, strokeWidth: 2 };

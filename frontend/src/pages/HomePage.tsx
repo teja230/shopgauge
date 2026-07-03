@@ -236,6 +236,42 @@ const ConnectStoreForm: React.FC<ConnectStoreFormProps> = ({
   </form>
 );
 
+const Reveal: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.12 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`${className} transition-all duration-500 ease-out ${
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'
+      }`}
+    >
+      {children}
+    </div>
+  );
+};
+
 const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -647,6 +683,7 @@ const HomePage = () => {
       </section>
 
       {/* Feature Categories */}
+      <Reveal>
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mb-10 max-w-3xl">
           <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant workflows</p>
@@ -700,8 +737,10 @@ const HomePage = () => {
           </ul>
         </div>
       </section>
+      </Reveal>
 
       {/* Testimonials */}
+      <Reveal>
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mb-8">
           <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant proof</p>
@@ -732,8 +771,10 @@ const HomePage = () => {
           ))}
         </div>
       </section>
+      </Reveal>
 
       {/* FAQ */}
+      <Reveal>
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mb-8">
           <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Details</p>
@@ -748,6 +789,7 @@ const HomePage = () => {
           ))}
         </div>
       </section>
+      </Reveal>
     </div>
   );
 };

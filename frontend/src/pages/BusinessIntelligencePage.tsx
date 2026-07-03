@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -89,6 +90,19 @@ const BusinessIntelligencePage: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d' | '60d'>('7d');
+  const location = useLocation();
+  const askHandledRef = useRef(false);
+
+  // Deep link from the command palette / "Explain this" affordances: /business-intelligence?ask=...
+  useEffect(() => {
+    if (askHandledRef.current) return;
+    const ask = new URLSearchParams(location.search).get('ask');
+    if (ask) {
+      askHandledRef.current = true;
+      setChatInput(ask);
+      window.history.replaceState({}, '', location.pathname);
+    }
+  }, [location.search, location.pathname]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Timeframe options for user selection
