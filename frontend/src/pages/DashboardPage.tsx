@@ -3769,70 +3769,119 @@ const DashboardPage = () => {
         {/* Analytics Charts with Toggle */}
         <Box sx={{ width: '100%', order: 2, display: 'flex', flexDirection: 'column' }}>
 
-          {/* Discovery Banner for Advanced Analytics - Moved Above Charts */}
-          {chartMode === 'classic' && (
-            <Box sx={{
-              order: 2,
-              mt: 3,
-              mb: 0,
-              p: 2.25,
-              bgcolor: '#161c24',
-              color: '#ffffff',
+          <Box
+            className="dashboard-forecasting-toolbar"
+            sx={{
+              mb: 2,
+              p: { xs: 1.25, md: 1.5 },
+              bgcolor: '#ffffff',
+              border: '1px solid rgba(16, 24, 32, 0.09)',
               borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'rgba(255,255,255,0.10)',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: { xs: 'stretch', md: 'center' },
               justifyContent: 'space-between',
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: 2,
-              boxShadow: '0 24px 58px -46px rgb(16 24 32 / 0.85)',
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 1,
-                  bgcolor: '#2f5bea',
+              flexDirection: { xs: 'column', md: 'row' },
+              gap: 1.5,
+              boxShadow: '0 18px 46px -42px rgb(16 24 32 / 0.76)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+              <Box
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '10px',
+                  bgcolor: chartMode === 'unified' ? '#e8edff' : '#eef2ff',
+                  color: '#2f5bea',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                }}>
-                  <Analytics sx={{ color: '#ffffff', fontSize: '1.25rem' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={800} color="inherit">
-                    AI-powered forecasting is available
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: '#aab5c0' }}>
-                    Switch to advanced analytics for forecasts, confidence intervals, and export-ready charts.
-                  </Typography>
-                </Box>
-              </Box>
-              <Button
-                variant="contained"
-                onClick={() => handleChartModeChange(null as any, 'unified')}
-                sx={{
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1,
-                  fontWeight: 800,
-                  textTransform: 'none',
-                  minWidth: isMobile ? '100%' : 'auto',
-                  bgcolor: '#2f5bea',
+                  flexShrink: 0,
                 }}
-                startIcon={<Analytics />}
               >
-                Try Advanced Analytics
-              </Button>
+                {chartMode === 'unified' ? <Analytics sx={{ fontSize: 20 }} /> : <ShowChart sx={{ fontSize: 20 }} />}
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="overline" sx={{ color: '#2f5bea', fontWeight: 900, lineHeight: 1.2 }}>
+                  Forecasting workspace
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#5f6b76', fontWeight: 700 }}>
+                  {chartMode === 'unified'
+                    ? 'AI forecasts, confidence intervals, and export-ready analysis are active.'
+                    : 'Review classic revenue trends or switch into AI-powered forecasting.'}
+                </Typography>
+              </Box>
             </Box>
-          )}
 
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'space-between', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
+              <ToggleButtonGroup
+                value={chartMode}
+                exclusive
+                onChange={handleChartModeChange}
+                size="small"
+                sx={{
+                  backgroundColor: '#f6f7f9',
+                  border: '1px solid #e4e7eb',
+                  borderRadius: '10px',
+                  p: 0.5,
+                  gap: 0.5,
+                  '& .MuiToggleButton-root': {
+                    px: { xs: 1.25, sm: 2 },
+                    py: 0.75,
+                    fontSize: '0.8125rem',
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    border: 'none',
+                    borderRadius: '8px !important',
+                    color: '#5f6b76',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    transition: 'background-color 0.2s ease, color 0.2s ease',
+                    '&:hover': { backgroundColor: 'rgba(47, 91, 234, 0.08)', color: '#2f5bea' },
+                    '&.Mui-selected': {
+                      backgroundColor: '#ffffff',
+                      color: '#101820',
+                      boxShadow: '0 1px 3px rgba(16, 24, 32, 0.12)',
+                      '&:hover': { backgroundColor: '#ffffff' },
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="classic">
+                  <ShowChart sx={{ fontSize: '1.05rem' }} />
+                  Classic
+                </ToggleButton>
+                <ToggleButton value="unified">
+                  <Analytics sx={{ fontSize: '1.05rem' }} />
+                  AI forecasts
+                </ToggleButton>
+              </ToggleButtonGroup>
 
+              {chartMode === 'classic' && (
+                <Button
+                  variant="contained"
+                  onClick={() => handleChartModeChange(null as any, 'unified')}
+                  sx={{
+                    minHeight: 38,
+                    borderRadius: 1,
+                    px: 2,
+                    fontWeight: 850,
+                    textTransform: 'none',
+                    bgcolor: '#2f5bea',
+                    boxShadow: '0 16px 34px -24px rgba(47,91,234,0.92)',
+                    '&:hover': { bgcolor: '#244bd4' },
+                  }}
+                  startIcon={<Analytics />}
+                >
+                  Try AI
+                </Button>
+              )}
+            </Box>
+          </Box>
 
           {/* Chart Container with smooth transitions - SIGNIFICANTLY INCREASED for chart visibility */}
           <Box sx={{
-            order: 1,
             position: 'relative',
             minHeight: { xs: 560, md: 600 },
             transition: 'all 0.25s ease-in-out',
@@ -4054,80 +4103,6 @@ const DashboardPage = () => {
             </ErrorBoundary>
           )}
           </Box>
-        </Box>
-
-        {/* Chart Mode Toggle - compact segmented control */}
-        <Box
-          className="dashboard-chart-toggle"
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            mt: 2.5,
-            mb: 1,
-            px: isMobile ? 2 : 0,
-            order: 3,
-          }}
-        >
-          <ToggleButtonGroup
-            value={chartMode}
-            exclusive
-            onChange={handleChartModeChange}
-            size="small"
-            sx={{
-              backgroundColor: '#f6f7f9',
-              border: '1px solid #e4e7eb',
-              borderRadius: '10px',
-              p: 0.5,
-              gap: 0.5,
-              '& .MuiToggleButton-root': {
-                px: 2,
-                py: 0.75,
-                fontSize: '0.8125rem',
-                fontWeight: 700,
-                textTransform: 'none',
-                border: 'none',
-                borderRadius: '8px !important',
-                color: '#5f6b76',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.75,
-                transition: 'background-color 0.2s ease, color 0.2s ease',
-                '&:hover': { backgroundColor: 'rgba(47, 91, 234, 0.08)', color: '#2f5bea' },
-                '&.Mui-selected': {
-                  backgroundColor: '#ffffff',
-                  color: '#101820',
-                  boxShadow: '0 1px 3px rgba(16, 24, 32, 0.12)',
-                  '&:hover': { backgroundColor: '#ffffff' },
-                },
-              },
-            }}
-          >
-            <ToggleButton value="classic">
-              <ShowChart sx={{ fontSize: '1.05rem' }} />
-              Classic view
-            </ToggleButton>
-            <ToggleButton value="unified">
-              <Analytics sx={{ fontSize: '1.05rem' }} />
-              Advanced analytics
-              <Box
-                component="span"
-                sx={{
-                  ml: 0.5,
-                  px: 0.75,
-                  py: 0.1,
-                  borderRadius: 999,
-                  fontSize: '0.625rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.04em',
-                  bgcolor: 'rgba(47, 91, 234, 0.12)',
-                  color: '#2f5bea',
-                }}
-              >
-                AI
-              </Box>
-            </ToggleButton>
-          </ToggleButtonGroup>
         </Box>
 
         {/* Dashboard Status */}
