@@ -382,7 +382,7 @@ interface OrdersData {
   has_more: boolean;
 }
 
-const COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed'];
+const COLORS = ['#2f5bea', '#15b87a', '#d97706', '#dc2626', '#7c9cff'];
 
 // Add a modern SaaS hero section at the top of the dashboard
 const HeroSection = styled(Box)(({ theme }) => ({
@@ -1233,7 +1233,7 @@ const DashboardPage = () => {
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
     if (!cacheEntry) {
       console.log(`🔍 ${cacheKey || 'CACHE'}: No cache entry found`);
-      notifications.addNotification(`❌ ${cacheKey || 'Cache'}: No cache found`, 'warning', { duration: 3000 });
+      notifications.addNotification(`${cacheKey || 'Cache'}: No cache found`, 'warning', { duration: 3000 });
       return false;
     }
     
@@ -1245,9 +1245,9 @@ const DashboardPage = () => {
     console.log(`🔍 ${cacheKey || 'CACHE'}: ${ageMinutes}min old (max: ${maxMinutes}min) - ${isFresh ? 'FRESH ✅' : 'EXPIRED ❌'}`);
     
     if (isFresh) {
-      notifications.addNotification(`✅ ${cacheKey || 'Cache'}: Using cached data (${ageMinutes}min old)`, 'success', { duration: 2000 });
+      notifications.addNotification(`${cacheKey || 'Cache'}: Using cached data (${ageMinutes}min old)`, 'success', { duration: 2000 });
     } else {
-      notifications.addNotification(`⏰ ${cacheKey || 'Cache'}: Cache expired (${ageMinutes}min old)`, 'info', { duration: 2000 });
+      notifications.addNotification(`${cacheKey || 'Cache'}: Cache expired (${ageMinutes}min old)`, 'info', { duration: 2000 });
     }
     
     return isFresh;
@@ -2562,7 +2562,7 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showSuccess(`✨ Successfully connected${shop ? ` to ${shop.replace('.myshopify.com', '')}` : ''}! Your insights are loading.`, {
+        notifications.showSuccess(`Successfully connected${shop ? ` to ${shop.replace('.myshopify.com', '')}` : ''}. Your insights are loading.`, {
           category: 'Store Connection',
           duration: 4000
         });
@@ -2581,7 +2581,7 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showSuccess('🔐 Re-authentication successful! Refreshing data...', {
+        notifications.showSuccess('Re-authentication successful. Refreshing data...', {
           category: 'Authentication',
           duration: 3000
         });
@@ -2655,7 +2655,7 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showInfo('🔄 Syncing your product catalog for competitor tracking...', {
+        notifications.showInfo('Syncing your product catalog for competitor tracking...', {
           category: 'Product Sync',
           duration: 3000
         });

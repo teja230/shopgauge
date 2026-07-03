@@ -142,7 +142,7 @@ const ContentSection = styled(Box)(({ theme }) => ({
 
 const ActionSection = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
-  backgroundColor: '#f8fafc',
+  backgroundColor: '#f6f7f9',
   borderTop: '1px solid #e5e7eb',
   borderBottomLeftRadius: 20,
   borderBottomRightRadius: 20,
@@ -657,11 +657,11 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
             disabled={associating}
             startIcon={associating ? <CircularProgress size={16} /> : <LinkIcon />}
             sx={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+              background: 'linear-gradient(135deg, #2f5bea 0%, #254bd6 100%)',
+              boxShadow: '0 14px 30px -22px rgba(47, 91, 234, 0.8)',
               '&:hover': {
-                background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-                boxShadow: '0 6px 16px rgba(59, 130, 246, 0.4)',
+                background: 'linear-gradient(135deg, #254bd6 0%, #1f3fb9 100%)',
+                boxShadow: '0 18px 36px -24px rgba(47, 91, 234, 0.9)',
               },
               '&:disabled': {
                 background: '#9ca3af',
@@ -675,4 +675,4 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
       </ActionSection>
     </StyledDialog>
   );
-}; 
+};

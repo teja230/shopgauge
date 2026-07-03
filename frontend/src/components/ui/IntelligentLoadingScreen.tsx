@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
+import { BarChart3, Lightbulb, Target, TrendingUp } from 'lucide-react';
 
 // Animations
 const float = keyframes`
@@ -225,7 +226,15 @@ const DataPoints = styled(Box)(({ theme }) => ({
 }));
 
 const DataPoint = styled(Box)<{ delay: number }>(({ delay }) => ({
-  fontSize: '2rem',
+  width: 42,
+  height: 42,
+  borderRadius: 12,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#2f5bea',
+  background: 'rgba(47, 91, 234, 0.10)',
+  border: '1px solid rgba(47, 91, 234, 0.18)',
   animation: `${bounceData} 1.5s ease-in-out ${delay}s infinite`,
 }));
 
@@ -356,10 +365,10 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
           </ChartContainer>
           
           <DataPoints>
-            <DataPoint delay={0.2}>📊</DataPoint>
-            <DataPoint delay={0.4}>📈</DataPoint>
-            <DataPoint delay={0.6}>💡</DataPoint>
-            <DataPoint delay={0.8}>🎯</DataPoint>
+            <DataPoint delay={0.2}><BarChart3 size={20} /></DataPoint>
+            <DataPoint delay={0.4}><TrendingUp size={20} /></DataPoint>
+            <DataPoint delay={0.6}><Lightbulb size={20} /></DataPoint>
+            <DataPoint delay={0.8}><Target size={20} /></DataPoint>
           </DataPoints>
         </AnalyticsContainer>
 
@@ -401,4 +410,4 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
   );
 };
 
-export default IntelligentLoadingScreen; 
+export default IntelligentLoadingScreen;

@@ -294,16 +294,16 @@ const ExportModal: React.FC<ExportModalProps> = ({
         }
         /* Force light mode chart elements */
         .recharts-line {
-          stroke: #2563eb !important;
+          stroke: #2f5bea !important;
         }
         .recharts-area {
-          fill: rgba(25, 118, 210, 0.1) !important;
+          fill: rgba(47, 91, 234, 0.1) !important;
         }
         .recharts-bar {
-          fill: #2563eb !important;
+          fill: #2f5bea !important;
         }
         .recharts-dot {
-          fill: #2563eb !important;
+          fill: #2f5bea !important;
         }
       `;
       clonedSvg.insertBefore(styleElement, clonedSvg.firstChild);
@@ -1447,4 +1447,4 @@ const ExportModal: React.FC<ExportModalProps> = ({
   );
 };
 
-export default ExportModal; 
+export default ExportModal;

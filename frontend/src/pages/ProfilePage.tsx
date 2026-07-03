@@ -11,7 +11,7 @@ import {
   getPrivacyReport,
   API_BASE_URL
 } from '../api';
-import { Store, RefreshCw, Lock, BarChart3 } from 'lucide-react';
+import { AlertTriangle, BarChart3, CheckCircle2, Clock, FileText, Lock, Monitor, RefreshCw, Scale, Store, XCircle } from 'lucide-react';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
@@ -213,7 +213,7 @@ export default function ProfilePage() {
     }
 
     if (reauth === 'success') {
-      notifications.showSuccess('🔐 Re-authentication successful!', {
+      notifications.showSuccess('Re-authentication successful.', {
         persistent: true,
         category: 'Authentication',
         action: {
@@ -421,7 +421,7 @@ export default function ProfilePage() {
     setConfirmDialog({
       isOpen: true,
       title: 'Force Disconnect',
-      message: '🚨 FORCE DISCONNECT - Use only if normal disconnect fails\n\nThis will:\n• Clear ALL authentication tokens and cookies\n• Force logout from all sessions\n• Remove all cached data\n• Require fresh authentication\n\nUse this only if you\'re experiencing authentication issues.\n\nProceed with force disconnect?',
+      message: 'FORCE DISCONNECT - Use only if normal disconnect fails\n\nThis will:\n• Clear ALL authentication tokens and cookies\n• Force logout from all sessions\n• Remove all cached data\n• Require fresh authentication\n\nUse this only if you\'re experiencing authentication issues.\n\nProceed with force disconnect?',
       type: 'danger',
       size: 'lg',
       onConfirm: async () => {
@@ -535,7 +535,7 @@ export default function ProfilePage() {
     setConfirmDialog({
       isOpen: true,
       title: 'Permanent Data Deletion',
-      message: '⚠️ PERMANENT DATA DELETION\n\nThis will permanently delete ALL your data from our systems including:\n• Order history and analytics\n• Revenue data and metrics\n• Store configuration and settings\n• Audit logs and access history\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to proceed?',
+      message: 'PERMANENT DATA DELETION\n\nThis will permanently delete ALL your data from our systems including:\n• Order history and analytics\n• Revenue data and metrics\n• Store configuration and settings\n• Audit logs and access history\n\nThis action CANNOT be undone.\n\nAre you absolutely sure you want to proceed?',
       type: 'danger',
       size: 'lg',
       onConfirm: () => {
@@ -546,7 +546,7 @@ export default function ProfilePage() {
           setConfirmDialog({
             isOpen: true,
             title: 'Final Confirmation',
-            message: `🚨 FINAL CONFIRMATION\n\nYou are about to PERMANENTLY DELETE all your data.\n\nStore domain: ${shop}\n\nThis is your LAST CHANCE to cancel.\n\nProceed with permanent deletion?`,
+            message: `FINAL CONFIRMATION\n\nYou are about to PERMANENTLY DELETE all your data.\n\nStore domain: ${shop}\n\nThis is your LAST CHANCE to cancel.\n\nProceed with permanent deletion?`,
             type: 'danger',
             size: 'lg',
             onConfirm: async () => {
@@ -761,9 +761,9 @@ export default function ProfilePage() {
 
   const getConnectionStatusIcon = () => {
     switch (connectionStatus) {
-      case 'connected': return '✅';
-      case 'error': return '❌';
-      default: return '⏳';
+      case 'connected': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case 'error': return <XCircle className="h-5 w-5 text-red-600" />;
+      default: return <Clock className="h-5 w-5 text-yellow-600" />;
     }
   };
 
@@ -811,7 +811,7 @@ export default function ProfilePage() {
                     <span className="text-gray-900 font-mono text-sm">{shop}</span>
                   </div>
                 <div className={`flex items-center ${getConnectionStatusColor()}`}>
-                  <span className="text-lg mr-2">{getConnectionStatusIcon()}</span>
+                  <span className="mr-2 inline-flex">{getConnectionStatusIcon()}</span>
                   <span className="text-sm font-medium capitalize">{connectionStatus}</span>
           </div>
         </div>
@@ -853,7 +853,8 @@ export default function ProfilePage() {
                       </>
                     ) : (
                       <>
-                        🔄 Update Stats
+                        <RefreshCw className="h-3 w-3" />
+                        Update Stats
                       </>
                     )}
                   </button>
@@ -869,7 +870,10 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-2 space-y-1">
-                  <div className="text-center">📊 Data reflects the last 60 days of activity</div>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    Data reflects the last 60 days of activity
+                  </div>
                   {storeStatsLastUpdated && (
                     <div className="text-center">
                       Last updated: {storeStatsLastUpdated.toLocaleString('en-US', {
@@ -1118,7 +1122,7 @@ export default function ProfilePage() {
                         <p className="text-blue-700">• Authorize via Shopify (secure OAuth)</p>
                         <p className="text-blue-700">• Automatically redirected to Dashboard</p>
                         <p className="text-blue-600 mt-2 text-xs italic">
-                          ✨ Same account stores connect instantly with success notification
+                          Same-account stores connect instantly with success notification.
                         </p>
                       </div>
                     </div>
@@ -1191,7 +1195,7 @@ export default function ProfilePage() {
           {/* Data Access & Export */}
           <div className="bg-white p-5 rounded-xl shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-              <span className="mr-2">📊</span>
+              <FileText className="mr-2 h-5 w-5 text-blue-600" />
               Data Access & Export
             </h3>
           <div className="space-y-3">
@@ -1233,7 +1237,7 @@ export default function ProfilePage() {
           {/* Legal & Compliance */}
           <div className="bg-white p-5 rounded-xl shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-              <span className="mr-2">⚖️</span>
+              <Scale className="mr-2 h-5 w-5 text-gray-600" />
               Legal & Compliance
             </h3>
           <div className="space-y-3">
@@ -1276,7 +1280,7 @@ export default function ProfilePage() {
         {/* Compliance Info */}
         <div className="mt-6 bg-white p-4 rounded-xl shadow-sm">
           <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-            <span className="mr-2">✅</span>
+            <CheckCircle2 className="mr-2 h-5 w-5 text-green-600" />
             Your Data Rights & Our Commitments
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600">
@@ -1427,7 +1431,7 @@ export default function ProfilePage() {
                 {/* Access Statistics */}
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                   <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-                    <span className="mr-2">📈</span>
+                    <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
                     Data Access Activity Summary
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1517,7 +1521,7 @@ export default function ProfilePage() {
       {/* Session Management Section */}
       <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <span className="mr-3 text-2xl">🖥️</span>
+          <Monitor className="mr-3 h-6 w-6 text-blue-600" />
           Active Sessions
         </h2>
         <p className="text-sm text-gray-700 mb-6">
@@ -1528,7 +1532,7 @@ export default function ProfilePage() {
           {/* Session Status */}
           <div className="bg-white p-4 lg:p-5 rounded-xl shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-              <span className="mr-2">📊</span>
+              <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
               Session Status
             </h3>
             <div className="space-y-4">
@@ -1547,7 +1551,7 @@ export default function ProfilePage() {
                           ? 'bg-red-100 text-red-800' 
                           : 'bg-green-100 text-green-800'
                       }`}>
-                        {sessionLimitData.limitReached ? '⚠️ Limit Reached' : '✅ Available'}
+                        {sessionLimitData.limitReached ? 'Limit Reached' : 'Available'}
                       </div>
                     </div>
                   </div>
@@ -1712,7 +1716,7 @@ export default function ProfilePage() {
       {/* Danger Zone - Enhanced with Better Explanations */}
       <div className="bg-white shadow-sm rounded-lg p-6 border border-red-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <span className="mr-3 text-2xl">⚠️</span>
+          <AlertTriangle className="mr-3 h-6 w-6 text-red-600" />
           Danger Zone
         </h2>
         <div className="space-y-6">
@@ -1752,7 +1756,7 @@ export default function ProfilePage() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="font-semibold text-yellow-900 mb-2 flex items-center">
-                  <span className="mr-2">🚨</span>
+                  <AlertTriangle className="mr-2 h-5 w-5 text-yellow-700" />
                   Force Disconnect (Troubleshooting)
                 </h3>
                 <p className="text-sm text-yellow-800 mb-3">

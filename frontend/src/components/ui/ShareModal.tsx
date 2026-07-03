@@ -102,18 +102,18 @@ const ShareModal: React.FC<ShareModalProps> = ({
       let chartContext = '';
       if (currentChart.includes('revenue')) {
         chartContext = metrics?.revenue ? 
-          `💰 Revenue insights: $${metrics.revenue.toLocaleString()}` : 
-          '💰 Revenue performance insights';
+          `Revenue insights: $${metrics.revenue.toLocaleString()}` :
+          'Revenue performance insights';
       } else if (currentChart.includes('order')) {
         chartContext = metrics?.orders ? 
-          `📦 Order analytics: ${metrics.orders.toLocaleString()} orders` : 
-          '📦 Order performance analytics';
+          `Order analytics: ${metrics.orders.toLocaleString()} orders` :
+          'Order performance analytics';
       } else if (currentChart.includes('conversion')) {
         chartContext = metrics?.conversion ? 
-          `🎯 Conversion analysis: ${(metrics.conversion * 100).toFixed(2)}% rate` : 
-          '🎯 Conversion rate analysis';
+          `Conversion analysis: ${(metrics.conversion * 100).toFixed(2)}% rate` :
+          'Conversion rate analysis';
       } else {
-        chartContext = '📊 Business performance insights';
+        chartContext = 'Business performance insights';
       }
       
       const timeRange = metrics?.timeRange || 'recent period';
@@ -122,18 +122,18 @@ const ShareModal: React.FC<ShareModalProps> = ({
       let forecastText = '';
       if (metrics?.forecastPeriod && shareSettings.includeForecasts) {
         if (currentChart.includes('revenue') && metrics?.forecastRevenue) {
-          forecastText = `\n🔮 Total Revenue Forecast (${metrics.forecastPeriod}): $${metrics.forecastRevenue.toLocaleString()}${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
+          forecastText = `\nTotal Revenue Forecast (${metrics.forecastPeriod}): $${metrics.forecastRevenue.toLocaleString()}${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
         } else if (currentChart.includes('order') && metrics?.forecastOrders) {
-          forecastText = `\n🔮 Total Orders Forecast (${metrics.forecastPeriod}): ${metrics.forecastOrders.toLocaleString()} orders${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
+          forecastText = `\nTotal Orders Forecast (${metrics.forecastPeriod}): ${metrics.forecastOrders.toLocaleString()} orders${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
         } else if (currentChart.includes('conversion') && metrics?.conversion) {
-          forecastText = `\n🔮 Conversion Rate Forecast (${metrics.forecastPeriod}): ${(metrics.conversion * 100).toFixed(2)}%${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
+          forecastText = `\nConversion Rate Forecast (${metrics.forecastPeriod}): ${(metrics.conversion * 100).toFixed(2)}%${metrics.confidenceScore ? ` (${Math.round(metrics.confidenceScore * 100)}% confidence)` : ''}`;
         }
       }
       
-      const baseMessage = `🚀 ${storeName} ${chartContext}`;
-      const analyticsText = shareSettings.includeAnalytics ? `\n📈 Period: ${timeRange}` : '';
+      const baseMessage = `${storeName} ${chartContext}`;
+      const analyticsText = shareSettings.includeAnalytics ? `\nPeriod: ${timeRange}` : '';
       
-      return `${baseMessage}${analyticsText}${forecastText}\n\n🌐 Powered by ShopGauge: https://www.shopgaugeai.com`;
+      return `${baseMessage}${analyticsText}${forecastText}\n\nPowered by ShopGauge: https://www.shopgaugeai.com`;
     };
 
     try {
@@ -258,7 +258,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
         }}
       >
         <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+          background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
           color: 'white',
           borderRadius: '8px 8px 0 0'
         }}>
@@ -435,4 +435,4 @@ const ShareModal: React.FC<ShareModalProps> = ({
   );
 };
 
-export default ShareModal; 
+export default ShareModal;

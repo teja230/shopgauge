@@ -409,7 +409,7 @@ const PredictionViewContainer = memo(({
             mb: 3,
             pb: 2,
             borderBottom: `2px solid ${theme.palette.divider}`,
-            background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)',
+            background: 'linear-gradient(90deg, rgba(47, 91, 234, 0.08) 0%, rgba(16, 24, 32, 0.04) 100%)',
             borderRadius: 2,
             p: 2,
           }}>
@@ -418,7 +418,7 @@ const PredictionViewContainer = memo(({
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -428,7 +428,7 @@ const PredictionViewContainer = memo(({
               </Box>
               <Box>
                 <Typography variant="h5" fontWeight={700} sx={{ 
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -445,10 +445,10 @@ const PredictionViewContainer = memo(({
                     size="small"
                     sx={{ 
                       fontWeight: 600,
-                      background: 'linear-gradient(135deg, #9333ea 0%, #c084fc 100%)',
+                      background: 'linear-gradient(135deg, #2f5bea 0%, #7c9cff 100%)',
                       color: 'white',
                       '& .MuiChip-icon': { color: 'white' },
-                      boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3)',
+                      boxShadow: '0 2px 8px rgba(47, 91, 234, 0.3)',
                     }}
                   />
                 </Box>
@@ -461,13 +461,13 @@ const PredictionViewContainer = memo(({
                 onClick={handleShareChart}
                 size="large"
                 sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                   color: 'white',
                   width: 48,
                   height: 48,
                   boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
                   '&:hover': { 
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                    background: 'linear-gradient(135deg, #0b1016 0%, #254bd6 100%)',
                     transform: 'translateY(-2px)',
                     boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
                   },
@@ -573,11 +573,11 @@ const PredictionViewContainer = memo(({
                       transform: 'translateY(-1px)',
                     },
                     '&.Mui-selected': {
-                      background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                      background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                       color: 'white',
                       boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                        background: 'linear-gradient(135deg, #0b1016 0%, #254bd6 100%)',
                       },
                     },
                   },
@@ -974,4 +974,4 @@ const PredictionViewContainer = memo(({
   );
 });
 
-export default PredictionViewContainer; 
+export default PredictionViewContainer;

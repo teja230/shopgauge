@@ -2383,7 +2383,7 @@ export default function CompetitorsPage() {
         {(competitorLimit.currentCount >= competitorLimit.limit * 0.8 || 
           archivedCompetitorLimit.currentCount >= archivedCompetitorLimit.limit * 0.8) && (
           <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
-            ⚠️ You're approaching your competitor limits. Consider upgrading for unlimited tracking.
+            You&apos;re approaching your competitor limits. Consider upgrading for unlimited tracking.
           </div>
         )}
       </div>
@@ -3436,7 +3436,7 @@ export default function CompetitorsPage() {
                         <div className="mt-4 pt-3 border-t border-gray-100">
                           <div className="flex items-start gap-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
                             <div className="flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-bold text-white">💡</span>
+                              <InformationCircleIcon className="h-3 w-3 text-white" />
                             </div>
                             <div>
                               <p className="text-xs font-medium text-blue-900 mb-0.5">Pro Tip</p>
@@ -3642,25 +3642,25 @@ export default function CompetitorsPage() {
         styles={{
           options: {
             zIndex: 9999,
-            primaryColor: '#2563eb',
+            primaryColor: '#2f5bea',
             textColor: '#1e293b',
             backgroundColor: '#fff',
           },
           tooltip: {
             borderRadius: 16,
-            boxShadow: '0 8px 32px 0 rgba(37,99,235,0.10)',
+            boxShadow: '0 8px 32px 0 rgba(47,91,234,0.10)',
             padding: 0,
             fontFamily: 'Inter, sans-serif',
           },
           buttonNext: {
-            backgroundColor: '#2563eb',
+            backgroundColor: '#2f5bea',
             color: '#fff',
             borderRadius: 8,
             fontWeight: 500,
             fontFamily: 'Inter, sans-serif',
           },
           buttonBack: {
-            color: '#2563eb',
+            color: '#2f5bea',
             background: '#e0e7ff',
             borderRadius: 8,
             fontWeight: 500,
@@ -3672,7 +3672,7 @@ export default function CompetitorsPage() {
             fontFamily: 'Inter, sans-serif',
           },
         }}
-        tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2563eb" />}
+        tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2f5bea" />}
         callback={handleJoyrideCallback}
         locale={{
           back: 'Previous',
@@ -3813,9 +3813,9 @@ export default function CompetitorsPage() {
             height: 56,
             minWidth: 56,
             minHeight: 56,
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
             color: 'white',
-            boxShadow: '0 4px 20px rgba(37, 99, 235, 0.3)',
+            boxShadow: '0 4px 20px rgba(47, 91, 234, 0.3)',
             transition: 'all 0.3s ease',
           }}
         >
