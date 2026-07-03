@@ -24,27 +24,29 @@ import {
   Shield,
   Wifi,
   Megaphone,
+  Inbox,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useNotificationSettings } from '../../context/NotificationSettingsContext';
-import { 
-  Box, 
-  Paper, 
-  Typography, 
-  IconButton, 
-  Button, 
+import {
+  Box,
+  Typography,
+  IconButton,
+  Button,
   Badge,
   CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Drawer,
   Switch,
   FormControlLabel,
   Divider,
+  Tab,
+  Tabs,
   useTheme,
-  Fade,
   Tooltip,
   Alert
 } from '@mui/material';
@@ -88,37 +90,14 @@ const pulse = keyframes`
 `;
 
 // Styled components matching the site's design system
-const NotificationDropdown = styled(Paper)(({ theme }) => ({
-  position: 'absolute',
-  top: '100%',
-  right: 0,
-  width: '380px',
-  maxHeight: '500px',
-  marginTop: theme.spacing(1),
-  backgroundColor: theme.palette.background.paper,
-  border: `1px solid ${theme.palette.divider}`,
-  borderRadius: 12,
-  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-  zIndex: 1300, // Below confirmation dialogs
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-  [theme.breakpoints.down('sm')]: {
-    width: '320px',
-    right: '-20px',
-  },
-}));
-
 const NotificationHeader = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(2, 3),
-  backgroundColor: theme.palette.background.paper,
-  borderBottom: `1px solid ${theme.palette.divider}`,
+  padding: theme.spacing(2.25, 3),
+  backgroundColor: '#101820',
+  color: '#ffffff',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  position: 'sticky',
-  top: 0,
-  zIndex: 1,
   flexShrink: 0,
 }));
 
@@ -159,7 +138,7 @@ const NotificationItem = styled(Box, {
 })<{ isUnread?: boolean; isGrouped?: boolean }>(({ theme, isUnread, isGrouped }) => ({
   padding: theme.spacing(2),
   margin: theme.spacing(1),
-  borderRadius: 12, // Consistent with theme
+  borderRadius: 8, // Consistent with theme
   border: `1px solid ${isUnread ? theme.palette.primary.main + '20' : theme.palette.divider}`,
   backgroundColor: isUnread ? `${theme.palette.primary.main}08` : theme.palette.background.paper,
   transition: 'all 0.2s ease',
@@ -499,7 +478,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const theme = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -524,7 +503,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     markAsRead,
     markAsUnread,
     markAllAsRead,
-    markAllAsUnread,
     deleteNotification,
     clearAll,
   } = useNotifications();
@@ -549,20 +527,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   useEffect(() => {
     onNotificationCountChange?.(unreadCount);
   }, [unreadCount, onNotificationCountChange]);
-
-  // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
 
   // Get icon for notification type with theme colors
   const getNotificationIcon = (type: string) => {
@@ -914,54 +878,63 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   return (
     <>
-      <Box position="relative" ref={dropdownRef}>
-        {/* Notification Bell Button */}
-        <Tooltip title={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}>
-          <BellButton
-            ref={buttonRef}
-            onClick={() => setIsOpen(!isOpen)}
-            aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
-            isPulsing={unreadCount > 0}
-          >
-            <Badge badgeContent={unreadCount} color="error" max={99}>
-              <Bell size={24} />
-            </Badge>
-          </BellButton>
-        </Tooltip>
+      {/* Notification Bell Button */}
+      <Tooltip title={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}>
+        <BellButton
+          ref={buttonRef}
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+          isPulsing={unreadCount > 0}
+        >
+          <Badge badgeContent={unreadCount} color="error" max={99}>
+            <Bell size={24} />
+          </Badge>
+        </BellButton>
+      </Tooltip>
 
-        {/* Notification Dropdown */}
-        <Fade in={isOpen}>
-          <NotificationDropdown>
+      {/* Notification Panel — right-anchored drawer, never clipped */}
+      <Drawer
+        anchor="right"
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        sx={{ zIndex: 1400 }}
+        PaperProps={{
+          sx: {
+            width: { xs: '100%', sm: 400 },
+            maxWidth: '100vw',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#ffffff',
+            borderLeft: '1px solid #e4e7eb',
+            borderRadius: 0,
+            boxShadow: '-24px 0 60px -40px rgba(16, 24, 32, 0.5)',
+          },
+        }}
+      >
             {/* Header */}
             <NotificationHeader>
-              <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                Notifications
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#ffffff', lineHeight: 1.2 }}>
+                  Notifications
+                </Typography>
                 {unreadCount > 0 && (
-                  <Typography 
-                    component="span" 
-                    variant="body2" 
-                    sx={{ 
-                      ml: 1, 
-                      color: 'text.secondary',
-                      fontWeight: 400 
-                    }}
-                  >
-                    ({unreadCount} unread)
+                  <Typography variant="caption" sx={{ color: '#9db4ff', fontWeight: 700 }}>
+                    {unreadCount} unread
                   </Typography>
                 )}
-              </Typography>
+              </Box>
               <Box display="flex" alignItems="center" gap={1}>
                 <Tooltip title="Notification settings">
                   <IconButton 
                     size="small" 
                     onClick={() => setIsSettingsOpen(true)}
                     sx={{
-                      color: 'text.secondary',
-                      width: 28,
-                      height: 28,
+                      color: 'rgba(255,255,255,0.7)',
+                      width: 32,
+                      height: 32,
                       '&:hover': {
-                        color: 'primary.main',
-                        backgroundColor: 'primary.light' + '12',
+                        color: '#ffffff',
+                        backgroundColor: 'rgba(255,255,255,0.10)',
                         transition: 'all 0.2s ease'
                       }
                     }}
@@ -975,16 +948,16 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     onClick={handleRefresh}
                     disabled={refreshing || loading}
                     sx={{
-                      color: 'text.secondary',
-                      width: 28,
-                      height: 28,
+                      color: 'rgba(255,255,255,0.7)',
+                      width: 32,
+                      height: 32,
                       '&:hover': {
-                        color: 'info.main',
-                        backgroundColor: 'info.light' + '12',
+                        color: '#ffffff',
+                        backgroundColor: 'rgba(255,255,255,0.10)',
                         transition: 'all 0.2s ease'
                       },
                       '&:disabled': {
-                        color: 'text.disabled',
+                        color: 'rgba(255,255,255,0.3)',
                       }
                     }}
                   >
@@ -996,12 +969,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     size="small" 
                     onClick={() => setIsOpen(false)}
                     sx={{
-                      color: 'text.secondary',
-                      width: 28,
-                      height: 28,
+                      color: 'rgba(255,255,255,0.7)',
+                      width: 32,
+                      height: 32,
                       '&:hover': {
-                        color: 'error.main',
-                        backgroundColor: 'error.light' + '12',
+                        color: '#ffffff',
+                        backgroundColor: 'rgba(255,255,255,0.10)',
                         transition: 'all 0.2s ease'
                       }
                     }}
@@ -1011,6 +984,22 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </Tooltip>
               </Box>
             </NotificationHeader>
+
+            {/* All / Unread tabs */}
+            <Tabs
+              value={activeTab}
+              onChange={(_, value) => setActiveTab(value)}
+              sx={{
+                px: 2,
+                minHeight: 44,
+                borderBottom: '1px solid #e4e7eb',
+                flexShrink: 0,
+                '& .MuiTab-root': { minHeight: 44, py: 0, px: 2, fontWeight: 700, fontSize: '0.875rem' },
+              }}
+            >
+              <Tab value="all" label={`All${notifications.length > 0 ? ` (${notifications.length})` : ''}`} />
+              <Tab value="unread" label={`Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`} />
+            </Tabs>
 
             {/* Content */}
             <NotificationContent>
@@ -1049,39 +1038,39 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 </Box>
               )}
 
-              {!loading && !error && notifications.length === 0 && (
-                <Box p={4} textAlign="center" sx={{ color: 'text.secondary' }}>
+              {!loading && !error && (activeTab === 'unread' ? unreadCount === 0 : notifications.length === 0) && (
+                <Box p={5} textAlign="center" sx={{ color: 'text.secondary' }}>
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: 80,
-                      height: 80,
+                      width: 88,
+                      height: 88,
                       borderRadius: '50%',
-                      backgroundColor: 'grey.50',
-                      margin: '0 auto 16px',
-                      border: '2px dashed',
-                      borderColor: 'grey.200',
+                      backgroundColor: 'rgba(47, 91, 234, 0.08)',
+                      margin: '0 auto 20px',
                     }}
                   >
-                    <Bell size={32} style={{ opacity: 0.5 }} strokeWidth={1.5} />
+                    <Inbox size={36} color="#2f5bea" strokeWidth={1.75} />
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 500, mb: 1 }}>
-                    All caught up!
+                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: 'text.primary' }}>
+                    You're all caught up
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    You don't have any notifications yet.
+                    {activeTab === 'unread'
+                      ? 'No unread notifications right now.'
+                      : 'Alerts about revenue, inventory, and competitors will appear here.'}
                   </Typography>
                 </Box>
               )}
 
               {!loading && !error && notifications.length > 0 && (() => {
-                // Sort notifications by creation time (newest first) without grouping
-                const sortedNotifications = [...notifications].sort((a, b) => 
-                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                );
-                
+                // Sort newest first, then apply the active tab filter
+                const sortedNotifications = [...notifications]
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .filter((n) => (activeTab === 'unread' ? !n.read : true));
+
                 return sortedNotifications.map((notification) => (
                   <NotificationItem 
                     key={notification.id} 
@@ -1208,92 +1197,40 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             {/* Actions */}
             {notifications.length > 0 && (
               <NotificationActions>
-                <Box display="flex" gap={1} flexWrap="wrap">
-                  <Tooltip title="Mark all read">
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={markAllAsRead}
-                      disabled={unreadCount === 0}
-                      sx={{ 
-                        textTransform: 'none',
-                        borderRadius: 1,
-                        minWidth: 'auto',
-                        px: 1,
-                        py: 1,
-                        minHeight: 'auto',
-                        height: 'auto',
-                        borderColor: 'success.main',
-                        color: 'success.main',
-                        '&:hover': {
-                          backgroundColor: 'success.light' + '12',
-                          borderColor: 'success.dark',
-                          transition: 'all 0.2s ease'
-                        }
-                      }}
-                    >
-                      <BookmarkCheck size={16} strokeWidth={2} />
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="Mark all unread">
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="warning"
-                      onClick={markAllAsUnread}
-                      disabled={notifications.filter(n => n.read).length === 0}
-                      sx={{
-                        textTransform: 'none',
-                        borderRadius: 1,
-                        minWidth: 'auto',
-                        px: 1,
-                        py: 1,
-                        minHeight: 'auto',
-                        height: 'auto',
-                        borderColor: 'warning.main',
-                        color: 'warning.main',
-                        '&:hover': {
-                          backgroundColor: 'warning.light' + '12',
-                          borderColor: 'warning.dark',
-                          transition: 'all 0.2s ease'
-                        }
-                      }}
-                    >
-                      <ArchiveRestore size={16} strokeWidth={2} />
-                    </Button>
-                  </Tooltip>
-                </Box>
-                <Tooltip title="Clear all notifications">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    onClick={handleDismissAll}
-                    sx={{
-                      textTransform: 'none',
-                      borderRadius: 1,
-                      minWidth: 'auto',
-                      px: 1,
-                      py: 1,
-                      minHeight: 'auto',
-                      height: 'auto',
-                      borderColor: 'error.main',
-                      color: 'error.main',
-                      '&:hover': {
-                        backgroundColor: 'error.light' + '12',
-                        borderColor: 'error.dark',
-                        transition: 'all 0.2s ease'
-                      }
-                    }}
-                  >
-                    <Trash2 size={16} strokeWidth={2} />
-                  </Button>
-                </Tooltip>
+                <Button
+                  size="small"
+                  onClick={markAllAsRead}
+                  disabled={unreadCount === 0}
+                  startIcon={<BookmarkCheck size={16} strokeWidth={2} />}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    minHeight: 36,
+                    px: 1.5,
+                    color: '#2f5bea',
+                    '&:hover': { backgroundColor: 'rgba(47, 91, 234, 0.08)' },
+                  }}
+                >
+                  Mark all read
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  onClick={handleDismissAll}
+                  startIcon={<Trash2 size={16} strokeWidth={2} />}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    minHeight: 36,
+                    px: 1.5,
+                    '&:hover': { backgroundColor: 'rgba(220, 38, 38, 0.08)' },
+                  }}
+                >
+                  Clear all
+                </Button>
               </NotificationActions>
             )}
-          </NotificationDropdown>
-        </Fade>
-      </Box>
+      </Drawer>
 
       {/* Notification Settings Dialog */}
       <NotificationSettingsDialog

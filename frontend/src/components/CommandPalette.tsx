@@ -86,7 +86,7 @@ const CommandPalette: React.FC = () => {
           <div className="fixed inset-0 bg-gray-900/50" />
         </Transition.Child>
 
-        <div className="fixed inset-0 overflow-y-auto">
+        <div className="fixed inset-0 overflow-y-auto lg:pl-64">
           <div className="flex min-h-full items-start justify-center p-4 text-center">
             <Transition.Child
               as={Fragment}

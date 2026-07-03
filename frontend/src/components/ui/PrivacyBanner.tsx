@@ -51,7 +51,7 @@ export const PrivacyBanner: React.FC<PrivacyBannerProps> = ({ onAccept, onDeclin
   }
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[1200] mx-auto max-w-5xl rounded-lg border border-white/10 bg-[#101820] p-4 text-white shadow-[0_28px_70px_-44px_rgba(16,24,32,0.9)]">
+    <div className="fixed bottom-4 left-4 right-4 lg:left-[272px] z-[1300] mx-auto max-w-5xl rounded-lg border border-white/10 bg-[#101820] p-4 text-white shadow-[0_28px_70px_-44px_rgba(16,24,32,0.9)]">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="max-w-3xl">
           <h3 className="text-sm font-black text-white">Privacy & data processing</h3>

@@ -3611,7 +3611,7 @@ export default function CompetitorsPage() {
 
       {/* Demo Settings Modal */}
       {showDemoSettings && !isDemoStore(shop) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[1300] flex items-center justify-center">
           <div className="mx-4 max-h-[90vh] max-w-lg overflow-y-auto rounded-lg bg-white p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">Demo Settings</h3>
