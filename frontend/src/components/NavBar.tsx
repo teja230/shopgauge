@@ -37,6 +37,7 @@ import { useAuth } from '../context/AuthContext';
 import { NotificationCenter } from './ui/NotificationCenter';
 import { adminLogout, getAdminStatus } from '../api/admin';
 import { getSuggestionCount } from '../api';
+import { isAppShellPath } from '../utils/routeChrome';
 
 const NavBar: React.FC = () => {
   const { isAuthenticated, logout, isDemoMode, shop } = useAuth();
@@ -130,11 +131,13 @@ const NavBar: React.FC = () => {
   }, [isAuthenticated]); // Removed polling dependencies
 
   const showAdmin = location.pathname.startsWith('/admin');
-  const appShellActive =
-    isAuthenticated ||
+  const shellHasDemoMode =
     isDemoMode ||
     localStorage.getItem('demo_mode_active') === 'true' ||
     new URLSearchParams(location.search).get('demo') === 'true';
+  const appShellActive =
+    isAppShellPath(location.pathname) &&
+    (isAuthenticated || shellHasDemoMode);
 
   const menuItems = appShellActive ? [
     {

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
+import { ServiceStatusProvider } from './context/ServiceStatusContext';
 import { NotificationSettingsProvider } from './context/NotificationSettingsContext';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
@@ -29,6 +29,7 @@ import useSessionLimit from './hooks/useSessionLimit';
 import SessionExtensionPrompt from './components/ui/SessionExtensionPrompt';
 import { useNotifications } from './hooks/useNotifications';
 import DemoPerformanceConsole from './components/dev/DemoPerformanceConsole';
+import { isAppShellPath } from './utils/routeChrome';
 
 // Simple Protected Route for shop authentication
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -109,10 +110,10 @@ const RouteErrorCleaner: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, shop } = useAuth();
-  const { handleServiceError } = useServiceStatus();
-    const { addNotification } = useNotifications();
+  const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, isDemoMode: contextDemoMode } = useAuth();
+  const { addNotification } = useNotifications();
   const [showDebugPanel, setShowDebugPanel] = React.useState(false);
+  const location = useLocation();
 
   // Session limit management
   const {
@@ -352,13 +353,14 @@ const AppContent: React.FC = () => {
 
   // Show global loading state during initial load - always show something to prevent blank pages
   // Skip loading screen for admin pages - they handle their own authentication
-  const currentPath = window.location.pathname;
+  const currentPath = location.pathname;
   const shellHasDemoMode =
+    contextDemoMode ||
     localStorage.getItem('demo_mode_active') === 'true' ||
-    new URLSearchParams(window.location.search).get('demo') === 'true';
-  const showAppShell = isAuthenticated || shellHasDemoMode;
+    new URLSearchParams(location.search).get('demo') === 'true';
+  const showAppShell = isAppShellPath(currentPath) && (isAuthenticated || shellHasDemoMode);
   const debugToolsEnabled =
-    import.meta.env.DEV && new URLSearchParams(window.location.search).get('debug') === 'true';
+    import.meta.env.DEV && new URLSearchParams(location.search).get('debug') === 'true';
   if ((loading || (authLoading && !hasInitiallyLoaded)) && !currentPath.startsWith('/admin')) {
     return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
   }
