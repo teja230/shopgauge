@@ -137,7 +137,7 @@ const BusinessIntelligencePage: React.FC = () => {
       title: 'Executive Summary',
       description: 'Key performance metrics and business overview',
       icon: AnalyticsIcon,
-      color: '#2563eb', // Blue color matching Market Intelligence
+      color: '#2f5bea',
       insight: null,
       loading: false,
       error: null
@@ -170,7 +170,7 @@ const BusinessIntelligencePage: React.FC = () => {
       title: 'Strategic Recommendations',
       description: 'Prioritized action items for business growth',
       icon: RecommendationIcon,
-      color: '#7c3aed', // Purple color for recommendations
+      color: '#2f5bea',
       insight: null,
       loading: false,
       error: null
@@ -249,6 +249,17 @@ const BusinessIntelligencePage: React.FC = () => {
   };
 
   const suggestedQuestions = getSuggestedQuestions();
+
+  const getQuestionTone = (category: string) => {
+    const normalized = category.toLowerCase();
+    if (normalized.includes('urgent')) {
+      return { bg: 'rgba(245, 158, 11, 0.12)', color: '#b45309', border: 'rgba(245, 158, 11, 0.22)' };
+    }
+    if (normalized.includes('conversion') || normalized.includes('performance')) {
+      return { bg: 'rgba(21, 184, 122, 0.12)', color: '#08734c', border: 'rgba(21, 184, 122, 0.22)' };
+    }
+    return { bg: 'rgba(47, 91, 234, 0.10)', color: '#2f5bea', border: 'rgba(47, 91, 234, 0.18)' };
+  };
 
   // Load data on component mount
   useEffect(() => {
@@ -772,7 +783,7 @@ const BusinessIntelligencePage: React.FC = () => {
                         ShopGPT Assistant
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#aab5c0' }}>
-                        Powered by AI • Always learning
+                        Real-time merchant context
                       </Typography>
                     </Box>
                   </Box>
@@ -785,7 +796,8 @@ const BusinessIntelligencePage: React.FC = () => {
                   overflowY: 'auto',
                   minHeight: 350,
                   maxHeight: 500,
-                  bgcolor: '#f6f7f9'
+                  bgcolor: '#f6f7f9',
+                  backgroundImage: 'radial-gradient(circle at 18% 0%, rgba(47, 91, 234, 0.08), transparent 28%), linear-gradient(180deg, #f9fafb 0%, #f6f7f9 100%)'
                 }}>
                   {/* Welcome Message */}
                   {chatMessages.length === 0 && (
@@ -810,7 +822,7 @@ const BusinessIntelligencePage: React.FC = () => {
                               boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
                             }}>
                               <Typography variant="body1" sx={{ mb: 2 }}>
-                                Hello! I'm your AI business analyst for **{aggregatedData?.metadata?.shop || shop}**. {isDemoMode && 'You\'re in demo mode - feel free to explore! '}I have access to your {aggregatedData && (
+                                Hello. I&apos;m your AI business analyst for <Box component="span" sx={{ fontWeight: 800 }}>{aggregatedData?.metadata?.shop || shop}</Box>. {isDemoMode && 'You\'re in demo mode - feel free to explore. '}I have access to your {aggregatedData && (
                                   <>
                                     revenue data (${aggregatedData.revenue?.total?.toLocaleString() || '0'}), {aggregatedData.products?.total || 0} products, {aggregatedData.orders?.total || 0} orders
                                     {aggregatedData.marketIntelligence?.competitors?.length > 0 && `, and ${aggregatedData.marketIntelligence.competitors.length} competitors`}
@@ -829,6 +841,7 @@ const BusinessIntelligencePage: React.FC = () => {
                               }}>
                                 {suggestedQuestions.map((q, idx) => {
                                   const IconComponent = q.icon;
+                                  const tone = getQuestionTone(q.category);
                                   return (
                                     <Box
                                       key={idx}
@@ -837,21 +850,38 @@ const BusinessIntelligencePage: React.FC = () => {
                                         p: 2,
                                         borderRadius: 2,
                                         border: '1px solid',
-                                        borderColor: 'divider',
+                                        borderColor: tone.border,
                                         bgcolor: '#ffffff',
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
+                                        transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
                                         display: 'flex',
                                         alignItems: 'flex-start',
                                         gap: 1.5,
                                         '&:hover': {
-                                          bgcolor: 'action.hover',
-                                          borderColor: 'primary.light',
-                                          boxShadow: '0 16px 34px -30px rgb(16 24 32 / 0.75)',
+                                          bgcolor: '#fafbff',
+                                          borderColor: tone.color,
+                                          boxShadow: '0 18px 38px -30px rgb(16 24 32 / 0.75)',
+                                          transform: 'translateY(-1px)',
+                                        },
+                                        '@media (prefers-reduced-motion: reduce)': {
+                                          transition: 'none',
+                                          '&:hover': { transform: 'none' },
                                         }
                                       }}
                                     >
-                                      <Box sx={{ color: 'primary.main', mt: 0.25, '& > *': { fontSize: '18px' } }}>
+                                      <Box sx={{
+                                        color: tone.color,
+                                        bgcolor: tone.bg,
+                                        border: `1px solid ${tone.border}`,
+                                        width: 34,
+                                        height: 34,
+                                        borderRadius: 2,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0,
+                                        '& > *': { fontSize: '18px' }
+                                      }}>
                                         <IconComponent />
                                       </Box>
                                       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -880,7 +910,12 @@ const BusinessIntelligencePage: React.FC = () => {
                   {/* Chat Messages */}
                   {chatMessages.map((message) => (
                     <Box key={message.id} sx={{ mb: 3 }}>
-                      <Box sx={{ display: 'flex', gap: 2 }}>
+                      <Box sx={{
+                        display: 'flex',
+                        gap: 2,
+                        flexDirection: message.type === 'user' ? 'row-reverse' : 'row',
+                        alignItems: 'flex-start'
+                      }}>
                         <Avatar sx={{
                           bgcolor: message.type === 'user' ? '#2f5bea' : '#101820',
                           color: message.type === 'user' ? '#ffffff' : '#7c9cff',
@@ -892,20 +927,23 @@ const BusinessIntelligencePage: React.FC = () => {
                             <BotIcon sx={{ fontSize: 18 }} />
                           }
                         </Avatar>
-                        <Box sx={{ flexGrow: 1 }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                        <Box sx={{ flexGrow: 1, maxWidth: { xs: 'calc(100% - 48px)', md: '78%' }, ml: message.type === 'user' ? 'auto' : 0 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block', textAlign: message.type === 'user' ? 'right' : 'left' }}>
                             {message.type === 'user' ? 'You' : 'ShopGPT'} • {new Date(message.timestamp).toLocaleTimeString()}
                           </Typography>
                           <Paper sx={{
                             p: 2.5,
                             bgcolor: message.type === 'user'
-                              ? 'rgba(47, 91, 234, 0.08)'
+                              ? '#2f5bea'
                               : '#ffffff',
-                            borderRadius: 2,
+                            color: message.type === 'user' ? '#ffffff' : '#101820',
+                            borderRadius: message.type === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                             border: message.type === 'user'
-                              ? '1px solid rgba(37, 99, 235, 0.2)'
-                              : '1px solid rgba(0, 0, 0, 0.05)',
-                            boxShadow: 'none'
+                              ? '1px solid rgba(47, 91, 234, 0.52)'
+                              : '1px solid #e4e7eb',
+                            boxShadow: message.type === 'user'
+                              ? '0 18px 42px -30px rgba(47, 91, 234, 0.75)'
+                              : '0 16px 34px -32px rgb(16 24 32 / 0.75)'
                           }}>
                             <Typography variant="body1" sx={{
                               whiteSpace: 'pre-wrap',
@@ -923,6 +961,9 @@ const BusinessIntelligencePage: React.FC = () => {
                                   '@keyframes blink': {
                                     '0%, 50%': { opacity: 1 },
                                     '51%, 100%': { opacity: 0 }
+                                  },
+                                  '@media (prefers-reduced-motion: reduce)': {
+                                    animation: 'none'
                                   }
                                 }} />
                               )}
@@ -937,7 +978,8 @@ const BusinessIntelligencePage: React.FC = () => {
                   {chatLoading && (
                     <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
                       <Avatar sx={{
-                        bgcolor: 'secondary.main',
+                        bgcolor: '#101820',
+                        color: '#9db4ff',
                         width: 32,
                         height: 32
                       }}>
@@ -950,9 +992,9 @@ const BusinessIntelligencePage: React.FC = () => {
                         <Paper sx={{
                           p: 2.5,
                           bgcolor: '#ffffff',
-                          borderRadius: 2,
-                          border: '1px solid rgba(0, 0, 0, 0.05)',
-                          boxShadow: 'none'
+                          borderRadius: '18px 18px 18px 4px',
+                          border: '1px solid #e4e7eb',
+                          boxShadow: '0 16px 34px -32px rgb(16 24 32 / 0.75)'
                         }}>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             {[0, 1, 2].map((i) => (
@@ -974,6 +1016,11 @@ const BusinessIntelligencePage: React.FC = () => {
                                       opacity: 1,
                                       transform: 'scale(1)'
                                     }
+                                  },
+                                  '@media (prefers-reduced-motion: reduce)': {
+                                    animation: 'none',
+                                    opacity: 0.75,
+                                    transform: 'none'
                                   }
                                 }}
                               />
@@ -998,6 +1045,7 @@ const BusinessIntelligencePage: React.FC = () => {
                         }}>
                           {suggestedQuestions.slice(0, 4).map((q, idx) => {
                             const IconComponent = q.icon;
+                            const tone = getQuestionTone(q.category);
                             return (
                               <Box
                                 key={`followup-${idx}`}
@@ -1006,20 +1054,38 @@ const BusinessIntelligencePage: React.FC = () => {
                                   p: 2,
                                   borderRadius: 2,
                                   border: '1px solid',
-                                  borderColor: 'divider',
+                                  borderColor: tone.border,
                                   bgcolor: 'background.paper',
                                   cursor: 'pointer',
-                                  transition: 'all 0.2s ease',
+                                  transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 1.5,
                                   '&:hover': {
-                                    bgcolor: 'action.hover',
-                                    borderColor: 'primary.light',
+                                    bgcolor: '#fafbff',
+                                    borderColor: tone.color,
+                                    boxShadow: '0 16px 34px -30px rgb(16 24 32 / 0.65)',
+                                    transform: 'translateY(-1px)',
+                                  },
+                                  '@media (prefers-reduced-motion: reduce)': {
+                                    transition: 'none',
+                                    '&:hover': { transform: 'none' },
                                   }
                                 }}
                               >
-                                <Box sx={{ color: 'primary.main', '& > *': { fontSize: '16px' } }}>
+                                <Box sx={{
+                                  color: tone.color,
+                                  bgcolor: tone.bg,
+                                  border: `1px solid ${tone.border}`,
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: 2,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  '& > *': { fontSize: '16px' }
+                                }}>
                                   <IconComponent />
                                 </Box>
                                 <Typography variant="body2" sx={{
@@ -1122,16 +1188,14 @@ const BusinessIntelligencePage: React.FC = () => {
                     // Generate background and border colors based on card color (matching Market Intelligence)
                     const getCardColors = (color: string) => {
                       switch (color) {
-                        case '#2563eb': // Blue
-                          return { bg: 'rgba(37, 99, 235, 0.05)', border: 'rgba(37, 99, 235, 0.1)', iconBg: 'rgba(37, 99, 235, 0.1)' };
+                        case '#2f5bea':
+                          return { bg: '#ffffff', border: 'rgba(47, 91, 234, 0.18)', iconBg: 'rgba(47, 91, 234, 0.10)' };
                         case '#059669': // Green
-                          return { bg: 'rgba(5, 150, 105, 0.05)', border: 'rgba(5, 150, 105, 0.1)', iconBg: 'rgba(5, 150, 105, 0.1)' };
+                          return { bg: '#ffffff', border: 'rgba(5, 150, 105, 0.16)', iconBg: 'rgba(5, 150, 105, 0.10)' };
                         case '#d97706': // Orange
-                          return { bg: 'rgba(217, 119, 6, 0.05)', border: 'rgba(217, 119, 6, 0.1)', iconBg: 'rgba(217, 119, 6, 0.1)' };
-                        case '#7c3aed': // Purple
-                          return { bg: 'rgba(124, 58, 237, 0.05)', border: 'rgba(124, 58, 237, 0.1)', iconBg: 'rgba(124, 58, 237, 0.1)' };
+                          return { bg: '#ffffff', border: 'rgba(217, 119, 6, 0.16)', iconBg: 'rgba(217, 119, 6, 0.10)' };
                         default:
-                          return { bg: 'rgba(0, 0, 0, 0.02)', border: 'rgba(0, 0, 0, 0.1)', iconBg: 'rgba(0, 0, 0, 0.1)' };
+                          return { bg: '#ffffff', border: 'rgba(47, 91, 234, 0.18)', iconBg: 'rgba(47, 91, 234, 0.10)' };
                       }
                     };
 
@@ -1145,12 +1209,18 @@ const BusinessIntelligencePage: React.FC = () => {
                         borderRadius: 2,
                         border: `1px solid ${colors.border}`,
                         bgcolor: colors.bg,
-                        transition: 'all 0.2s ease-in-out',
+                        boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
+                        transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
                         display: 'flex',
                         flexDirection: 'column',
                         '&:hover': {
-                          boxShadow: '0 4px 12px -2px rgb(15 23 42 / 0.10)',
-                          borderColor: card.color
+                          boxShadow: '0 22px 46px -34px rgb(16 24 32 / 0.82)',
+                          borderColor: card.color,
+                          transform: 'translateY(-1px)',
+                        },
+                        '@media (prefers-reduced-motion: reduce)': {
+                          transition: 'none',
+                          '&:hover': { transform: 'none' },
                         }
                       }}>
                         <CardContent sx={{
@@ -1173,7 +1243,9 @@ const BusinessIntelligencePage: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                flexShrink: 0
+                                flexShrink: 0,
+                                border: `1px solid ${colors.border}`,
+                                boxShadow: `0 12px 30px -24px ${card.color}`,
                               }}>
                                 <Box sx={{ color: card.color, '& > *': { fontSize: '24px' } }}>
                                   <IconComponent />

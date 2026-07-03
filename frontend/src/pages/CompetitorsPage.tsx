@@ -77,6 +77,51 @@ const isDemoStore = (shop: string | null): boolean => {
   return shop === 'demo-shopgauge.myshopify.com';
 };
 
+const AnimatedStatValue = ({
+  value,
+  format = 'integer',
+}: {
+  value: number;
+  format?: 'integer' | 'currency';
+}) => {
+  const [displayValue, setDisplayValue] = useState(value);
+  const previousValueRef = useRef(value);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayValue(value);
+      previousValueRef.current = value;
+      return;
+    }
+
+    let frame = 0;
+    const start = performance.now();
+    const duration = 650;
+    const from = previousValueRef.current;
+    const distance = value - from;
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(from + distance * eased);
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        previousValueRef.current = value;
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  if (format === 'currency') {
+    return <>{displayValue > 0 ? `$${displayValue.toFixed(2)}` : 'N/A'}</>;
+  }
+
+  return <>{Math.round(displayValue).toLocaleString()}</>;
+};
+
 // Tutorial steps for guided tour (ordered and with precise targets)
 const TUTORIAL_STEPS: TutorialStep[] = [
   {
@@ -2654,6 +2699,49 @@ export default function CompetitorsPage() {
     };
   }, [filteredCompetitors]);
 
+  const marketMetricCards = [
+    {
+      label: 'Total Competitors',
+      value: insights.total,
+      format: 'integer' as const,
+      helper: `${filteredCompetitors.length} visible now`,
+      delta: competitors.length > 0 ? 'Live watchlist' : 'Ready to track',
+      accent: '#2f5bea',
+      text: '#101820',
+      icon: ChartBarIcon,
+    },
+    {
+      label: 'In Stock',
+      value: insights.inStock,
+      format: 'integer' as const,
+      helper: insights.total > 0 ? `${Math.round((insights.inStock / insights.total) * 100)}% availability` : 'No stock signal yet',
+      delta: `${insights.outOfStock} out`,
+      accent: '#15b87a',
+      text: '#08734c',
+      icon: CheckCircleIcon,
+    },
+    {
+      label: 'Price Changes',
+      value: insights.priceChanges,
+      format: 'integer' as const,
+      helper: `${insights.priceIncreases} up / ${insights.priceDecreases} down`,
+      delta: 'Movement tracked',
+      accent: '#f59e0b',
+      text: '#b45309',
+      icon: BoltIcon,
+    },
+    {
+      label: 'Avg Price',
+      value: insights.avgPrice,
+      format: 'currency' as const,
+      helper: 'Across visible prices',
+      delta: 'Market average',
+      accent: '#f9734d',
+      text: '#c2410c',
+      icon: ArrowTrendingUpIcon,
+    },
+  ];
+
   // Tutorial management functions
   const startTutorial = useCallback(() => {
     setShowTutorial(true);
@@ -2899,60 +2987,44 @@ export default function CompetitorsPage() {
         <LimitDisplay />
         
         {/* Market Insights Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 market-insights-cards">
-          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
-            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#2f5bea]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-black uppercase text-[#5f6b76]">Total Competitors</p>
-                <p className="text-3xl font-black text-[#101820]">{insights.total}</p>
-              </div>
-              <div className="bg-[#e7ecff] p-2 rounded-lg">
-                <ChartBarIcon className="h-6 w-6 text-[#2f5bea]" />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
-            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#15b87a]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-black uppercase text-[#5f6b76]">In Stock</p>
-                <p className="text-3xl font-black text-[#08734c]">{insights.inStock}</p>
-              </div>
-              <div className="bg-[#dff8ea] p-2 rounded-lg">
-                <CheckCircleIcon className="h-6 w-6 text-[#15b87a]" />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
-            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#f59e0b]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-black uppercase text-[#5f6b76]">Price Changes</p>
-                <p className="text-3xl font-black text-[#b45309]">{insights.priceChanges}</p>
-              </div>
-              <div className="bg-[#fff1cf] p-2 rounded-lg">
-                <BoltIcon className="h-6 w-6 text-[#f59e0b]" />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
-            <div className="mb-4 h-1.5 w-12 rounded-full bg-[#f9734d]" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-black uppercase text-[#5f6b76]">Avg Price</p>
-                <p className="text-3xl font-black text-[#c2410c]">
-                  {insights.avgPrice > 0 ? `$${insights.avgPrice.toFixed(2)}` : 'N/A'}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 market-insights-cards">
+          {marketMetricCards.map((metric, index) => {
+            const Icon = metric.icon;
+            return (
+              <div
+                key={metric.label}
+                className="group relative overflow-hidden rounded-lg border border-[#e4e7eb] bg-white p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 animate-slideUp hover:-translate-y-px hover:border-[#2f5bea]/40 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:animate-none motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
+              >
+                <div
+                  className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full opacity-20 blur-2xl"
+                  style={{ backgroundColor: metric.accent }}
+                />
+                <div className="mb-4 flex items-center justify-between">
+                  <span
+                    className="rounded-full px-2.5 py-1 text-xs font-black uppercase"
+                    style={{ backgroundColor: `${metric.accent}18`, color: metric.text }}
+                  >
+                    {metric.delta}
+                  </span>
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border"
+                    style={{ backgroundColor: `${metric.accent}14`, borderColor: `${metric.accent}26` }}
+                  >
+                    <Icon className="h-5 w-5" style={{ color: metric.accent }} />
+                  </div>
+                </div>
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-[#5f6b76]">{metric.label}</p>
+                <p
+                  className="mt-1 text-3xl font-black text-[#101820]"
+                  style={{ color: metric.text, fontFeatureSettings: '"tnum"' }}
+                >
+                  <AnimatedStatValue value={metric.value} format={metric.format} />
                 </p>
+                <p className="mt-2 text-sm font-semibold text-[#5f6b76]">{metric.helper}</p>
               </div>
-              <div className="bg-[#ffe4d8] p-2 rounded-lg">
-                <ArrowTrendingUpIcon className="h-6 w-6 text-[#f9734d]" />
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Demo Mode Notice */}
@@ -3448,12 +3520,14 @@ export default function CompetitorsPage() {
           </div>
           
           {filteredCompetitors.length === 0 ? (
-            <div className="text-center py-16">
-              <ChartBarIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-gray-900 mb-2">
+            <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-16 text-center">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg border border-[#c9d4ff] bg-[#e7ecff] shadow-[0_18px_42px_-34px_rgba(47,91,234,0.65)]">
+                <ChartBarIcon className="h-8 w-8 text-[#2f5bea]" />
+              </div>
+              <h3 className="text-xl font-black text-[#101820] mb-2">
                 {competitors.length === 0 ? 'No competitors yet' : 'No matches found'}
               </h3>
-              <p className="text-gray-500 mb-4">
+              <p className="text-sm leading-6 text-[#5f6b76] mb-5">
                 {competitors.length === 0 
                   ? isDemoMode 
                     ? 'Demo mode is active. Add your first competitor to start monitoring real market data.'
@@ -3462,16 +3536,16 @@ export default function CompetitorsPage() {
                 }
               </p>
               {competitors.length === 0 && !isDemoMode && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 max-w-md mx-auto">
-                  <p className="text-sm text-amber-800">
-                    💡 <strong>Tip:</strong> If you get a "sync products" message, visit your Dashboard first to load your Shopify products.
+                <div className="bg-[#fff8e5] border border-[#f7d37a] rounded-lg p-3 mb-5 max-w-md mx-auto text-left">
+                  <p className="text-sm text-[#8a5b08]">
+                    <strong>Tip:</strong> If you get a "sync products" message, visit your Dashboard first to load your Shopify products.
                   </p>
                 </div>
               )}
               {competitors.length === 0 && (
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-md"
+                  className="rounded-md bg-[#2f5bea] px-5 py-3 text-sm font-black text-white shadow-[0_18px_38px_-28px_rgba(47,91,234,0.9)] transition-all duration-200 hover:-translate-y-px hover:bg-[#254bd6] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                 >
                   Add Your First Competitor
                 </button>
