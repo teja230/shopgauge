@@ -45,6 +45,8 @@ const featureCategories = [
   {
     icon: LayoutDashboard,
     title: 'Dashboard Experience',
+    accent: '#2f5bea',
+    tint: '#e7ecff',
     items: [
       'Beautiful, intuitive dashboard with instant insights',
       'Real-time revenue, orders, and conversion tracking',
@@ -56,6 +58,8 @@ const featureCategories = [
   {
     icon: TrendingUp,
     title: 'AI-Powered Forecasting',
+    accent: '#15b87a',
+    tint: '#dff8ea',
     items: [
       '7 advanced chart types with predictive analytics',
       '7-60 day revenue forecasting with confidence intervals',
@@ -67,6 +71,8 @@ const featureCategories = [
   {
     icon: Share2,
     title: 'Professional Sharing & Export',
+    accent: '#f59e0b',
+    tint: '#fff1cf',
     items: [
       'Export in PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)',
       'Share on LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging',
@@ -77,6 +83,8 @@ const featureCategories = [
   {
     icon: Target,
     title: 'Market Intelligence',
+    accent: '#f9734d',
+    tint: '#ffe4d8',
     items: [
       'AI-powered competitor discovery and analysis',
       'Real-time price monitoring with automated alerts',
@@ -88,6 +96,8 @@ const featureCategories = [
   {
     icon: Users,
     title: 'Multi-Session Support',
+    accent: '#2f5bea',
+    tint: '#e7ecff',
     items: [
       'Concurrent access from up to 5 devices',
       'Session-based notification privacy',
@@ -98,6 +108,8 @@ const featureCategories = [
   {
     icon: ShieldCheck,
     title: 'Enterprise Security',
+    accent: '#101820',
+    tint: '#eef1f4',
     items: [
       'Comprehensive audit logging',
       'GDPR/CCPA compliance built-in',
@@ -111,20 +123,41 @@ const testimonials = [
   {
     quote:
       'The AI-powered forecasting with confidence intervals helps us plan inventory perfectly. The professional chart exports made our board presentation look incredible!',
-    name: '— Alex, DTC Brand Owner',
+    name: 'Alex, DTC Brand Owner',
     stat: 'Revenue forecasting accuracy: 94%',
   },
   {
     quote:
       'Love the color separation between historical and forecast data! The LinkedIn integration lets me share our growth milestones effortlessly with professional templates.',
-    name: '— Priya, Shopify Merchant',
+    name: 'Priya, Shopify Merchant',
     stat: 'Social engagement increased 60%',
   },
   {
     quote:
       'The 7 chart types with predictive analytics give us insights we never had. The Executive template PDFs are perfect for investor updates!',
-    name: '— Marcus, E-commerce Director',
+    name: 'Marcus, E-commerce Director',
     stat: 'Investment confidence improved dramatically',
+  },
+];
+
+const socialProofStats = [
+  {
+    value: '10',
+    label: 'competitors tracked',
+    description: 'per store with intelligent monitoring',
+    icon: Store,
+  },
+  {
+    value: '7-60',
+    label: 'day forecasts',
+    description: 'revenue, order, and conversion outlooks',
+    icon: TrendingUp,
+  },
+  {
+    value: '85-95%',
+    label: 'planning accuracy',
+    description: 'typical range with clean historical data',
+    icon: CheckCircle2,
   },
 ];
 
@@ -392,8 +425,14 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-[#f6f7f9] text-[#101820]">
       {/* Hero */}
-      <section className="bg-[#101820] text-white">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:min-h-[calc(100vh-72px)] lg:grid-cols-[0.82fr_1.18fr] lg:px-8 lg:py-14">
+      <section
+        className="relative overflow-hidden bg-[#101820] text-white"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 18% 12%, rgba(47, 91, 234, 0.28), transparent 30%), radial-gradient(circle at 82% 18%, rgba(21, 184, 122, 0.18), transparent 26%), linear-gradient(180deg, #101820 0%, #0b1016 100%)',
+        }}
+      >
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:min-h-[calc(100vh-152px)] lg:grid-cols-[0.82fr_1.18fr] lg:px-8 lg:py-12">
           <div>
             <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold text-[#b9c8ff]">
               Commerce command center · 3-day trial
@@ -481,7 +520,10 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="rounded-lg border border-white/10 bg-[#0b1016] p-3 shadow-[0_34px_90px_-48px_rgba(0,0,0,0.9)]">
+          <div
+            className="animate-float rounded-lg border border-white/10 bg-[#0b1016] p-3 shadow-[0_42px_110px_-52px_rgba(0,0,0,0.95),0_0_80px_-44px_rgba(47,91,234,0.95)] motion-reduce:animate-none"
+            style={{ animationDuration: '6s' }}
+          >
             <div className="grid overflow-hidden rounded-md border border-white/10 bg-[#161c24] lg:grid-cols-[76px_1fr]">
               <div className="hidden border-r border-white/10 bg-[#0d1218] p-3 lg:block">
                 <div className="mb-6 h-9 w-9 rounded-md bg-[#2f5bea]" />
@@ -583,21 +625,46 @@ const HomePage = () => {
         </div>
       )}
 
+      {/* Social Proof */}
+      <section className="border-b border-[#e4e7eb] bg-white">
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:px-6 md:grid-cols-3 lg:px-8">
+          {socialProofStats.map(({ value, label, description, icon: Icon }) => (
+            <div
+              key={label}
+              className="flex items-center gap-4 rounded-lg border border-[#e4e7eb] bg-[#fbfcfd] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.72)]"
+            >
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-[#c9d4ff] bg-[#e7ecff] text-[#2f5bea]">
+                <Icon className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-2xl font-black text-[#101820]" style={{ fontFeatureSettings: '"tnum"' }}>{value}</p>
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-[#5f6b76]">{label}</p>
+                <p className="mt-1 text-sm text-[#5f6b76]">{description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Feature Categories */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mb-10 max-w-3xl">
-          <h2 className="text-3xl font-black text-[#101820]">Built for daily merchant decisions</h2>
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant workflows</p>
+          <h2 className="mt-2 text-3xl font-black text-[#101820]">Built for daily merchant decisions</h2>
           <p className="mt-3 text-[#5f6b76]">
             The product experience should put revenue, inventory, competition, and AI guidance within one scan.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {featureCategories.map(({ icon: Icon, title, items, note }) => (
+          {featureCategories.map(({ icon: Icon, title, items, note, accent, tint }) => (
             <div
               key={title}
-              className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]"
+              className="group rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#2f5bea]/35 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
-              <span className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-md bg-[#e8edff] text-[#1d3db8]">
+              <span
+                className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-md border transition-transform duration-200 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                style={{ backgroundColor: tint, borderColor: `${accent}33`, color: accent }}
+              >
                 <Icon className="w-6 h-6" />
               </span>
               <h3 className="mb-3 text-lg font-black text-[#101820]">{title}</h3>
@@ -620,11 +687,12 @@ const HomePage = () => {
         </div>
 
         {/* Core Features List */}
-        <div className="border-y border-[#e4e7eb] py-8">
-          <h3 className="mb-6 text-2xl font-black text-[#101820]">Complete feature set</h3>
+        <div className="border-y border-[#e4e7eb] py-10">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Included capabilities</p>
+          <h3 className="mb-6 mt-2 text-2xl font-black text-[#101820]">Complete feature set</h3>
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {features.slice(0, 9).map((f) => (
-              <li key={f} className="flex items-start rounded-md bg-white/50 p-3 transition-colors hover:bg-white">
+              <li key={f} className="flex items-start rounded-md border border-transparent bg-white/50 p-3 transition-all duration-200 hover:border-[#e4e7eb] hover:bg-white motion-reduce:transition-none">
                 <CheckCircle2 className="mr-3 mt-0.5 h-5 w-5 flex-shrink-0 text-[#15b87a]" />
                 <span className="text-[#5f6b76]">{f}</span>
               </li>
@@ -634,15 +702,31 @@ const HomePage = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-        <h2 className="mb-8 text-2xl font-black text-[#101820]">What merchants say</h2>
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant proof</p>
+          <h2 className="mt-2 text-2xl font-black text-[#101820]">What merchants say</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {testimonials.map((t) => (
-            <figure key={t.name} className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
-              <blockquote className="mb-4 text-[#5f6b76]">“{t.quote}”</blockquote>
-              <figcaption>
-                <div className="font-bold text-[#101820]">{t.name}</div>
-                <div className="mt-1 text-sm text-[#5f6b76]">{t.stat}</div>
+            <figure
+              key={t.name}
+              className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#2f5bea]/35 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            >
+              <blockquote className="mb-5 text-[#5f6b76]">&quot;{t.quote}&quot;</blockquote>
+              <figcaption className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#101820] text-sm font-black text-white">
+                  {t.name
+                    .split(',')[0]
+                    .split(' ')
+                    .map((part) => part[0])
+                    .join('')
+                    .slice(0, 2)}
+                </span>
+                <div>
+                  <div className="font-bold text-[#101820]">{t.name}</div>
+                  <div className="mt-1 text-sm text-[#5f6b76]">{t.stat}</div>
+                </div>
               </figcaption>
             </figure>
           ))}
@@ -651,7 +735,10 @@ const HomePage = () => {
 
       {/* FAQ */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-        <h2 className="mb-8 text-2xl font-black text-[#101820]">Frequently asked questions</h2>
+        <div className="mb-8">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Details</p>
+          <h2 className="mt-2 text-2xl font-black text-[#101820]">Frequently asked questions</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {faqs.map((faq) => (
             <div key={faq.question} className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">

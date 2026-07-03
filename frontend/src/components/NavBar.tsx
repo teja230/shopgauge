@@ -566,11 +566,12 @@ const NavBar: React.FC = () => {
         position="sticky"
         color="transparent"
         sx={{
-          bgcolor: 'rgba(251, 252, 247, 0.86)',
+          bgcolor: 'rgba(255, 255, 255, 0.78)',
           color: 'text.primary',
           borderBottom: '1px solid',
-          borderColor: 'rgba(16, 24, 32, 0.08)',
-          backdropFilter: 'blur(16px)',
+          borderColor: 'rgba(16, 24, 32, 0.10)',
+          backdropFilter: 'blur(18px)',
+          boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
           zIndex: (muiTheme) => muiTheme.zIndex.drawer + 1,
         }}
       >
