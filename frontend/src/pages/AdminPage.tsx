@@ -235,7 +235,7 @@ const AdminPage: React.FC = () => {
           icon: <PeopleIcon />,
           action: () => handleSectionChange('active-sessions'),
           category: 'User Management',
-          color: '#1976d2'
+          color: '#2563eb'
         },
         {
           id: 'audit-logs',
@@ -960,9 +960,9 @@ const AdminPage: React.FC = () => {
               py: 1.5,
               fontSize: '1.1rem',
               fontWeight: 600,
-              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
               '&:hover': {
-                background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
+                background: 'linear-gradient(135deg, #1d4ed8 0%, #0d47a1 100%)',
               },
             }}
           >

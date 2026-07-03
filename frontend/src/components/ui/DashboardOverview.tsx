@@ -290,7 +290,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         icon: <PeopleIcon />,
         action: () => onSectionChange?.('active-sessions'),
         category: 'User Management',
-        color: '#1976d2'
+        color: '#2563eb'
       },
       {
         id: 'audit-logs',
@@ -367,7 +367,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <Typography variant="h4" component="h1" sx={{ 
             fontWeight: 700, 
             mb: 1,
-            background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
             backgroundClip: 'text',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'

@@ -1,20 +1,20 @@
 /* Admin Design System - CSS Custom Properties */
 
 :root {
-  /* ===== PRIMARY COLORS ===== */
-  --admin-primary: #1976d2;
-  --admin-primary-light: #42a5f5;
-  --admin-primary-dark: #1565c0;
-  --admin-primary-50: #e3f2fd;
-  --admin-primary-100: #bbdefb;
-  --admin-primary-200: #90caf9;
-  --admin-primary-300: #64b5f6;
-  --admin-primary-400: #42a5f5;
-  --admin-primary-500: #2196f3;
-  --admin-primary-600: #1e88e5;
-  --admin-primary-700: #1976d2;
-  --admin-primary-800: #1565c0;
-  --admin-primary-900: #0d47a1;
+  /* ===== PRIMARY COLORS (aligned to app brand blue #2563eb) ===== */
+  --admin-primary: #2563eb;
+  --admin-primary-light: #60a5fa;
+  --admin-primary-dark: #1d4ed8;
+  --admin-primary-50: #eff6ff;
+  --admin-primary-100: #dbeafe;
+  --admin-primary-200: #bfdbfe;
+  --admin-primary-300: #93c5fd;
+  --admin-primary-400: #60a5fa;
+  --admin-primary-500: #3b82f6;
+  --admin-primary-600: #2563eb;
+  --admin-primary-700: #1d4ed8;
+  --admin-primary-800: #1e40af;
+  --admin-primary-900: #1e3a8a;
 
   /* ===== STATUS COLORS (SEMANTIC) ===== */
   --admin-success: #2e7d32;

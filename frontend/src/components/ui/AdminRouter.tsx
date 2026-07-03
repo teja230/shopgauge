@@ -116,7 +116,7 @@ const AdminRouter = React.memo<AdminRouterProps>(({
     const actionColors: Record<string, string> = {
       'shop_deleted': '#d32f2f',
       'shop_created': '#2e7d32',
-      'session_started': '#1976d2',
+      'session_started': '#2563eb',
       'session_ended': '#ed6c02',
       'login_attempt': '#7b1fa2',
       'logout': '#c2185b',

@@ -346,7 +346,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
           alignItems: 'center', 
           gap: 2, 
           mb: 1,
-          background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+          background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
           backgroundClip: 'text',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
@@ -695,7 +695,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
         }}
       >
         <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+          background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
           color: 'white',
           fontWeight: 600
         }}>

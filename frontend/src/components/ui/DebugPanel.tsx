@@ -150,7 +150,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
           variant="contained"
           onClick={() => onToggleVisibility?.(true)}
           sx={{
-            backgroundColor: '#1976d2',
+            backgroundColor: '#2563eb',
             color: 'white',
             minWidth: 'auto',
             width: 48,
@@ -158,7 +158,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
             borderRadius: '50%',
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             '&:hover': {
-              backgroundColor: '#1565c0',
+              backgroundColor: '#1d4ed8',
             },
           }}
         >
@@ -190,7 +190,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
       <Box
         sx={{
           padding: '12px 16px',
-          backgroundColor: '#1976d2',
+          backgroundColor: '#2563eb',
           color: 'white',
           display: 'flex',
           alignItems: 'center',
