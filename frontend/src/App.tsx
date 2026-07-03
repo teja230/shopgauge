@@ -14,6 +14,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ServiceUnavailablePage from './pages/ServiceUnavailablePage';
 import NavBar from './components/NavBar';
+import Footer from './components/ui/Footer';
 import PrivacyBanner from './components/ui/PrivacyBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from '@mui/material/styles';
@@ -413,6 +414,7 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   );
 };
@@ -443,21 +445,24 @@ const App: React.FC = () => {
                   toastOptions={{
                     duration: 4000,
                     style: {
-                      borderRadius: '8px',
+                      borderRadius: '10px',
                       fontWeight: '500',
                       zIndex: 9999,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                      background: '#ffffff',
+                      color: '#111827',
+                      border: '1px solid #e5e7eb',
+                      boxShadow: '0 10px 30px -6px rgb(15 23 42 / 0.15)',
                     },
                     success: {
-                      style: {
-                        background: '#10b981',
-                        color: '#ffffff',
+                      iconTheme: {
+                        primary: '#16a34a',
+                        secondary: '#ffffff',
                       },
                     },
                     error: {
-                      style: {
-                        background: '#ef4444',
-                        color: '#ffffff',
+                      iconTheme: {
+                        primary: '#dc2626',
+                        secondary: '#ffffff',
                       },
                     },
                   }}

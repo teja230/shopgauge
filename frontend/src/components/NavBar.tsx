@@ -292,8 +292,21 @@ const NavBar: React.FC = () => {
             }
           }}
         >
-          <InsightsIcon sx={{ mr: 1, fontSize: 28 }} />
-          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 36,
+              height: 36,
+              borderRadius: '10px',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              mr: 1.5,
+            }}
+          >
+            <InsightsIcon sx={{ fontSize: 22 }} />
+          </Box>
+          <Typography variant="h6" component="div" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
             ShopGauge
         </Typography>
         </Box>
@@ -305,67 +318,28 @@ const NavBar: React.FC = () => {
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {isAuthenticated ? (
             <>
-              <Button
-                color="inherit"
-                onClick={() => navigate('/?force=true')}
-                sx={{
-                  backgroundColor: location.pathname === '/' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                  }
-                }}
-              >
-                Home
-              </Button>
-              <Button
-                color="inherit"
-                onClick={() => navigate('/dashboard')}
-                sx={{
-                  backgroundColor: location.pathname === '/dashboard' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                  }
-                }}
-              >
-                Dashboard
-              </Button>
-              <Button
-                color="inherit"
-                onClick={() => navigate('/business-intelligence')}
-                sx={{
-                  backgroundColor: location.pathname === '/business-intelligence' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                  }
-                }}
-              >
-                ShopGPT
-              </Button>
-              <Button
-                color="inherit"
-                  onClick={() => navigate('/competitors')}
-                sx={{
-                    backgroundColor: location.pathname === '/competitors' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                    }
-                }}
-              >
-                  Market Intelligence
-              </Button>
-              <Button
-                color="inherit"
-                onClick={() => navigate('/profile')}
-                sx={{
-                  backgroundColor: location.pathname === '/profile' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)'
-                  }
-                }}
-              >
-                Profile
-              </Button>
-              
+              {menuItems.map((item) => {
+                const isActive = location.pathname === item.path.split('?')[0];
+                return (
+                  <Button
+                    key={item.text}
+                    color="inherit"
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      borderRadius: '8px',
+                      px: 2,
+                      fontWeight: isActive ? 700 : 600,
+                      backgroundColor: isActive ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.12)'
+                      }
+                    }}
+                  >
+                    {item.text}
+                  </Button>
+                );
+              })}
+
               {/* Admin-specific buttons */}
               {showAdmin && (
                 <>
