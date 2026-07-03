@@ -184,11 +184,15 @@ const NavBar: React.FC = () => {
         },
         '& .MuiDrawer-paper': {
           width: 280,
+          maxWidth: 'calc(100vw - 24px)',
           backgroundColor: '#101820',
           color: '#ffffff',
           borderLeft: '1px solid rgba(255,255,255,0.12)',
           backgroundImage:
             'radial-gradient(circle at 20% 0%, rgba(47,91,234,0.20), transparent 28%), linear-gradient(180deg, #101820 0%, #0b1016 100%)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         },
       }}
     >
@@ -234,7 +238,7 @@ const NavBar: React.FC = () => {
         <SearchAffordance compact />
       </Box>
 
-      <List sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 0.5, px: 1 }}>
+      <List sx={{ flexGrow: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 0.5, px: 1 }}>
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path.split('?')[0];
           return (
@@ -313,9 +317,9 @@ const NavBar: React.FC = () => {
       {appShellActive && (
         <>
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-          <Box sx={{ p: 2, display: 'grid', gap: 1.25 }}>
+          <Box sx={{ p: 2, display: 'grid', gap: 1.25, width: '100%', minWidth: 0, flexShrink: 0 }}>
             <StoreCard mobile />
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 1, width: '100%', minWidth: 0 }}>
               <Box
                 sx={{
                   border: '1px solid rgba(255,255,255,0.12)',
@@ -323,28 +327,31 @@ const NavBar: React.FC = () => {
                   display: 'grid',
                   placeItems: 'center',
                   minHeight: 44,
+                  width: '100%',
+                  minWidth: 0,
                   bgcolor: 'rgba(255,255,255,0.045)',
                 }}
               >
                 <NotificationCenter onNotificationCountChange={(count) => setNotificationCount(count)} />
               </Box>
-              <Button
-                variant="outlined"
-                startIcon={<LogoutIcon />}
+              <IconButton
+                aria-label="Logout"
                 onClick={handleLogout}
                 sx={{
                   minHeight: 44,
-                  borderColor: 'rgba(255,255,255,0.16)',
+                  width: '100%',
+                  minWidth: 0,
+                  borderRadius: 1,
+                  border: '1px solid rgba(255,255,255,0.16)',
                   color: '#ffffff',
-                  px: 1,
                   '&:hover': {
-                    borderColor: 'rgba(255,255,255,0.45)',
-                    backgroundColor: 'rgba(255,255,255,0.10)',
+                    borderColor: 'rgba(255,255,255,0.42)',
+                    bgcolor: 'rgba(255,255,255,0.10)',
                   },
                 }}
               >
-                Logout
-              </Button>
+                <LogoutIcon fontSize="small" />
+              </IconButton>
             </Box>
           </Box>
         </>
@@ -479,7 +486,13 @@ const NavBar: React.FC = () => {
 
   const StoreCard = ({ mobile = false }: { mobile?: boolean }) => (
     <Box
+      data-testid={mobile ? 'mobile-store-card' : 'sidebar-store-card'}
       sx={{
+        width: '100%',
+        minWidth: 0,
+        maxWidth: '100%',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
         border: '1px solid rgba(255,255,255,0.10)',
         background:
           'linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.035) 100%)',
@@ -532,7 +545,7 @@ const NavBar: React.FC = () => {
                   : '0 0 0 5px rgba(21,184,122,0.16), 0 0 18px rgba(21,184,122,0.52)',
               }}
             />
-            <Typography variant="caption" sx={{ color: '#aab7c2', fontWeight: 800 }}>
+            <Typography variant="caption" sx={{ color: '#aab7c2', fontWeight: 800, whiteSpace: 'nowrap' }}>
               {isDemoMode ? 'Demo mode' : 'Live store'}
             </Typography>
             {isDemoMode && (
@@ -554,6 +567,7 @@ const NavBar: React.FC = () => {
                   fontWeight: 850,
                   lineHeight: 1,
                   textTransform: 'none',
+                  flexShrink: 0,
                   '& .MuiButton-startIcon': { mr: 0.35, ml: 0 },
                   '&:hover': {
                     bgcolor: 'rgba(47,91,234,0.25)',
@@ -609,6 +623,9 @@ const NavBar: React.FC = () => {
           left: 0,
           bottom: 0,
           width: 256,
+          height: '100vh',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
           bgcolor: '#0b1016',
           color: '#ffffff',
@@ -638,7 +655,27 @@ const NavBar: React.FC = () => {
           </Typography>
         </Box>
 
-        <List sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, flex: 1, px: 0 }}>
+        <List
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.75,
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            px: 0,
+            pr: 0.25,
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(124,156,255,0.28) transparent',
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-track': { background: 'transparent' },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(124,156,255,0.26)',
+              borderRadius: 999,
+            },
+          }}
+        >
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path.split('?')[0];
             return (
@@ -720,9 +757,19 @@ const NavBar: React.FC = () => {
           })}
         </List>
 
-        <Box sx={{ display: 'grid', gap: 1.25, mb: 1.5 }}>
+        <Box
+          data-testid="sidebar-bottom-actions"
+          sx={{
+            display: 'grid',
+            gap: 1.25,
+            mb: 1.5,
+            width: '100%',
+            minWidth: 0,
+            flexShrink: 0,
+          }}
+        >
           <StoreCard />
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 1, width: '100%', minWidth: 0 }}>
             <Tooltip title="Notifications">
               <Box
                 sx={{
@@ -731,6 +778,8 @@ const NavBar: React.FC = () => {
                   display: 'grid',
                   placeItems: 'center',
                   minHeight: 46,
+                  width: '100%',
+                  minWidth: 0,
                   bgcolor: 'rgba(255,255,255,0.045)',
                   transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
                   '&:hover': {
@@ -744,25 +793,26 @@ const NavBar: React.FC = () => {
               </Box>
             </Tooltip>
             <Tooltip title="Logout">
-              <Button
-                variant="outlined"
-                startIcon={<LogoutIcon />}
+              <IconButton
+                aria-label="Logout"
                 onClick={handleLogout}
                 sx={{
                   minHeight: 46,
-                  borderColor: 'rgba(255,255,255,0.16)',
+                  width: '100%',
+                  minWidth: 0,
+                  borderRadius: 1,
+                  border: '1px solid rgba(255,255,255,0.16)',
                   color: '#ffffff',
-                  px: 1,
-                  '& .MuiButton-startIcon': { mr: 0.5 },
+                  transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
                   '&:hover': {
                     borderColor: 'rgba(255,255,255,0.45)',
-                    backgroundColor: 'rgba(255,255,255,0.10)',
+                    bgcolor: 'rgba(255,255,255,0.10)',
                     transform: 'translateY(-1px)',
                   },
                 }}
               >
-                Logout
-              </Button>
+                <LogoutIcon fontSize="small" />
+              </IconButton>
             </Tooltip>
           </Box>
         </Box>

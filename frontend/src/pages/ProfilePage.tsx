@@ -1025,7 +1025,7 @@ export default function ProfilePage() {
                     </p>
                   </div>
                   <div className="flex items-center text-blue-600">
-                    <span className="text-2xl mr-2">🏪</span>
+                    <Store className="w-6 h-6 mr-2" />
                     <div className="text-right">
                       <div className="flex items-center">
                         <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>

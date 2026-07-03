@@ -608,7 +608,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="orders_count"
-              stroke="#2563eb"
+              stroke="#2f5bea"
               strokeWidth={2}
               strokeDasharray=""
               dot={(props: any) => {
@@ -619,8 +619,8 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={isPrediction ? 2 : 3}
-                    fill={isPrediction ? "#93c5fd" : "#2563eb"}
-                    stroke={isPrediction ? "#93c5fd" : "#2563eb"}
+                    fill={isPrediction ? "#93c5fd" : "#2f5bea"}
+                    stroke={isPrediction ? "#93c5fd" : "#2f5bea"}
                     strokeWidth={2}
                   />
                 );

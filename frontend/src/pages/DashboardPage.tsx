@@ -288,24 +288,40 @@ const ChartContainer = styled(Box)(({ theme }) => ({
 }));
 
 const ProductLink = styled(MuiLink)(({ theme }) => ({
-  color: theme.palette.primary.main,
+  color: '#101820',
+  fontWeight: 700,
   textDecoration: 'none',
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
+  transition: 'color 0.2s ease',
+  '& svg': {
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
+    color: '#2f5bea',
+  },
   '&:hover': {
-    textDecoration: 'underline',
+    color: '#2f5bea',
+    '& svg': { opacity: 1 },
   },
 }));
 
 const OrderLink = styled(MuiLink)(({ theme }) => ({
-  color: theme.palette.primary.main,
+  color: '#101820',
+  fontWeight: 700,
   textDecoration: 'none',
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
+  transition: 'color 0.2s ease',
+  '& svg': {
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
+    color: '#2f5bea',
+  },
   '&:hover': {
-    textDecoration: 'underline',
+    color: '#2f5bea',
+    '& svg': { opacity: 1 },
   },
 }));
 
@@ -3932,141 +3948,75 @@ const DashboardPage = () => {
           </Box>
         </Box>
 
-        {/* Chart Mode Toggle - Positioned Below Charts */}
-        <Box 
+        {/* Chart Mode Toggle - compact segmented control */}
+        <Box
           className="dashboard-chart-toggle"
           sx={{
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            mt: 3,
-            mb: 2,
+            mt: 2.5,
+            mb: 1,
             px: isMobile ? 2 : 0,
-            gap: 2,
             order: 3,
-          }}>
+          }}
+        >
           <ToggleButtonGroup
             value={chartMode}
             exclusive
             onChange={handleChartModeChange}
-            size={isMobile ? "medium" : "large"}
-            orientation="horizontal"
+            size="small"
             sx={{
-              backgroundColor: 'white',
-              border: '1px solid rgba(47, 91, 234, 0.18)',
-              borderRadius: 1,
-              boxShadow: '0 18px 40px -34px rgb(16 24 32 / 0.75)',
-              width: isMobile ? '100%' : 'auto',
+              backgroundColor: '#f6f7f9',
+              border: '1px solid #e4e7eb',
+              borderRadius: '10px',
+              p: 0.5,
+              gap: 0.5,
               '& .MuiToggleButton-root': {
-                px: isMobile ? 2 : 4,
-                py: isMobile ? 1.5 : 2,
-                fontSize: isMobile ? '0.875rem' : '1rem',
-                fontWeight: 600,
+                px: 2,
+                py: 0.75,
+                fontSize: '0.8125rem',
+                fontWeight: 700,
                 textTransform: 'none',
                 border: 'none',
-                borderRadius: 1.5,
-                margin: 0.5,
-                minWidth: isMobile ? 'auto' : 200,
-                color: 'text.secondary',
-                backgroundColor: 'transparent',
-                transition: 'background-color 0.2s ease, color 0.2s ease, transform 0.2s ease',
-                position: 'relative',
-                '&:hover': {
-                  backgroundColor: 'rgba(47, 91, 234, 0.08)',
-                  color: 'primary.main',
-                  transform: isMobile ? 'none' : 'translateY(-1px)',
-                },
+                borderRadius: '8px !important',
+                color: '#5f6b76',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                transition: 'background-color 0.2s ease, color 0.2s ease',
+                '&:hover': { backgroundColor: 'rgba(47, 91, 234, 0.08)', color: '#2f5bea' },
                 '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  boxShadow: '0 12px 24px -18px rgba(47, 91, 234, 0.85)',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                    transform: isMobile ? 'none' : 'translateY(-1px)',
-                  },
+                  backgroundColor: '#ffffff',
+                  color: '#101820',
+                  boxShadow: '0 1px 3px rgba(16, 24, 32, 0.12)',
+                  '&:hover': { backgroundColor: '#ffffff' },
                 },
               },
             }}
           >
-            <ToggleButton
-              value="classic"
-              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
-            >
-              <ShowChart sx={{ fontSize: '1.5rem' }} />
-              <Box>
-                <Typography variant="body1" fontWeight="inherit">
-                  Classic View
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                  Traditional Revenue Charts
-                </Typography>
-              </Box>
+            <ToggleButton value="classic">
+              <ShowChart sx={{ fontSize: '1.05rem' }} />
+              Classic view
             </ToggleButton>
-            <ToggleButton
-              value="unified"
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 0.5,
-                position: 'relative',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  width: 20,
-                  height: 20,
-                  background: 'linear-gradient(135deg, #2f5bea 0%, #1539a6 100%)',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  color: 'white',
-                  animation: 'pulse 2s infinite',
-                  zIndex: 1,
-                },
-                '&::after': {
-                  content: '"NEW"',
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  width: 20,
-                  height: 20,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '8px',
-                  fontWeight: 700,
-                  color: 'white',
-                  zIndex: 2,
-                },
-                '@keyframes pulse': {
-                  '0%': {
-                    transform: 'scale(1)',
-                    opacity: 1,
-                  },
-                  '50%': {
-                    transform: 'scale(1.1)',
-                    opacity: 0.8,
-                  },
-                  '100%': {
-                    transform: 'scale(1)',
-                    opacity: 1,
-                  },
-                },
-              }}
-            >
-              <Analytics sx={{ fontSize: '1.5rem' }} />
-              <Box>
-                <Typography variant="body1" fontWeight="inherit">
-                  Advanced Analytics
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#2f5bea' }}>
-                  AI-powered forecasts
-                </Typography>
+            <ToggleButton value="unified">
+              <Analytics sx={{ fontSize: '1.05rem' }} />
+              Advanced analytics
+              <Box
+                component="span"
+                sx={{
+                  ml: 0.5,
+                  px: 0.75,
+                  py: 0.1,
+                  borderRadius: 999,
+                  fontSize: '0.625rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  bgcolor: 'rgba(47, 91, 234, 0.12)',
+                  color: '#2f5bea',
+                }}
+              >
+                AI
               </Box>
             </ToggleButton>
           </ToggleButtonGroup>

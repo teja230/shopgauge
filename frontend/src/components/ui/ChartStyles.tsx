@@ -111,7 +111,7 @@ export const tooltipStyles = (theme: Theme) => ({
 
 export const UNIFIED_COLOR_SCHEME = {
   historical: {
-    revenue: '#2563eb',      // Strong blue for revenue (recent 60 days)
+    revenue: '#2f5bea',      // Strong blue for revenue (recent 60 days)
     orders: '#10b981',       // Strong green for orders (recent 60 days)
     conversion: '#f59e0b',   // Strong amber for conversion (recent 60 days)
   },

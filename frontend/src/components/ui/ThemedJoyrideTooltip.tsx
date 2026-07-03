@@ -18,7 +18,7 @@ const ThemedJoyrideTooltip: React.FC<ThemedJoyrideTooltipProps> = ({
   tooltipProps,
   isLastStep,
   icon,
-  accentColor = '#2563eb',
+  accentColor = '#2f5bea',
 }) => (
   <div
     {...tooltipProps}
