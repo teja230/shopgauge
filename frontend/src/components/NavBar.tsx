@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -13,9 +13,9 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Badge,
   Chip,
   Divider,
+  Tooltip,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -30,6 +30,8 @@ import {
   Close as CloseIcon,
   Logout as LogoutIcon,
   Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Storefront as StorefrontIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { NotificationCenter } from './ui/NotificationCenter';
@@ -37,7 +39,7 @@ import { adminLogout, getAdminStatus } from '../api/admin';
 import { getSuggestionCount } from '../api';
 
 const NavBar: React.FC = () => {
-  const { isAuthenticated, logout, isDemoMode } = useAuth();
+  const { isAuthenticated, logout, isDemoMode, shop } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -45,7 +47,10 @@ const NavBar: React.FC = () => {
   const [suggestionCount, setSuggestionCount] = useState(0);
   const [, setNotificationCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const suggestionCountRef = useRef(0);
+  const lastFetchTimeRef = useRef(0);
+  const storeDomain = shop || (isDemoMode ? 'demo-shopgauge.myshopify.com' : 'Connected store');
+  const storeInitial = storeDomain.replace(/^https?:\/\//, '').charAt(0).toUpperCase() || 'S';
 
   const handleLogout = () => {
     // Handle regular logout
@@ -87,6 +92,10 @@ const NavBar: React.FC = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
+  const openCommandPalette = () => {
+    window.dispatchEvent(new Event('shopgauge:open-command-palette'));
+  };
+
   // Fetch suggestion count ONLY on initial load - NO POLLING (on-demand only)
   useEffect(() => {
     if (isAuthenticated) {
@@ -96,13 +105,14 @@ const NavBar: React.FC = () => {
           const now = Date.now();
           const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours for costly APIs
 
-          if (now - lastFetchTime < CACHE_DURATION && suggestionCount > 0) {
+          if (now - lastFetchTimeRef.current < CACHE_DURATION && suggestionCountRef.current > 0) {
             return; // Use cached value
           }
 
           const response = await getSuggestionCount();
           setSuggestionCount(response.newSuggestions);
-          setLastFetchTime(now);
+          suggestionCountRef.current = response.newSuggestions;
+          lastFetchTimeRef.current = now;
         } catch (error) {
           console.error('Error fetching suggestion count:', error);
           // Don't reset to 0 on error, keep last known value
@@ -114,7 +124,8 @@ const NavBar: React.FC = () => {
       fetchSuggestionCount();
     } else {
       setSuggestionCount(0);
-      setLastFetchTime(0);
+      suggestionCountRef.current = 0;
+      lastFetchTimeRef.current = 0;
     }
   }, [isAuthenticated]); // Removed polling dependencies
 
@@ -164,11 +175,17 @@ const NavBar: React.FC = () => {
       open={mobileMenuOpen}
       onClose={() => setMobileMenuOpen(false)}
       sx={{
+        '& .MuiBackdrop-root': {
+          backdropFilter: 'blur(10px)',
+          backgroundColor: 'rgba(16,24,32,0.38)',
+        },
         '& .MuiDrawer-paper': {
           width: 280,
           backgroundColor: '#101820',
           color: '#ffffff',
           borderLeft: '1px solid rgba(255,255,255,0.12)',
+          backgroundImage:
+            'radial-gradient(circle at 20% 0%, rgba(47,91,234,0.20), transparent 28%), linear-gradient(180deg, #101820 0%, #0b1016 100%)',
         },
       }}
     >
@@ -210,68 +227,122 @@ const NavBar: React.FC = () => {
         </IconButton>
       </Box>
 
-      <List sx={{ flexGrow: 1 }}>
-        {menuItems.map((item) => (
+      <Box sx={{ px: 2, py: 1.5 }}>
+        <SearchAffordance compact />
+      </Box>
+
+      <List sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 0.5, px: 1 }}>
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path.split('?')[0];
+          return (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               onClick={() => handleNavigation(item.path)}
-              selected={location.pathname === item.path}
+              selected={isActive}
               sx={{
-                mx: 1,
-                my: 0.5,
+                position: 'relative',
                 borderRadius: 1,
-                color: '#c3ccd5',
+                minHeight: 48,
+                color: isActive ? '#ffffff' : '#bdc8d2',
+                overflow: 'hidden',
+                transition: 'background-color 0.2s ease, color 0.2s ease, transform 0.2s ease',
                 '& .MuiListItemIcon-root': {
                   color: 'inherit',
                   minWidth: 40,
                 },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: 10,
+                  bottom: 10,
+                  width: 3,
+                  borderRadius: '0 3px 3px 0',
+                  backgroundColor: '#7c9cff',
+                  transform: isActive ? 'scaleY(1)' : 'scaleY(0)',
+                  transformOrigin: 'center',
+                  transition: 'transform 0.2s ease',
+                },
                 '&.Mui-selected': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                  color: '#ffffff',
+                  backgroundColor: 'rgba(47, 91, 234, 0.18)',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                    backgroundColor: 'rgba(47, 91, 234, 0.24)',
                   },
                 },
                 '&:hover': {
                   backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  color: '#ffffff',
+                  transform: 'translateY(-1px)',
                 },
               }}
             >
               <ListItemIcon>
-                {item.badge > 0 ? (
-                  <Badge badgeContent={item.badge} color="error">
-                    {item.icon}
-                  </Badge>
-                ) : (
-                  item.icon
-                )}
+                {item.icon}
               </ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemText primary={item.text} primaryTypographyProps={{ fontSize: 14, fontWeight: isActive ? 850 : 750 }} />
+              {item.badge > 0 && (
+                <Box
+                  sx={{
+                    minWidth: 24,
+                    height: 22,
+                    px: 0.75,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: 999,
+                    bgcolor: 'rgba(47,91,234,0.24)',
+                    color: '#c8d4ff',
+                    border: '1px solid rgba(124,156,255,0.26)',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
+                  {item.badge}
+                </Box>
+              )}
             </ListItemButton>
           </ListItem>
-        ))}
+          );
+        })}
       </List>
 
       {appShellActive && (
         <>
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-          <Box sx={{ p: 2 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<LogoutIcon />}
-              onClick={handleLogout}
-              sx={{
-                borderColor: 'rgba(255,255,255,0.20)',
-                color: '#ffffff',
-                '&:hover': {
-                  borderColor: 'rgba(255,255,255,0.45)',
-                  backgroundColor: 'rgba(255,255,255,0.10)',
-                },
-              }}
-            >
-              Logout
-            </Button>
+          <Box sx={{ p: 2, display: 'grid', gap: 1.25 }}>
+            <StoreCard mobile />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+              <Box
+                sx={{
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 1,
+                  display: 'grid',
+                  placeItems: 'center',
+                  minHeight: 44,
+                  bgcolor: 'rgba(255,255,255,0.045)',
+                }}
+              >
+                <NotificationCenter onNotificationCountChange={(count) => setNotificationCount(count)} />
+              </Box>
+              <Button
+                variant="outlined"
+                startIcon={<LogoutIcon />}
+                onClick={handleLogout}
+                sx={{
+                  minHeight: 44,
+                  borderColor: 'rgba(255,255,255,0.16)',
+                  color: '#ffffff',
+                  px: 1,
+                  '&:hover': {
+                    borderColor: 'rgba(255,255,255,0.45)',
+                    backgroundColor: 'rgba(255,255,255,0.10)',
+                  },
+                }}
+              >
+                Logout
+              </Button>
+            </Box>
           </Box>
         </>
       )}
@@ -349,6 +420,146 @@ const NavBar: React.FC = () => {
     </Box>
   );
 
+  const SearchAffordance = ({ compact = false }: { compact?: boolean }) => (
+    <Box
+      component="button"
+      type="button"
+      onClick={openCommandPalette}
+      sx={{
+        width: '100%',
+        minHeight: compact ? 42 : 44,
+        px: compact ? 1.25 : 1.5,
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 1,
+        backgroundColor: 'rgba(255,255,255,0.045)',
+        color: '#aebbc6',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 1,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+        transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+        '&:hover': {
+          backgroundColor: 'rgba(47, 91, 234, 0.14)',
+          borderColor: 'rgba(47, 91, 234, 0.38)',
+          transform: 'translateY(-1px)',
+        },
+        '&:focus-visible': {
+          outline: '2px solid rgba(124, 156, 255, 0.9)',
+          outlineOffset: 2,
+        },
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+        <SearchIcon sx={{ fontSize: 18, color: '#7c9cff' }} />
+        <Typography variant="body2" sx={{ color: '#d6dde5', fontWeight: 750 }}>
+          Search
+        </Typography>
+      </Box>
+      <Box
+        sx={{
+          px: 0.85,
+          py: 0.25,
+          borderRadius: 1,
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          color: '#8fa4ff',
+          fontSize: 11,
+          fontWeight: 850,
+          lineHeight: 1.4,
+        }}
+      >
+        ⌘K
+      </Box>
+    </Box>
+  );
+
+  const StoreCard = ({ mobile = false }: { mobile?: boolean }) => (
+    <Box
+      sx={{
+        border: '1px solid rgba(255,255,255,0.10)',
+        background:
+          'linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.035) 100%)',
+        borderRadius: 1,
+        p: mobile ? 1.25 : 1.5,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 42px -32px rgba(0,0,0,0.8)',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+        <Box
+          sx={{
+            width: 38,
+            height: 38,
+            borderRadius: '50%',
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+            color: '#ffffff',
+            fontWeight: 900,
+            background: 'linear-gradient(135deg, #2f5bea 0%, #1539a6 100%)',
+            boxShadow: '0 14px 30px -18px rgba(47,91,234,0.95)',
+          }}
+        >
+          {storeInitial}
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: '#ffffff',
+              fontWeight: 850,
+              lineHeight: 1.25,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontFeatureSettings: '"tnum"',
+            }}
+          >
+            {storeDomain}
+          </Typography>
+          <Box sx={{ mt: 0.55, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: isDemoMode ? '#7c9cff' : '#15b87a',
+                boxShadow: isDemoMode
+                  ? '0 0 0 5px rgba(47,91,234,0.18), 0 0 18px rgba(124,156,255,0.58)'
+                  : '0 0 0 5px rgba(21,184,122,0.16), 0 0 18px rgba(21,184,122,0.52)',
+              }}
+            />
+            <Typography variant="caption" sx={{ color: '#aab7c2', fontWeight: 800 }}>
+              {isDemoMode ? 'Demo mode' : 'Live store'}
+            </Typography>
+          </Box>
+        </Box>
+        <StorefrontIcon sx={{ color: 'rgba(185,200,255,0.72)', fontSize: 18, flexShrink: 0 }} />
+      </Box>
+
+      {isDemoMode && (
+        <Button
+          fullWidth
+          size="small"
+          onClick={handleExitDemo}
+          sx={{
+            mt: 1.25,
+            minHeight: 34,
+            borderRadius: 1,
+            color: '#c8d4ff',
+            bgcolor: 'rgba(47,91,234,0.14)',
+            border: '1px solid rgba(47,91,234,0.24)',
+            '&:hover': {
+              bgcolor: 'rgba(47,91,234,0.22)',
+            },
+          }}
+        >
+          Exit demo
+        </Button>
+      )}
+    </Box>
+  );
+
   if (!appShellActive) {
     return (
       <AppBar
@@ -390,17 +601,27 @@ const NavBar: React.FC = () => {
           bgcolor: '#0b1016',
           color: '#ffffff',
           borderRight: '1px solid rgba(255,255,255,0.10)',
+          backgroundImage:
+            'radial-gradient(circle at 18% 0%, rgba(47,91,234,0.24), transparent 24%), linear-gradient(180deg, #101820 0%, #0b1016 100%)',
+          boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.04)',
           display: 'flex',
           flexDirection: 'column',
           p: 2,
         }}
       >
-        <Box sx={{ p: 1, pb: 3 }}>
+        <Box sx={{ p: 1, pb: 2 }}>
           <BrandMark dark />
         </Box>
 
+        <Box sx={{ px: 1, pb: 2.5 }}>
+          <SearchAffordance />
+        </Box>
+
         <Box sx={{ px: 1, pb: 2 }}>
-          <Typography variant="caption" sx={{ color: '#7f9188', fontWeight: 800, textTransform: 'uppercase' }}>
+          <Typography
+            variant="caption"
+            sx={{ color: '#7f9188', fontWeight: 850, textTransform: 'uppercase', letterSpacing: '0.08em' }}
+          >
             Workspace
           </Typography>
         </Box>
@@ -414,66 +635,123 @@ const NavBar: React.FC = () => {
                   onClick={() => handleNavigation(item.path)}
                   selected={isActive}
                   sx={{
+                    position: 'relative',
                     borderRadius: 1,
                     minHeight: 46,
                     color: isActive ? '#ffffff' : '#b9c7c0',
+                    overflow: 'hidden',
+                    transition: 'background-color 0.2s ease, color 0.2s ease, transform 0.2s ease',
                     '& .MuiListItemIcon-root': {
-                      color: 'inherit',
+                      color: isActive ? '#8fa4ff' : 'inherit',
                       minWidth: 38,
+                      transition: 'color 0.2s ease',
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: 9,
+                      bottom: 9,
+                      width: 3,
+                      borderRadius: '0 3px 3px 0',
+                      backgroundColor: '#7c9cff',
+                      boxShadow: '0 0 18px rgba(124,156,255,0.58)',
+                      transform: isActive ? 'scaleY(1)' : 'scaleY(0)',
+                      transformOrigin: 'center',
+                      transition: 'transform 0.2s ease',
                     },
                     '&.Mui-selected': {
-                      bgcolor: 'rgba(255, 255, 255, 0.12)',
-                      '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.16)' },
+                      bgcolor: 'rgba(47, 91, 234, 0.18)',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+                      '&:hover': { bgcolor: 'rgba(47, 91, 234, 0.24)' },
                     },
                     '&:hover': {
                       bgcolor: 'rgba(255, 255, 255, 0.08)',
                       color: '#ffffff',
+                      transform: 'translateY(-1px)',
+                      '& .MuiListItemIcon-root': {
+                        color: '#8fa4ff',
+                      },
                     },
                   }}
                 >
                   <ListItemIcon>
-                    {item.badge > 0 ? (
-                      <Badge badgeContent={item.badge} color="error">
-                        {item.icon}
-                      </Badge>
-                    ) : (
-                      item.icon
-                    )}
+                    {item.icon}
                   </ListItemIcon>
                   <ListItemText
                     primary={item.text}
                     primaryTypographyProps={{ fontSize: 14, fontWeight: isActive ? 800 : 700 }}
                   />
+                  {item.badge > 0 && (
+                    <Box
+                      sx={{
+                        minWidth: 24,
+                        height: 22,
+                        px: 0.75,
+                        display: 'grid',
+                        placeItems: 'center',
+                        borderRadius: 999,
+                        bgcolor: 'rgba(47,91,234,0.24)',
+                        color: '#c8d4ff',
+                        border: '1px solid rgba(124,156,255,0.26)',
+                        fontSize: 11,
+                        fontWeight: 900,
+                        fontFeatureSettings: '"tnum"',
+                      }}
+                    >
+                      {item.badge}
+                    </Box>
+                  )}
                 </ListItemButton>
               </ListItem>
             );
           })}
         </List>
 
-        <Box
-          sx={{
-            border: '1px solid rgba(255,255,255,0.10)',
-            bgcolor: 'rgba(255,255,255,0.05)',
-            borderRadius: 1,
-            p: 1.5,
-            mb: 1.5,
-          }}
-        >
-          <Typography variant="caption" sx={{ color: '#8b96a2', fontWeight: 700 }}>
-            Status
-          </Typography>
-          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Chip
-              label={isDemoMode ? 'Demo mode' : 'Live store'}
-              size="small"
-              onClick={isDemoMode ? handleExitDemo : undefined}
-              sx={{
-                bgcolor: isDemoMode ? 'rgba(47, 91, 234, 0.22)' : 'rgba(21, 184, 122, 0.18)',
-                color: isDemoMode ? '#b9c8ff' : '#7df0bc',
-                border: '1px solid rgba(255,255,255,0.10)',
-              }}
-            />
-            <NotificationCenter onNotificationCountChange={(count) => setNotificationCount(count)} />
+        <Box sx={{ display: 'grid', gap: 1.25, mb: 1.5 }}>
+          <StoreCard />
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            <Tooltip title="Notifications">
+              <Box
+                sx={{
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 1,
+                  display: 'grid',
+                  placeItems: 'center',
+                  minHeight: 46,
+                  bgcolor: 'rgba(255,255,255,0.045)',
+                  transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+                  '&:hover': {
+                    bgcolor: 'rgba(47,91,234,0.14)',
+                    borderColor: 'rgba(47,91,234,0.36)',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                <NotificationCenter onNotificationCountChange={(count) => setNotificationCount(count)} />
+              </Box>
+            </Tooltip>
+            <Tooltip title="Logout">
+              <Button
+                variant="outlined"
+                startIcon={<LogoutIcon />}
+                onClick={handleLogout}
+                sx={{
+                  minHeight: 46,
+                  borderColor: 'rgba(255,255,255,0.16)',
+                  color: '#ffffff',
+                  px: 1,
+                  '& .MuiButton-startIcon': { mr: 0.5 },
+                  '&:hover': {
+                    borderColor: 'rgba(255,255,255,0.45)',
+                    backgroundColor: 'rgba(255,255,255,0.10)',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                Logout
+              </Button>
+            </Tooltip>
           </Box>
         </Box>
 
@@ -488,22 +766,6 @@ const NavBar: React.FC = () => {
           </Box>
         )}
 
-        <Button
-          fullWidth
-          variant="outlined"
-          startIcon={<LogoutIcon />}
-          onClick={handleLogout}
-          sx={{
-            borderColor: 'rgba(255,255,255,0.16)',
-            color: '#ffffff',
-            '&:hover': {
-              borderColor: 'rgba(255,255,255,0.45)',
-              backgroundColor: 'rgba(255,255,255,0.10)',
-            },
-          }}
-        >
-          Logout
-        </Button>
       </Box>
     );
   }

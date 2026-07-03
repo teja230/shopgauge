@@ -57,8 +57,15 @@ const CommandPalette: React.FC = () => {
         setIsOpen((prev) => !prev);
       }
     };
+    const openHandler = () => setIsOpen(true);
+
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('shopgauge:open-command-palette', openHandler);
+
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('shopgauge:open-command-palette', openHandler);
+    };
   }, []);
 
   const close = () => {
@@ -136,4 +143,4 @@ const CommandPalette: React.FC = () => {
   );
 };
 
-export default CommandPalette; 
+export default CommandPalette;
