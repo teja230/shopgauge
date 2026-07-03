@@ -11,6 +11,7 @@ import {
   getPrivacyReport,
   API_BASE_URL
 } from '../api';
+import { Store, RefreshCw, Lock, BarChart3 } from 'lucide-react';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
@@ -796,7 +797,7 @@ export default function ProfilePage() {
       {/* Store Information - Enhanced */}
       <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <span className="mr-3 text-2xl">🏪</span>
+          <Store className="w-5 h-5 mr-3 text-blue-600" />
           Store Information
         </h2>
         
@@ -981,7 +982,7 @@ export default function ProfilePage() {
       {/* Store Management Section - Enhanced */}
       <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <span className="mr-3 text-2xl">🔄</span>
+          <RefreshCw className="w-5 h-5 mr-3 text-blue-600" />
           Store Management
         </h2>
         <div className="space-y-6">
@@ -1178,7 +1179,7 @@ export default function ProfilePage() {
       {/* Privacy & Data Rights Section - Enhanced */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm rounded-lg p-6 mb-8 border border-blue-200">
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <span className="mr-3 text-2xl">🔒</span>
+          <Lock className="w-5 h-5 mr-3 text-blue-600" />
           Privacy & Data Rights
         </h2>
         <p className="text-sm text-gray-700 mb-6">
@@ -1308,7 +1309,7 @@ export default function ProfilePage() {
             <div className="sticky top-0 bg-white border-b px-6 py-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-semibold text-gray-900 flex items-center">
-                  <span className="mr-3 text-2xl">📊</span>
+                  <BarChart3 className="w-5 h-5 mr-3 text-blue-600" />
                   Privacy Compliance Report
                 </h3>
                 <button
