@@ -36,7 +36,10 @@ import {
   Send as SendIcon,
   Person as PersonIcon,
   SmartToy as BotIcon,
+  ContentCopy as CopyIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material';
+import ChatMarkdown from '../components/ui/ChatMarkdown';
 import { useAuth } from '../context/AuthContext';
 import dataAggregationService from '../services/dataAggregationService';
 import aiInsightsService from '../services/aiInsightsService';
@@ -90,16 +93,20 @@ const BusinessIntelligencePage: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d' | '60d'>('7d');
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [pendingAsk, setPendingAsk] = useState<string | null>(null);
   const location = useLocation();
   const askHandledRef = useRef(false);
 
   // Deep link from the command palette / "Explain this" affordances: /business-intelligence?ask=...
+  // Auto-submits once data is ready (answers are generated locally, so this is free).
   useEffect(() => {
     if (askHandledRef.current) return;
     const ask = new URLSearchParams(location.search).get('ask');
     if (ask) {
       askHandledRef.current = true;
-      setChatInput(ask);
+      setPendingAsk(ask);
       window.history.replaceState({}, '', location.pathname);
     }
   }, [location.search, location.pathname]);
@@ -594,6 +601,29 @@ const BusinessIntelligencePage: React.FC = () => {
     handleChatSubmit(question);
   };
 
+  // Flush a deep-linked question once store data is available
+  useEffect(() => {
+    if (pendingAsk && aggregatedData && !chatLoading) {
+      const question = pendingAsk;
+      setPendingAsk(null);
+      handleChatSubmit(question);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAsk, aggregatedData]);
+
+  const handleCopyMessage = (message: ChatMessage) => {
+    navigator.clipboard?.writeText(message.content);
+    setCopiedMessageId(message.id);
+    setTimeout(() => setCopiedMessageId(null), 1800);
+  };
+
+  const formatMessageTime = (timestamp: Date) =>
+    new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const timeframeLabel =
+    timeframeOptions.find((option) => option.value === selectedTimeframe)?.label.toLowerCase() ??
+    'recent';
+
   if (!isAuthenticated || !shop) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -606,819 +636,656 @@ const BusinessIntelligencePage: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <Box sx={{
-        minHeight: '100vh',
-        bgcolor: 'background.default',
-        backgroundColor: '#f6f7f9',
-        py: { xs: 3, md: 4 }
-      }}>
-        <Container maxWidth="xl">
-          {/* Header */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          p: { xs: 2, md: 3 },
+          boxSizing: 'border-box',
+          bgcolor: '#f6f7f9',
+          minHeight: { xs: '100vh', lg: 'auto' },
+          height: { lg: '100vh' },
+          overflow: { lg: 'hidden' },
+        }}
+      >
+        {/* Slim command header */}
+        <Paper
+          elevation={0}
+          sx={{
+            flexShrink: 0,
+            px: { xs: 2, md: 3 },
+            py: 1.75,
+            borderRadius: 2,
+            bgcolor: '#101820',
+            color: '#ffffff',
+            border: '1px solid rgba(255,255,255,0.10)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 24px 56px -48px rgba(16,24,32,0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 1.5,
+                background: 'linear-gradient(135deg, #2f5bea 0%, #1539a6 100%)',
+                display: 'grid',
+                placeItems: 'center',
+                boxShadow: '0 12px 26px -14px rgba(47,91,234,0.9)',
+              }}
+            >
+              <AIIcon sx={{ fontSize: 22, color: '#ffffff' }} />
+            </Box>
+            <Box>
+              <Typography variant="overline" sx={{ color: '#9db4ff', fontWeight: 900, lineHeight: 1.4, display: 'block' }}>
+                AI Analyst
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.05 }}>
+                ShopGPT
+              </Typography>
+            </Box>
+            {isDemoMode && (
+              <Chip
+                label="Demo"
+                size="small"
+                sx={{ ml: 0.5, bgcolor: 'rgba(47, 91, 234, 0.22)', color: '#b9c8ff', fontWeight: 800, border: '1px solid rgba(255,255,255,0.12)' }}
+              />
+            )}
+          </Box>
+
+          <Box sx={{ flex: 1 }} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#15b87a', boxShadow: '0 0 0 4px rgba(21,184,122,0.18)' }} />
+              <Typography variant="caption" sx={{ color: '#c3ccd5', fontWeight: 700 }}>
+                {isDemoMode ? 'Demo data' : 'Live data'}
+                {aggregatedData?.metadata?.dataPoints ? ` · ${aggregatedData.metadata.dataPoints} points` : ''}
+                {aggregatedData?.metadata?.timestamp
+                  ? ` · updated ${new Date(aggregatedData.metadata.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : ''}
+              </Typography>
+            </Box>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel sx={{ color: '#aab5c0', '&.Mui-focused': { color: '#7c9cff' } }}>Timeframe</InputLabel>
+              <Select
+                value={selectedTimeframe}
+                label="Timeframe"
+                onChange={(e) => setSelectedTimeframe(e.target.value as '24h' | '7d' | '30d' | '60d')}
+                sx={{
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.22)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                  '.MuiSvgIcon-root': { color: '#ffffff' },
+                }}
+              >
+                {timeframeOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </Paper>
+
+        {dataError && (
+          <Alert
+            severity="error"
+            sx={{ flexShrink: 0, borderRadius: 2 }}
+            action={
+              <IconButton size="small" onClick={() => loadAggregatedData(true)} color="inherit">
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            }
+          >
+            {dataError}
+          </Alert>
+        )}
+        {dataLoading && !aggregatedData && <LinearProgress sx={{ flexShrink: 0, borderRadius: 1 }} />}
+
+        {/* Workspace: chat + insights rail */}
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 360px' },
+            gap: 2,
+            alignItems: 'stretch',
+          }}
+        >
+          {/* Chat panel */}
           <Paper
+            elevation={0}
             sx={{
-              mb: 3,
-              p: { xs: 2.5, md: 3.5 },
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: { xs: '65vh', lg: 0 },
               borderRadius: 2,
-              border: '1px solid rgba(255,255,255,0.10)',
-              bgcolor: '#101820',
-              color: 'white',
-              boxShadow: '0 28px 70px -52px rgb(16 24 32 / 0.9)',
+              border: '1px solid #e4e7eb',
+              bgcolor: '#ffffff',
+              overflow: 'hidden',
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: '#2f5bea', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <AIIcon sx={{ fontSize: 24 }} />
-                </Box>
-                <Box>
-                  <Typography variant="overline" sx={{ color: '#9db4ff', fontWeight: 900 }}>
-                    AI Analyst
-                  </Typography>
-                  <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1.05 }}>
-                    ShopGPT
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: '#c3ccd5', mt: 1 }}>
-                    Ask questions about revenue, inventory, competitors, and next actions for {shop}.
-                    {isDemoMode && (
-                      <Chip
-                        label="Demo"
-                        size="small"
-                        sx={{ ml: 1, verticalAlign: 'middle', bgcolor: 'rgba(47, 91, 234, 0.22)', color: '#b9c8ff', border: '1px solid rgba(255,255,255,0.12)' }}
-                      />
-                    )}
-                  </Typography>
-                </Box>
+            {/* Chat header strip */}
+            <Box
+              sx={{
+                flexShrink: 0,
+                px: 2.5,
+                py: 1.5,
+                borderBottom: '1px solid #e4e7eb',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+              }}
+            >
+              <Avatar sx={{ width: 32, height: 32, bgcolor: '#101820' }}>
+                <BotIcon sx={{ fontSize: 18, color: '#7c9cff' }} />
+              </Avatar>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                  ShopGPT Assistant
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#5f6b76' }}>
+                  Instant answers from your store data
+                </Typography>
               </Box>
+              <Box sx={{ flex: 1 }} />
+              <Chip
+                label="Ready"
+                size="small"
+                sx={{ bgcolor: 'rgba(21,184,122,0.12)', color: '#08734c', fontWeight: 800, height: 22 }}
+              />
+            </Box>
 
-              {/* Timeframe Selector */}
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel sx={{ color: '#aab5c0', '&.Mui-focused': { color: '#7c9cff' } }}>Timeframe</InputLabel>
-                <Select
-                  value={selectedTimeframe}
-                  label="Timeframe"
-                  onChange={(e) => setSelectedTimeframe(e.target.value as '24h' | '7d' | '30d')}
+            {/* Messages */}
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                px: { xs: 2, md: 3 },
+                py: 2.5,
+                bgcolor: '#f9fafb',
+              }}
+            >
+              {chatMessages.length === 0 && !chatLoading ? (
+                <Box sx={{ maxWidth: 620, mx: 'auto', textAlign: 'center', pt: { xs: 1, md: 4 } }}>
+                  <Box
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      mx: 'auto',
+                      borderRadius: 2.5,
+                      background: 'linear-gradient(135deg, #101820 0%, #1539a6 130%)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      boxShadow: '0 22px 44px -22px rgba(21,57,166,0.7)',
+                    }}
+                  >
+                    <AIIcon sx={{ fontSize: 30, color: '#9db4ff' }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 900, mt: 2 }}>
+                    Ask anything about your store
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5f6b76', mt: 0.5, mb: 3 }}>
+                    Revenue, products, competitors, and what to do next — answered instantly from your data.
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gap: 1.25,
+                      textAlign: 'left',
+                    }}
+                  >
+                    {suggestedQuestions.map((question) => {
+                      const tone = getQuestionTone(question.category);
+                      const QuestionIcon = question.icon as React.ComponentType<{ sx?: object }>;
+                      return (
+                        <Box
+                          key={question.text}
+                          component="button"
+                          type="button"
+                          onClick={() => handleSuggestedQuestion(question.text)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 1.25,
+                            p: 1.5,
+                            borderRadius: 1.5,
+                            border: '1px solid #e4e7eb',
+                            bgcolor: '#ffffff',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
+                            '&:hover': {
+                              borderColor: 'rgba(47,91,234,0.45)',
+                              boxShadow: '0 14px 30px -24px rgba(16,24,32,0.6)',
+                              transform: 'translateY(-1px)',
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 1,
+                              flexShrink: 0,
+                              display: 'grid',
+                              placeItems: 'center',
+                              bgcolor: tone.bg,
+                              color: tone.color,
+                            }}
+                          >
+                            <QuestionIcon sx={{ fontSize: 17 }} />
+                          </Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#101820', lineHeight: 1.4 }}>
+                              {question.text}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 700 }}>
+                              {question.category}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                </Box>
+              ) : (
+                <>
+                  {chatMessages.map((message) => {
+                    const isUser = message.type === 'user';
+                    return (
+                      <Box
+                        key={message.id}
+                        sx={{
+                          display: 'flex',
+                          gap: 1.25,
+                          mb: 2,
+                          flexDirection: isUser ? 'row-reverse' : 'row',
+                          alignItems: 'flex-end',
+                          '&:hover .msg-actions': { opacity: 1 },
+                        }}
+                      >
+                        <Avatar sx={{ width: 28, height: 28, bgcolor: isUser ? '#2f5bea' : '#101820' }}>
+                          {isUser ? (
+                            <PersonIcon sx={{ fontSize: 16 }} />
+                          ) : (
+                            <BotIcon sx={{ fontSize: 16, color: '#7c9cff' }} />
+                          )}
+                        </Avatar>
+                        <Box sx={{ maxWidth: '76%', minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              px: 2,
+                              py: 1.5,
+                              borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                              bgcolor: isUser ? '#2f5bea' : '#ffffff',
+                              color: isUser ? '#ffffff' : '#101820',
+                              border: isUser ? 'none' : '1px solid #e4e7eb',
+                              boxShadow: '0 12px 26px -22px rgba(16,24,32,0.55)',
+                            }}
+                          >
+                            {isUser ? (
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                                {message.content}
+                              </Typography>
+                            ) : message.isStreaming ? (
+                              <>
+                                <ChatMarkdown text={streamingMessage || '…'} />
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    display: 'inline-block',
+                                    width: 2,
+                                    height: 14,
+                                    ml: 0.25,
+                                    bgcolor: '#2f5bea',
+                                    animation: 'shopgptCaret 1s steps(2) infinite',
+                                    '@keyframes shopgptCaret': { '50%': { opacity: 0 } },
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <ChatMarkdown text={message.content} />
+                            )}
+                          </Box>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.75,
+                              mt: 0.5,
+                              justifyContent: isUser ? 'flex-end' : 'flex-start',
+                            }}
+                          >
+                            <Typography variant="caption" sx={{ color: '#98a1ab' }}>
+                              {formatMessageTime(message.timestamp)}
+                            </Typography>
+                            {!isUser && (
+                              <IconButton
+                                className="msg-actions"
+                                size="small"
+                                onClick={() => handleCopyMessage(message)}
+                                sx={{ width: 22, height: 22, opacity: 0, transition: 'opacity 0.2s ease', color: '#98a1ab' }}
+                                aria-label="Copy answer"
+                              >
+                                {copiedMessageId === message.id ? (
+                                  <CheckIcon sx={{ fontSize: 13, color: '#15b87a' }} />
+                                ) : (
+                                  <CopyIcon sx={{ fontSize: 13 }} />
+                                )}
+                              </IconButton>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+
+                  {/* Typing indicator */}
+                  {chatLoading && !streamingMessage && (
+                    <Box sx={{ display: 'flex', gap: 1.25, mb: 2, alignItems: 'center' }}>
+                      <Avatar sx={{ width: 28, height: 28, bgcolor: '#101820' }}>
+                        <BotIcon sx={{ fontSize: 16, color: '#7c9cff' }} />
+                      </Avatar>
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.5,
+                          borderRadius: '14px 14px 14px 4px',
+                          bgcolor: '#ffffff',
+                          border: '1px solid #e4e7eb',
+                          display: 'flex',
+                          gap: 0.6,
+                          alignItems: 'center',
+                        }}
+                      >
+                        {[0, 1, 2].map((dot) => (
+                          <Box
+                            key={dot}
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              bgcolor: '#2f5bea',
+                              animation: 'shopgptDot 1.2s ease-in-out infinite',
+                              animationDelay: `${dot * 0.18}s`,
+                              '@keyframes shopgptDot': {
+                                '0%, 60%, 100%': { opacity: 0.25, transform: 'translateY(0)' },
+                                '30%': { opacity: 1, transform: 'translateY(-3px)' },
+                              },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Follow-up suggestions */}
+                  {showSuggestions && !chatLoading && chatMessages.length > 0 && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                      {suggestedQuestions.slice(0, 4).map((question) => {
+                        const tone = getQuestionTone(question.category);
+                        return (
+                          <Chip
+                            key={question.text}
+                            label={question.text}
+                            onClick={() => handleSuggestedQuestion(question.text)}
+                            sx={{
+                              bgcolor: '#ffffff',
+                              border: `1px solid ${tone.border}`,
+                              color: tone.color,
+                              fontWeight: 700,
+                              maxWidth: '100%',
+                              '&:hover': { bgcolor: tone.bg },
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
+                  <div ref={chatEndRef} />
+                </>
+              )}
+            </Box>
+
+            {/* Composer */}
+            <Box sx={{ flexShrink: 0, borderTop: '1px solid #e4e7eb', px: 2, pt: 1.5, pb: 1, bgcolor: '#ffffff' }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  maxRows={4}
+                  size="small"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Ask about revenue, products, competitors, or next steps…"
+                  disabled={chatLoading || !aggregatedData}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <AIIcon sx={{ fontSize: 18, color: '#2f5bea' }} />
+                      </InputAdornment>
+                    ),
+                  }}
                   sx={{
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: '#f6f7f9',
+                      '&.Mui-focused': { bgcolor: '#ffffff' },
+                    },
+                  }}
+                />
+                <IconButton
+                  onClick={() => handleChatSubmit()}
+                  disabled={chatLoading || !chatInput.trim() || !aggregatedData}
+                  aria-label="Send question"
+                  sx={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 1.5,
+                    bgcolor: '#2f5bea',
                     color: '#ffffff',
-                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.20)' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
-                    '.MuiSvgIcon-root': { color: '#ffffff' },
-                    '& .MuiSelect-select': {
-                      py: 1,
-                      fontSize: '0.875rem'
-                    }
+                    transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+                    boxShadow: '0 12px 24px -16px rgba(47,91,234,0.85)',
+                    '&:hover': { bgcolor: '#244bd4' },
+                    '&.Mui-disabled': { bgcolor: '#e4e7eb', color: '#98a1ab', boxShadow: 'none' },
                   }}
                 >
-                  {timeframeOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {option.label}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.description}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  <SendIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Box>
+              <Typography variant="caption" sx={{ color: '#98a1ab', display: 'block', mt: 0.75 }}>
+                Answers are generated from your store data. Enter to send · Shift+Enter for a new line.
+              </Typography>
             </Box>
           </Paper>
 
-          {/* Data Context Info */}
-          {aggregatedData && !dataLoading && (
-            <Paper sx={{
-              mb: 3,
-              p: 2.5,
-              borderRadius: 2,
-              bgcolor: '#ffffff',
-              border: '1px solid',
-              borderColor: '#e4e7eb',
-              boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AIIcon sx={{ fontSize: 20, color: isDemoMode ? 'primary.main' : 'secondary.main' }} />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {isDemoMode ? 'Demo Data Active' : 'Live Data Connected'}
-                  </Typography>
-                </Box>
-                <Divider orientation="vertical" flexItem />
-                <Typography variant="caption" color="text.secondary">
-                  Last updated: {new Date(aggregatedData.metadata.timestamp).toLocaleTimeString()}
-                </Typography>
-                <Divider orientation="vertical" flexItem />
-                <Typography variant="caption" color="text.secondary">
-                  {aggregatedData.metadata.dataPoints} data points
-                </Typography>
-                {aggregatedData.revenue && (
-                  <>
-                    <Divider orientation="vertical" flexItem />
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                      Revenue: ${aggregatedData.revenue.total?.toLocaleString() || '0'}
-                    </Typography>
-                  </>
-                )}
-              </Box>
-            </Paper>
-          )}
-
-          {/* Loading State */}
-          {dataLoading && (
-            <Box sx={{ mb: 3 }}>
-              <Paper sx={{
-                p: 3,
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                boxShadow: 'none',
-              }}>
-                <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />
-                <Typography variant="body2" sx={{
-                  textAlign: 'center',
-                  color: 'text.secondary',
-                  fontWeight: 500
-                }}>
-                  {isDemoMode ? 'Loading demo data...' : 'Loading your business data...'}
-                </Typography>
-              </Paper>
+          {/* Insights rail */}
+          <Box
+            sx={{
+              minHeight: 0,
+              overflowY: { lg: 'auto' },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5,
+              pb: { xs: 1, lg: 0 },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 0.5 }}>
+              <Typography variant="overline" sx={{ color: '#5f6b76', fontWeight: 900, letterSpacing: '0.06em' }}>
+                Auto insights
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => generateAllInsights()}
+                disabled={!aggregatedData || insightCards.some((card) => card.loading)}
+                aria-label="Refresh all insights"
+                sx={{ color: '#5f6b76' }}
+              >
+                <RefreshIcon sx={{ fontSize: 16 }} />
+              </IconButton>
             </Box>
-          )}
 
-          {/* Error State */}
-          {dataError && (
-            <Alert
-              severity="error"
-              sx={{
-                mb: 3,
-                borderRadius: 2,
-              }}
-            >
-              {dataError}
-            </Alert>
-          )}
-
-          {/* ChatGPT-style Interface */}
-          {aggregatedData && (
-            <Box>
-              {/* Chat Container */}
-              <Card sx={{
-                mb: 4,
-                minHeight: 500,
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: 2,
-                boxShadow: '0 24px 58px -46px rgb(16 24 32 / 0.85)',
-                border: '1px solid',
-                borderColor: 'divider',
-                overflow: 'hidden'
-              }}>
-                {/* Chat Header */}
-                <Box sx={{
-                  p: 3,
-                  borderBottom: 1,
-                  borderColor: 'rgba(255,255,255,0.10)',
-                  bgcolor: '#161c24',
-                  color: '#ffffff'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{
-                      bgcolor: '#2f5bea',
-                      color: '#ffffff',
-                      width: 40,
-                      height: 40
-                    }}>
-                      <BotIcon sx={{ fontSize: 20 }} />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="h6" fontWeight={600}>
-                        ShopGPT Assistant
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#aab5c0' }}>
-                        Real-time merchant context
-                      </Typography>
+            {insightCards.map((card) => {
+              const CardIcon = card.icon as React.ComponentType<{ sx?: object }>;
+              const expanded = Boolean(expandedCards[card.id]);
+              const content = card.insight?.insight || '';
+              const isLong = content.length > 260;
+              return (
+                <Paper
+                  key={card.id}
+                  elevation={0}
+                  sx={{
+                    flexShrink: 0,
+                    borderRadius: 2,
+                    border: '1px solid #e4e7eb',
+                    overflow: 'hidden',
+                    transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+                    '&:hover': { boxShadow: '0 18px 40px -32px rgba(16,24,32,0.6)', borderColor: `${card.color}55` },
+                  }}
+                >
+                  <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.25, borderBottom: '1px solid #eef0f3' }}>
+                    <Box
+                      sx={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 1,
+                        display: 'grid',
+                        placeItems: 'center',
+                        bgcolor: `${card.color}14`,
+                        color: card.color,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <CardIcon sx={{ fontSize: 17 }} />
                     </Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900, flex: 1, minWidth: 0 }}>
+                      {card.title}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={() => generateSingleInsight(card.id)}
+                      disabled={card.loading || !aggregatedData}
+                      aria-label={`Refresh ${card.title}`}
+                      sx={{ color: '#98a1ab' }}
+                    >
+                      <RefreshIcon
+                        sx={{
+                          fontSize: 15,
+                          animation: card.loading ? 'spin 1s linear infinite' : 'none',
+                          '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
+                        }}
+                      />
+                    </IconButton>
                   </Box>
-                </Box>
 
-                {/* Chat Messages Area */}
-                <Box sx={{
-                  flexGrow: 1,
-                  p: 3,
-                  overflowY: 'auto',
-                  minHeight: 350,
-                  maxHeight: 500,
-                  bgcolor: '#f6f7f9',
-                  backgroundImage: 'radial-gradient(circle at 18% 0%, rgba(47, 91, 234, 0.08), transparent 28%), linear-gradient(180deg, #f9fafb 0%, #f6f7f9 100%)'
-                }}>
-                  {/* Welcome Message */}
-                  {chatMessages.length === 0 && (
-                    <Fade in>
-                      <Box>
-                        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                          <Avatar sx={{
-                            bgcolor: '#101820',
-                            color: '#9db4ff',
-                            width: 32,
-                            height: 32
-                          }}>
-                            <BotIcon sx={{ fontSize: 18 }} />
-                          </Avatar>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Paper sx={{
-                              p: 3,
-                              bgcolor: 'background.paper',
-                              borderRadius: 2,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
-                            }}>
-                              <Typography variant="body1" sx={{ mb: 2 }}>
-                                Hello. I&apos;m your AI business analyst for <Box component="span" sx={{ fontWeight: 800 }}>{aggregatedData?.metadata?.shop || shop}</Box>. {isDemoMode && 'You\'re in demo mode - feel free to explore. '}I have access to your {aggregatedData && (
-                                  <>
-                                    revenue data (${aggregatedData.revenue?.total?.toLocaleString() || '0'}), {aggregatedData.products?.total || 0} products, {aggregatedData.orders?.total || 0} orders
-                                    {aggregatedData.marketIntelligence?.competitors?.length > 0 && `, and ${aggregatedData.marketIntelligence.competitors.length} competitors`}
-                                  </>
-                                )}. I can help you understand performance trends, identify opportunities, and provide strategic recommendations. What would you like to know?
-                              </Typography>
-
-                              {/* Initial Suggested Questions - Market Intelligence Style */}
-                              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
-                                Suggested questions to get you started:
-                              </Typography>
-                              <Box sx={{
-                                display: 'grid',
-                                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                                gap: 1.5
-                              }}>
-                                {suggestedQuestions.map((q, idx) => {
-                                  const IconComponent = q.icon;
-                                  const tone = getQuestionTone(q.category);
-                                  return (
-                                    <Box
-                                      key={idx}
-                                      onClick={() => handleSuggestedQuestion(q.text)}
-                                      sx={{
-                                        p: 2,
-                                        borderRadius: 2,
-                                        border: '1px solid',
-                                        borderColor: tone.border,
-                                        bgcolor: '#ffffff',
-                                        cursor: 'pointer',
-                                        transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: 1.5,
-                                        '&:hover': {
-                                          bgcolor: '#fafbff',
-                                          borderColor: tone.color,
-                                          boxShadow: '0 18px 38px -30px rgb(16 24 32 / 0.75)',
-                                          transform: 'translateY(-1px)',
-                                        },
-                                        '@media (prefers-reduced-motion: reduce)': {
-                                          transition: 'none',
-                                          '&:hover': { transform: 'none' },
-                                        }
-                                      }}
-                                    >
-                                      <Box sx={{
-                                        color: tone.color,
-                                        bgcolor: tone.bg,
-                                        border: `1px solid ${tone.border}`,
-                                        width: 34,
-                                        height: 34,
-                                        borderRadius: 2,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        flexShrink: 0,
-                                        '& > *': { fontSize: '18px' }
-                                      }}>
-                                        <IconComponent />
-                                      </Box>
-                                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="body2" sx={{
-                                          fontWeight: 500,
-                                          lineHeight: 1.4,
-                                          color: 'text.primary'
-                                        }}>
-                                          {q.text}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                          {q.category}
-                                        </Typography>
-                                      </Box>
-                                    </Box>
-                                  );
-                                })}
-                              </Box>
-                            </Paper>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Fade>
-                  )}
-
-                  {/* Chat Messages */}
-                  {chatMessages.map((message) => (
-                    <Box key={message.id} sx={{ mb: 3 }}>
-                      <Box sx={{
-                        display: 'flex',
-                        gap: 2,
-                        flexDirection: message.type === 'user' ? 'row-reverse' : 'row',
-                        alignItems: 'flex-start'
-                      }}>
-                        <Avatar sx={{
-                          bgcolor: message.type === 'user' ? '#2f5bea' : '#101820',
-                          color: message.type === 'user' ? '#ffffff' : '#7c9cff',
-                          width: 32,
-                          height: 32
-                        }}>
-                          {message.type === 'user' ?
-                            <PersonIcon sx={{ fontSize: 18 }} /> :
-                            <BotIcon sx={{ fontSize: 18 }} />
+                  <Box sx={{ px: 2, py: 1.5 }}>
+                    {card.loading ? (
+                      <>
+                        <Skeleton width="92%" />
+                        <Skeleton width="80%" />
+                        <Skeleton width="86%" />
+                      </>
+                    ) : card.error ? (
+                      <Typography variant="caption" sx={{ color: '#b42318', fontWeight: 700 }}>
+                        {card.error}
+                      </Typography>
+                    ) : content ? (
+                      <>
+                        <Box
+                          sx={
+                            expanded
+                              ? {}
+                              : {
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 5,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                }
                           }
-                        </Avatar>
-                        <Box sx={{ flexGrow: 1, maxWidth: { xs: 'calc(100% - 48px)', md: '78%' }, ml: message.type === 'user' ? 'auto' : 0 }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block', textAlign: message.type === 'user' ? 'right' : 'left' }}>
-                            {message.type === 'user' ? 'You' : 'ShopGPT'} • {new Date(message.timestamp).toLocaleTimeString()}
-                          </Typography>
-                          <Paper sx={{
-                            p: 2.5,
-                            bgcolor: message.type === 'user'
-                              ? '#2f5bea'
-                              : '#ffffff',
-                            color: message.type === 'user' ? '#ffffff' : '#101820',
-                            borderRadius: message.type === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                            border: message.type === 'user'
-                              ? '1px solid rgba(47, 91, 234, 0.52)'
-                              : '1px solid #e4e7eb',
-                            boxShadow: message.type === 'user'
-                              ? '0 18px 42px -30px rgba(47, 91, 234, 0.75)'
-                              : '0 16px 34px -32px rgb(16 24 32 / 0.75)'
-                          }}>
-                            <Typography variant="body1" sx={{
-                              whiteSpace: 'pre-wrap',
-                              lineHeight: 1.6
-                            }}>
-                              {message.isStreaming ? streamingMessage : message.content}
-                              {message.isStreaming && (
-                                <Box component="span" sx={{
-                                  display: 'inline-block',
-                                  width: 2,
-                                  height: 16,
-                                  bgcolor: 'primary.main',
-                                  ml: 0.5,
-                                  animation: 'blink 1s infinite',
-                                  '@keyframes blink': {
-                                    '0%, 50%': { opacity: 1 },
-                                    '51%, 100%': { opacity: 0 }
-                                  },
-                                  '@media (prefers-reduced-motion: reduce)': {
-                                    animation: 'none'
-                                  }
-                                }} />
-                              )}
-                            </Typography>
-                          </Paper>
+                        >
+                          <ChatMarkdown text={content} />
                         </Box>
-                      </Box>
-                    </Box>
-                  ))}
-
-                  {/* Loading indicator */}
-                  {chatLoading && (
-                    <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                      <Avatar sx={{
-                        bgcolor: '#101820',
-                        color: '#9db4ff',
-                        width: 32,
-                        height: 32
-                      }}>
-                        <BotIcon sx={{ fontSize: 18 }} />
-                      </Avatar>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                          ShopGPT is thinking...
-                        </Typography>
-                        <Paper sx={{
-                          p: 2.5,
-                          bgcolor: '#ffffff',
-                          borderRadius: '18px 18px 18px 4px',
-                          border: '1px solid #e4e7eb',
-                          boxShadow: '0 16px 34px -32px rgb(16 24 32 / 0.75)'
-                        }}>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {[0, 1, 2].map((i) => (
-                              <Box
-                                key={i}
-                                sx={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: '50%',
-                                  bgcolor: 'primary.main',
-                                  animation: 'pulse 1.5s ease-in-out infinite',
-                                  animationDelay: `${i * 0.3}s`,
-                                  '@keyframes pulse': {
-                                    '0%, 80%, 100%': {
-                                      opacity: 0.3,
-                                      transform: 'scale(0.8)'
-                                    },
-                                    '40%': {
-                                      opacity: 1,
-                                      transform: 'scale(1)'
-                                    }
-                                  },
-                                  '@media (prefers-reduced-motion: reduce)': {
-                                    animation: 'none',
-                                    opacity: 0.75,
-                                    transform: 'none'
-                                  }
-                                }}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* Follow-up Suggestions */}
-                  {showSuggestions && chatMessages.length > 0 && !chatLoading && (
-                    <Fade in>
-                      <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
-                          Continue the conversation:
-                        </Typography>
-                        <Box sx={{
-                          display: 'grid',
-                          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                          gap: 1.5
-                        }}>
-                          {suggestedQuestions.slice(0, 4).map((q, idx) => {
-                            const IconComponent = q.icon;
-                            const tone = getQuestionTone(q.category);
-                            return (
-                              <Box
-                                key={`followup-${idx}`}
-                                onClick={() => handleSuggestedQuestion(q.text)}
-                                sx={{
-                                  p: 2,
-                                  borderRadius: 2,
-                                  border: '1px solid',
-                                  borderColor: tone.border,
-                                  bgcolor: 'background.paper',
-                                  cursor: 'pointer',
-                                  transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1.5,
-                                  '&:hover': {
-                                    bgcolor: '#fafbff',
-                                    borderColor: tone.color,
-                                    boxShadow: '0 16px 34px -30px rgb(16 24 32 / 0.65)',
-                                    transform: 'translateY(-1px)',
-                                  },
-                                  '@media (prefers-reduced-motion: reduce)': {
-                                    transition: 'none',
-                                    '&:hover': { transform: 'none' },
-                                  }
-                                }}
-                              >
-                                <Box sx={{
-                                  color: tone.color,
-                                  bgcolor: tone.bg,
-                                  border: `1px solid ${tone.border}`,
-                                  width: 30,
-                                  height: 30,
-                                  borderRadius: 2,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                  '& > *': { fontSize: '16px' }
-                                }}>
-                                  <IconComponent />
-                                </Box>
-                                <Typography variant="body2" sx={{
-                                  fontWeight: 500,
-                                  fontSize: '0.8rem',
-                                  color: 'text.primary'
-                                }}>
-                                  {q.text}
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Box>
-                      </Box>
-                    </Fade>
-                  )}
-
-                  <div ref={chatEndRef} />
-                </Box>
-
-                {/* Chat Input */}
-                <Box sx={{
-                  p: 3,
-                  borderTop: 1,
-                  borderColor: 'divider',
-                  bgcolor: '#ffffff'
-                }}>
-                  <TextField
-                    fullWidth
-                    placeholder="Ask me anything about your business performance, trends, or get strategic advice..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    disabled={!aggregatedData || chatLoading}
-                    multiline
-                    maxRows={3}
-                    variant="outlined"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <AIIcon sx={{ color: '#2f5bea' }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => handleChatSubmit()}
-                            disabled={!chatInput.trim() || chatLoading}
+                        {isLong && (
+                          <Typography
+                            component="button"
+                            type="button"
+                            variant="caption"
+                            onClick={() => setExpandedCards((prev) => ({ ...prev, [card.id]: !expanded }))}
                             sx={{
+                              mt: 0.75,
+                              border: 'none',
+                              bgcolor: 'transparent',
                               color: '#2f5bea',
-                              '&.Mui-disabled': {
-                                color: 'action.disabled'
-                              }
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              p: 0,
+                              '&:hover': { textDecoration: 'underline' },
                             }}
                           >
-                            <SendIcon />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                      sx: {
-                        borderRadius: 2,
-                        '& fieldset': {
-                          borderColor: 'divider',
-                          borderRadius: 2
-                        },
-                        '&:hover fieldset': {
-                          borderColor: 'primary.main',
-                          boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.1)'
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: 'primary.main',
-                          boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.1)'
-                        }
-                      }
+                            {expanded ? 'Show less' : 'Show more'}
+                          </Typography>
+                        )}
+                      </>
+                    ) : (
+                      <Typography variant="caption" sx={{ color: '#98a1ab' }}>
+                        {card.description}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      bgcolor: '#f9fafb',
+                      borderTop: '1px solid #eef0f3',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 1,
                     }}
-                  />
-                </Box>
-              </Card>
-
-              {/* Insight Cards - Below Chat */}
-              <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                  <AIIcon sx={{ fontSize: 28, color: 'primary.main' }} />
-                  <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                    AI-Generated Insights
-                  </Typography>
-                </Box>
-                <Box sx={{
-                  display: 'grid',
-                  gridTemplateColumns: {
-                    xs: '1fr',
-                    sm: '1fr 1fr',
-                    lg: 'repeat(4, 1fr)'
-                  },
-                  gap: 3,
-                  alignItems: 'stretch' // Ensure all cards have equal height
-                }}>
-                  {insightCards.map((card) => {
-                    const IconComponent = card.icon;
-                    // Generate background and border colors based on card color (matching Market Intelligence)
-                    const getCardColors = (color: string) => {
-                      switch (color) {
-                        case '#2f5bea':
-                          return { bg: '#ffffff', border: 'rgba(47, 91, 234, 0.18)', iconBg: 'rgba(47, 91, 234, 0.10)' };
-                        case '#059669': // Green
-                          return { bg: '#ffffff', border: 'rgba(5, 150, 105, 0.16)', iconBg: 'rgba(5, 150, 105, 0.10)' };
-                        case '#d97706': // Orange
-                          return { bg: '#ffffff', border: 'rgba(217, 119, 6, 0.16)', iconBg: 'rgba(217, 119, 6, 0.10)' };
-                        default:
-                          return { bg: '#ffffff', border: 'rgba(47, 91, 234, 0.18)', iconBg: 'rgba(47, 91, 234, 0.10)' };
-                      }
-                    };
-
-                    const colors = getCardColors(card.color);
-
-                    return (
-                      <Card key={card.id} sx={{
-                        height: '100%',
-                        minHeight: 280, // Ensure minimum consistent height
-                        position: 'relative',
-                        borderRadius: 2,
-                        border: `1px solid ${colors.border}`,
-                        bgcolor: colors.bg,
-                        boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
-                        transition: 'transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        '&:hover': {
-                          boxShadow: '0 22px 46px -34px rgb(16 24 32 / 0.82)',
-                          borderColor: card.color,
-                          transform: 'translateY(-1px)',
-                        },
-                        '@media (prefers-reduced-motion: reduce)': {
-                          transition: 'none',
-                          '&:hover': { transform: 'none' },
-                        }
-                      }}>
-                        <CardContent sx={{
-                          p: 3,
-                          height: '100%',
-                          display: 'flex',
-                          flexDirection: 'column'
-                        }}>
-                          {/* Card Header - Market Intelligence style */}
-                          <Box sx={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            mb: 3
-                          }}>
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
-                              <Box sx={{
-                                p: 1.5,
-                                borderRadius: 2,
-                                bgcolor: colors.iconBg,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                                border: `1px solid ${colors.border}`,
-                                boxShadow: `0 12px 30px -24px ${card.color}`,
-                              }}>
-                                <Box sx={{ color: card.color, '& > *': { fontSize: '24px' } }}>
-                                  <IconComponent />
-                                </Box>
-                              </Box>
-                              <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="h6" sx={{
-                                  fontWeight: 600,
-                                  color: 'text.primary',
-                                  fontSize: '1rem',
-                                  mb: 0.5,
-                                  lineHeight: 1.2
-                                }}>
-                                  {card.title}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{
-                                  lineHeight: 1.3,
-                                  display: 'block',
-                                  fontSize: '0.75rem'
-                                }}>
-                                  {card.description}
-                                </Typography>
-                              </Box>
-                            </Box>
-
-
-                          </Box>
-
-                          {/* Content - Flexible height */}
-                          <Box sx={{
-                            flexGrow: 1,
-                            display: 'flex',
-                            alignItems: card.insight || card.error ? 'flex-start' : 'center',
-                            minHeight: 100
-                          }}>
-                            {card.loading && (
-                              <Box sx={{ width: '100%' }}>
-                                <Skeleton variant="text" height={20} sx={{ mb: 1 }} />
-                                <Skeleton variant="text" height={20} sx={{ mb: 1 }} />
-                                <Skeleton variant="text" height={20} width="60%" />
-                              </Box>
-                            )}
-
-                            {card.error && (
-                              <Alert severity="error" sx={{
-                                py: 1,
-                                px: 2,
-                                borderRadius: 2,
-                                fontSize: '0.875rem',
-                                width: '100%'
-                              }}>
-                                {card.error}
-                              </Alert>
-                            )}
-
-                            {card.insight && !card.loading && (
-                              <Box sx={{ width: '100%' }}>
-                                <Typography variant="body2" sx={{
-                                  color: 'text.primary',
-                                  lineHeight: 1.5,
-                                  fontSize: '0.875rem',
-                                  mb: 1.5
-                                }}>
-                                  {card.insight.insight}
-                                </Typography>
-
-                                {/* Insight metadata footer */}
-                                <Box sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                  pt: 1.5,
-                                  borderTop: '1px solid',
-                                  borderColor: 'divider',
-                                  flexWrap: 'nowrap',
-                                  minWidth: 0
-                                }}>
-                                  {debugLog.isEnabled() && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Chip
-                                        label={card.insight.source === 'ai' ? 'AI Generated' :
-                                               card.insight.source === 'local' ? 'Rule-Based' :
-                                               'Fallback'}
-                                        size="small"
-                                        sx={{
-                                          fontSize: '0.7rem',
-                                          height: 20,
-                                          bgcolor: card.insight.source === 'ai' ? 'rgba(37, 99, 235, 0.1)' :
-                                                   card.insight.source === 'local' ? 'rgba(5, 150, 105, 0.1)' :
-                                                   'rgba(156, 163, 175, 0.1)',
-                                          color: card.insight.source === 'ai' ? 'primary.main' :
-                                                 card.insight.source === 'local' ? 'success.main' :
-                                                 'text.secondary'
-                                        }}
-                                      />
-                                      {card.insight.fromCache && (
-                                        <Chip
-                                          label="Cached"
-                                          size="small"
-                                          sx={{
-                                            fontSize: '0.7rem',
-                                            height: 20,
-                                            bgcolor: 'rgba(217, 119, 6, 0.1)',
-                                            color: 'warning.main'
-                                          }}
-                                        />
-                                      )}
-                                    </Box>
-                                  )}
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ ml: 'auto', fontSize: '0.72rem' }}
-                                  >
-                                    Insight confidence: {Math.round((card.insight.confidence || 0) * 100)}%
-                                  </Typography>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => generateSingleInsight(card.id)}
-                                    sx={{
-                                      ml: 1,
-                                      p: 0.5,
-                                      color: card.color
-                                    }}
-                                  >
-                                    <RefreshIcon sx={{ fontSize: 16 }} />
-                                  </IconButton>
-                                </Box>
-                              </Box>
-                            )}
-
-                            {!card.insight && !card.loading && !card.error && (
-                              <Box sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'text.disabled',
-                                width: '100%',
-                                textAlign: 'center'
-                              }}>
-                                <Box sx={{ color: card.color, mb: 1 }}>
-                                  <AIIcon style={{ fontSize: 32, opacity: 0.3 }} />
-                                </Box>
-                                <Typography variant="caption">
-                                  Click refresh to generate insights
-                                </Typography>
-                              </Box>
-                            )}
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </Box>
-              </Box>
-            </Box>
-          )}
-        </Container>
+                  >
+                    <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 700 }}>
+                      From your {timeframeLabel} data
+                    </Typography>
+                    <Typography
+                      component="button"
+                      type="button"
+                      variant="caption"
+                      onClick={() => handleChatSubmit(`Tell me more about ${card.title.toLowerCase()}`)}
+                      disabled={chatLoading || !aggregatedData}
+                      sx={{
+                        border: 'none',
+                        bgcolor: 'transparent',
+                        color: '#2f5bea',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        p: 0,
+                        '&:hover': { textDecoration: 'underline' },
+                        '&:disabled': { color: '#98a1ab', cursor: 'default' },
+                      }}
+                    >
+                      Ask about this
+                    </Typography>
+                  </Box>
+                </Paper>
+              );
+            })}
+          </Box>
+        </Box>
       </Box>
     </ErrorBoundary>
   );

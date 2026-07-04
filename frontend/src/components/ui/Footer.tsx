@@ -4,8 +4,8 @@ import { Link, useLocation } from 'react-router-dom';
 const Footer: React.FC = () => {
   const location = useLocation();
 
-  // Admin area has its own layout chrome
-  if (location.pathname.startsWith('/admin')) {
+  // Admin has its own layout chrome; ShopGPT is a full-viewport workspace
+  if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/business-intelligence')) {
     return null;
   }
 
