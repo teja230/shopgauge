@@ -26,25 +26,25 @@ import {
   LinearProgress,
 } from '@mui/material';
 import {
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Login as LoginIcon,
-  Logout as LogoutIcon,
-  Refresh as RefreshIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
+  Eye as VisibilityIcon,
+  EyeOff as VisibilityOffIcon,
+  LogIn as LoginIcon,
+  LogOut as LogoutIcon,
+  RefreshCw as RefreshIcon,
+  AlertTriangle as WarningIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
   Info as InfoIcon,
-  AdminPanelSettings as AdminIcon,
+  ShieldCheck as AdminIcon,
   Lock as LockIcon,
-  Security as SecurityIcon,
-  HealthAndSafety as HealthIcon,
-  People as PeopleIcon,
-  Speed as SpeedIcon,
-  Assessment as AssessmentIcon,
-  Storage as StorageIcon,
-  Memory as MemoryIcon,
-} from '@mui/icons-material';
+  Shield as SecurityIcon,
+  HeartPulse as HealthIcon,
+  Users as PeopleIcon,
+  Gauge as SpeedIcon,
+  ClipboardList as AssessmentIcon,
+  Database as StorageIcon,
+  MemoryStick as MemoryIcon,
+} from 'lucide-react';
 
 import { adminLogin, adminLogout, getAdminStatus } from '../api/admin';
 import { styled } from '@mui/material/styles';
@@ -892,7 +892,7 @@ const AdminPage: React.FC = () => {
           <Fade in timeout={800}>
             <LoginCard elevation={8}>
               <Box sx={{ textAlign: 'center', mb: 4 }}>
-                <AdminIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+                <AdminIcon size={60} color="#2f5bea" style={{ marginBottom: 16 }} />
                 <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: 'text.primary' }}>
                   Admin Panel
           </Typography>

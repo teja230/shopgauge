@@ -787,17 +787,19 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#f6f7f9] px-4 py-6 sm:px-6">
       <DemoModeBanner />
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile & Settings</h1>
-        <p className="text-gray-600">Manage your store connection, data privacy, and account settings</p>
+      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white">
+        <p className="text-sm font-black uppercase text-[#9db4ff]">Account</p>
+        <h1 className="mt-1 text-2xl font-black leading-tight text-white">Profile & Settings</h1>
+        <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#c3ccd5]">Manage your store connection, data privacy, and account settings.</p>
       </div>
-      
+
       {/* Store Information - Enhanced */}
-      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <Store className="w-5 h-5 mr-3 text-blue-600" />
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
+          <Store className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Store Information
         </h2>
         
@@ -984,9 +986,9 @@ export default function ProfilePage() {
       </div>
 
       {/* Store Management Section - Enhanced */}
-      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <RefreshCw className="w-5 h-5 mr-3 text-blue-600" />
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
+          <RefreshCw className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Store Management
         </h2>
         <div className="space-y-6">
@@ -1015,7 +1017,7 @@ export default function ProfilePage() {
           {showStoreSwitcher && (
             <div className="border-t pt-6 space-y-6">
               {/* Current Store - Enhanced */}
-              <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
+              <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-semibold text-blue-900 mb-1">Current Store</h4>
@@ -1043,8 +1045,8 @@ export default function ProfilePage() {
               
               {/* Past Stores - New Section */}
               {pastStores.length > 0 && (
-                <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+                  <h4 className="font-black text-[#101820] mb-3 flex items-center">
                     <span className="mr-2">🕒</span>
                     Recent Stores
                   </h4>
@@ -1071,8 +1073,8 @@ export default function ProfilePage() {
               )}
 
               {/* Connect New Store - Enhanced */}
-              <div className="bg-gray-50 p-5 rounded-xl">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+                <h4 className="font-black text-[#101820] mb-3 flex items-center">
                   <span className="mr-2">➕</span>
                   Connect New Store
                 </h4>
@@ -1131,8 +1133,8 @@ export default function ProfilePage() {
               </div>
               
               {/* Quick Actions - Enhanced */}
-              <div className="bg-gray-50 p-5 rounded-xl">
-                <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+              <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+                <h4 className="font-black text-[#101820] mb-4 flex items-center">
                   <span className="mr-2">⚡</span>
                   Quick Actions
                 </h4>
@@ -1181,20 +1183,20 @@ export default function ProfilePage() {
       </div>
 
       {/* Privacy & Data Rights Section - Enhanced */}
-      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <Lock className="w-5 h-5 mr-3 text-blue-600" />
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-4 flex items-center">
+          <Lock className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Privacy & Data Rights
         </h2>
-        <p className="text-sm text-gray-700 mb-6">
+        <p className="text-sm text-[#5f6b76] mb-6">
           ShopGauge respects your privacy and provides full transparency about data processing. 
           Exercise your data rights using the controls below. All actions are GDPR/CCPA compliant.
         </p>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Data Access & Export */}
-          <div className="bg-white p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
               <FileText className="mr-2 h-5 w-5 text-blue-600" />
               Data Access & Export
             </h3>
@@ -1235,8 +1237,8 @@ export default function ProfilePage() {
           </div>
           
           {/* Legal & Compliance */}
-          <div className="bg-white p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
               <Scale className="mr-2 h-5 w-5 text-gray-600" />
               Legal & Compliance
             </h3>
@@ -1278,8 +1280,8 @@ export default function ProfilePage() {
         </div>
         
         {/* Compliance Info */}
-        <div className="mt-6 bg-white p-4 rounded-xl shadow-sm">
-          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <div className="mt-6 bg-[#f9fafb] p-4 rounded-lg border border-[#e4e7eb]">
+          <h4 className="font-black text-[#101820] mb-3 flex items-center">
             <CheckCircle2 className="mr-2 h-5 w-5 text-green-600" />
             Your Data Rights & Our Commitments
           </h4>
@@ -1312,7 +1314,7 @@ export default function ProfilePage() {
           <div className="relative mx-auto border w-full max-w-4xl shadow-2xl rounded-xl bg-white max-h-[90vh] overflow-hidden">
             <div className="sticky top-0 bg-white border-b px-6 py-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+                <h3 className="text-xl font-black text-[#101820] flex items-center">
                   <BarChart3 className="w-5 h-5 mr-3 text-blue-600" />
                   Privacy Compliance Report
                 </h3>
@@ -1401,7 +1403,7 @@ export default function ProfilePage() {
                 
                 {/* Data Processing Practices */}
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+                  <h4 className="font-black text-[#101820] mb-4 flex items-center">
                     <span className="mr-2">🛡️</span>
                     Data Processing Practices
                   </h4>
@@ -1480,7 +1482,7 @@ export default function ProfilePage() {
                 
                 {/* Additional Privacy Info */}
                 <div className="bg-gray-50 p-4 rounded-xl">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                  <h4 className="font-black text-[#101820] mb-3 flex items-center">
                     <span className="mr-2">ℹ️</span>
                     Additional Information
                   </h4>
@@ -1519,19 +1521,19 @@ export default function ProfilePage() {
       )}
 
       {/* Session Management Section */}
-      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <Monitor className="mr-3 h-6 w-6 text-blue-600" />
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-4 flex items-center">
+          <Monitor className="mr-3 h-6 w-6 text-[#2f5bea]" />
           Active Sessions
         </h2>
-        <p className="text-sm text-gray-700 mb-6">
+        <p className="text-sm text-[#5f6b76] mb-6">
           Manage your active sessions across different devices and browsers. You can have up to 5 active sessions at once.
         </p>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Session Status */}
-          <div className="bg-white p-4 lg:p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <div className="bg-[#f9fafb] p-4 lg:p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
               <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
               Session Status
             </h3>
@@ -1636,8 +1638,8 @@ export default function ProfilePage() {
           </div>
           
           {/* Session Actions */}
-          <div className="bg-white p-4 lg:p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <div className="bg-[#f9fafb] p-4 lg:p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
               <span className="mr-2">🔧</span>
               Session Management
             </h3>
@@ -1714,8 +1716,8 @@ export default function ProfilePage() {
       />
 
       {/* Danger Zone - Enhanced with Better Explanations */}
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-red-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+      <div className="rounded-lg border border-red-200 bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
           <AlertTriangle className="mr-3 h-6 w-6 text-red-600" />
           Danger Zone
         </h2>
@@ -1806,6 +1808,7 @@ export default function ProfilePage() {
         </div>
 
 
+      </div>
       </div>
       </div>
 

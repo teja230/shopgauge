@@ -35,20 +35,20 @@ import {
 } from '@mui/material';
 import RefreshHeader from './RefreshHeader';
 import {
-  Security as SecurityIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckCircleIcon,
-  Refresh as RefreshIcon,
-  Block as BlockIcon,
-  VpnKey as VpnKeyIcon,
-  Visibility as VisibilityIcon,
-  RotateRight as RotateRightIcon,
-  Delete as DeleteIcon,
-  Computer as ComputerIcon,
-  Schedule as ScheduleIcon,
+  ShieldCheck as SecurityIcon,
+  AlertTriangle as WarningIcon,
+  AlertCircle as ErrorIcon,
+  CheckCircle2 as CheckCircleIcon,
+  RefreshCw as RefreshIcon,
+  Ban as BlockIcon,
+  KeyRound as VpnKeyIcon,
+  Eye as VisibilityIcon,
+  RotateCw as RotateRightIcon,
+  Trash2 as DeleteIcon,
+  Monitor as ComputerIcon,
+  Clock as ScheduleIcon,
   Shield as ShieldIcon
-} from '@mui/icons-material';
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
 const SecurityCard = styled(Card)(({ theme }) => ({
@@ -271,7 +271,7 @@ const SessionSecurityManager: React.FC = () => {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center">
-          <ShieldIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+          <ShieldIcon size={32} color="#2f5bea" style={{ marginRight: 16 }} />
           <Typography variant="h4" component="h1">
             Session Security Manager
           </Typography>

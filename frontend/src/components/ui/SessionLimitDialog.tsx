@@ -23,17 +23,17 @@ import {
   Stack,
 } from '@mui/material';
 import {
-  Close as CloseIcon,
-  Delete as DeleteIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  AccessTime as AccessTimeIcon,
-  LocationOn as LocationIcon,
-  Security as SecurityIcon,
-  People as PeopleIcon,
+  X as CloseIcon,
+  Trash2 as DeleteIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertTriangle as WarningIcon,
+  Clock as AccessTimeIcon,
+  MapPin as LocationIcon,
+  ShieldCheck as SecurityIcon,
+  Users as PeopleIcon,
   Info as InfoIcon,
-  Refresh as RefreshIcon,
-} from '@mui/icons-material';
+  RefreshCw as RefreshIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { getDeviceDisplay, getRelativeTime, getLocationFromIP } from '../../utils/deviceUtils';
 
@@ -331,7 +331,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                         label="Current" 
                         size="small" 
                         className="current"
-                        icon={<CheckCircleIcon sx={{ fontSize: '0.875rem !important' }} />}
+                        icon={<CheckCircleIcon size={14} />}
                       />
                     )}
                     
@@ -360,7 +360,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
 
                 <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                   <Chip
-                    icon={<AccessTimeIcon sx={{ fontSize: '0.875rem !important' }} />}
+                    icon={<AccessTimeIcon size={14} />}
                     label={relativeTime}
                     size="small"
                     variant="outlined"
@@ -369,7 +369,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
                   
                   {location !== 'Unknown Location' && (
                     <Chip
-                      icon={<LocationIcon sx={{ fontSize: '0.875rem !important' }} />}
+                      icon={<LocationIcon size={14} />}
                       label={location}
                       size="small"
                       variant="outlined"
@@ -379,7 +379,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
 
                   {session.ipAddress && !session.ipAddress.startsWith('192.168.') && (
                     <Chip
-                      icon={<SecurityIcon sx={{ fontSize: '0.875rem !important' }} />}
+                      icon={<SecurityIcon size={14} />}
                       label={`IP: ${session.ipAddress}`}
                       size="small"
                       variant="outlined"

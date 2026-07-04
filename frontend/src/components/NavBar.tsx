@@ -20,19 +20,19 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  Insights as InsightsIcon,
+  Lightbulb as InsightsIcon,
   Home as HomeIcon,
-  Dashboard as DashboardIcon,
-  Business as BusinessIcon,
-  AutoAwesome as IntelligenceIcon,
-  Person as PersonIcon,
+  LayoutDashboard as DashboardIcon,
+  Building2 as BusinessIcon,
+  Sparkles as IntelligenceIcon,
+  User as PersonIcon,
   Menu as MenuIcon,
-  Close as CloseIcon,
-  Logout as LogoutIcon,
-  Refresh as RefreshIcon,
+  X as CloseIcon,
+  LogOut as LogoutIcon,
+  RefreshCw as RefreshIcon,
   Search as SearchIcon,
-  Storefront as StorefrontIcon,
-} from '@mui/icons-material';
+  Store as StorefrontIcon,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { NotificationCenter } from './ui/NotificationCenter';
 import { adminLogout, getAdminStatus } from '../api/admin';
@@ -220,7 +220,7 @@ const NavBar: React.FC = () => {
               mr: 1.25,
             }}
           >
-            <InsightsIcon sx={{ fontSize: 21 }} />
+            <InsightsIcon size={21} />
           </Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             ShopGauge
@@ -350,7 +350,7 @@ const NavBar: React.FC = () => {
                   },
                 }}
               >
-                <LogoutIcon fontSize="small" />
+                <LogoutIcon size={16} />
               </IconButton>
             </Box>
           </Box>
@@ -417,7 +417,7 @@ const NavBar: React.FC = () => {
           boxShadow: dark ? '0 16px 30px -22px rgba(47,91,234,0.7)' : '0 16px 30px -24px #101820',
         }}
       >
-        <InsightsIcon sx={{ fontSize: 23 }} />
+        <InsightsIcon size={23} />
       </Box>
       <Box>
         <Typography variant="h6" component="div" sx={{ fontWeight: 800, letterSpacing: 0, lineHeight: 1.1 }}>
@@ -461,7 +461,7 @@ const NavBar: React.FC = () => {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-        <SearchIcon sx={{ fontSize: 18, color: '#7c9cff' }} />
+        <SearchIcon size={18} color="#7c9cff" />
         <Typography variant="body2" sx={{ color: '#d6dde5', fontWeight: 750 }}>
           Search
         </Typography>
@@ -533,54 +533,55 @@ const NavBar: React.FC = () => {
           >
             {storeDomain}
           </Typography>
-          <Box sx={{ mt: 0.55, display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-            <Box
-              sx={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: isDemoMode ? '#7c9cff' : '#15b87a',
-                boxShadow: isDemoMode
-                  ? '0 0 0 5px rgba(47,91,234,0.18), 0 0 18px rgba(124,156,255,0.58)'
-                  : '0 0 0 5px rgba(21,184,122,0.16), 0 0 18px rgba(21,184,122,0.52)',
-              }}
-            />
-            <Typography variant="caption" sx={{ color: '#aab7c2', fontWeight: 800, whiteSpace: 'nowrap' }}>
-              {isDemoMode ? 'Demo mode' : 'Live store'}
-            </Typography>
-            {isDemoMode && (
-              <Button
-                size="small"
-                startIcon={<LogoutIcon sx={{ fontSize: 13 }} />}
-                onClick={handleExitDemo}
-                sx={{
-                  ml: 0.5,
-                  minWidth: 0,
-                  minHeight: 22,
-                  height: 22,
-                  px: 0.85,
-                  borderRadius: 999,
-                  color: '#dbe5ff',
-                  bgcolor: 'rgba(47,91,234,0.16)',
-                  border: '1px solid rgba(124,156,255,0.26)',
-                  fontSize: 11,
-                  fontWeight: 850,
-                  lineHeight: 1,
-                  textTransform: 'none',
-                  flexShrink: 0,
-                  '& .MuiButton-startIcon': { mr: 0.35, ml: 0 },
-                  '&:hover': {
-                    bgcolor: 'rgba(47,91,234,0.25)',
-                    borderColor: 'rgba(124,156,255,0.46)',
-                  },
-                }}
-              >
-                Leave
-              </Button>
-            )}
-          </Box>
         </Box>
-        <StorefrontIcon sx={{ color: 'rgba(185,200,255,0.72)', fontSize: 18, flexShrink: 0 }} />
+        <StorefrontIcon size={18} color="rgba(185,200,255,0.72)" style={{ flexShrink: 0 }} />
+      </Box>
+      <Box sx={{ mt: 1.1, display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+        <Box
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            flexShrink: 0,
+            bgcolor: isDemoMode ? '#7c9cff' : '#15b87a',
+            boxShadow: isDemoMode
+              ? '0 0 0 5px rgba(47,91,234,0.18), 0 0 18px rgba(124,156,255,0.58)'
+              : '0 0 0 5px rgba(21,184,122,0.16), 0 0 18px rgba(21,184,122,0.52)',
+          }}
+        />
+        <Typography variant="caption" sx={{ color: '#aab7c2', fontWeight: 800, whiteSpace: 'nowrap' }}>
+          {isDemoMode ? 'Demo mode' : 'Live store'}
+        </Typography>
+        {isDemoMode && (
+          <Button
+            size="small"
+            startIcon={<LogoutIcon size={13} />}
+            onClick={handleExitDemo}
+            sx={{
+              ml: 'auto',
+              minWidth: 0,
+              minHeight: 22,
+              height: 22,
+              px: 0.85,
+              borderRadius: 999,
+              color: '#dbe5ff',
+              bgcolor: 'rgba(47,91,234,0.16)',
+              border: '1px solid rgba(124,156,255,0.26)',
+              fontSize: 11,
+              fontWeight: 850,
+              lineHeight: 1,
+              textTransform: 'none',
+              flexShrink: 0,
+              '& .MuiButton-startIcon': { mr: 0.35, ml: 0 },
+              '&:hover': {
+                bgcolor: 'rgba(47,91,234,0.25)',
+                borderColor: 'rgba(124,156,255,0.46)',
+              },
+            }}
+          >
+            Leave
+          </Button>
+        )}
       </Box>
     </Box>
   );
@@ -811,7 +812,7 @@ const NavBar: React.FC = () => {
                   },
                 }}
               >
-                <LogoutIcon fontSize="small" />
+                <LogoutIcon size={16} />
               </IconButton>
             </Tooltip>
           </Box>

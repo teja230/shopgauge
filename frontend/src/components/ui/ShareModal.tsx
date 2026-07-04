@@ -16,13 +16,13 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
-  Share as ShareIcon,
-  Close as CloseIcon,
-  LinkedIn as LinkedInIcon,
+  Share2 as ShareIcon,
+  X as CloseIcon,
+  Linkedin as LinkedInIcon,
   Twitter as TwitterIcon,
-  Email as EmailIcon,
-  ContentCopy as ContentCopyIcon,
-} from '@mui/icons-material';
+  Mail as EmailIcon,
+  Copy as ContentCopyIcon,
+} from 'lucide-react';
 import SvgIcon from '@mui/material/SvgIcon';
 import { useNotifications } from '../../hooks/useNotifications';
 import { debugLog } from './DebugPanel';
@@ -264,7 +264,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <ShareIcon sx={{ mr: 1.5, fontSize: 28 }} />
+              <ShareIcon size={28} style={{ marginRight: 12 }} />
               <Box>
                 <Typography variant="h5" fontWeight={700}>
                   Share
@@ -354,11 +354,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                 onClick={() => handleSocialShare(item.platform)}
               >
                 <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                  <item.icon sx={{ 
-                    fontSize: 32, 
-                    color: item.color, 
-                    mb: 1 
-                  }} />
+                  <item.icon size={32} color={item.color} style={{ marginBottom: 8 }} />
                   <Typography variant="subtitle1" fontWeight={600}>
                     {item.title}
                   </Typography>

@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Box, Typography, Button, Alert, AlertTitle } from '@mui/material';
-import { Replay } from '@mui/icons-material';
+import { RotateCcw } from 'lucide-react';
 import { debugLog } from './ui/DebugPanel';
 
 interface Props {
@@ -214,7 +214,7 @@ class ErrorBoundary extends Component<Props, State> {
             color="primary"
             size="small"
             onClick={this.handleReset}
-            startIcon={<Replay />}
+            startIcon={<RotateCcw size={18} />}
             sx={{ textTransform: 'none', fontWeight: 600 }}
           >
             Try Again

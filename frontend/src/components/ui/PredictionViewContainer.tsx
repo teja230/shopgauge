@@ -18,16 +18,16 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  Analytics,
-  AutoAwesome,
+  BarChart3 as Analytics,
+  Sparkles as AutoAwesome,
   TrendingUp,
   ShoppingCart,
   Percent,
-  Psychology,
-  Share as ShareIcon,
+  Brain as Psychology,
+  Share2 as ShareIcon,
   Download as DownloadIcon,
-  Refresh,
-} from '@mui/icons-material';
+  RefreshCw as Refresh,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
@@ -306,7 +306,7 @@ const PredictionViewContainer = memo(({
           flexDirection: 'column',
           gap: 2,
         }}>
-          <Analytics sx={{ fontSize: 48, color: 'text.secondary' }} />
+          <Analytics size={48} color="#5f6b76" />
           <Typography variant="h6" color="text.secondary">
             No data available
           </Typography>
@@ -424,7 +424,7 @@ const PredictionViewContainer = memo(({
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
               }}>
-                <Analytics sx={{ color: 'white', fontSize: '1.5rem' }} />
+                <Analytics color="white" size={24} />
               </Box>
               <Box>
                 <Typography variant="h5" fontWeight={700} sx={{ 
@@ -474,7 +474,7 @@ const PredictionViewContainer = memo(({
                   transition: 'all 0.3s ease-in-out',
                 }}
               >
-                <ShareIcon fontSize="medium" />
+                <ShareIcon size={20} />
               </IconButton>
             </Tooltip>
               
@@ -496,7 +496,7 @@ const PredictionViewContainer = memo(({
                     transition: 'all 0.3s ease-in-out',
                   }}
                 >
-                  <DownloadIcon fontSize="medium" />
+                  <DownloadIcon size={20} />
                 </IconButton>
               </Tooltip>
             </Box>
@@ -534,11 +534,11 @@ const PredictionViewContainer = memo(({
               }
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AutoAwesome sx={{ 
-                    fontSize: 18, 
-                    color: showPredictions ? 'secondary.main' : 'text.secondary',
-                    transition: 'color 0.3s ease-in-out',
-                  }} />
+                  <AutoAwesome
+                    size={18}
+                    color={showPredictions ? '#15b87a' : '#5f6b76'}
+                    style={{ transition: 'color 0.3s ease-in-out' }}
+                  />
                   <Typography variant="body2" fontWeight={600} sx={{
                     color: showPredictions ? 'secondary.main' : 'text.secondary',
                     transition: 'color 0.3s ease-in-out',
@@ -696,7 +696,7 @@ const PredictionViewContainer = memo(({
                   },
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <AutoAwesome sx={{ fontSize: isMobile ? 10 : 12, color: 'secondary.main' }} />
+                    <AutoAwesome size={isMobile ? 10 : 12} color="#15b87a" />
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
                       Forecast ({predictionDays}d)
                     </Typography>
@@ -870,15 +870,15 @@ const PredictionViewContainer = memo(({
             }}
           >
             <ToggleButton value="revenue">
-              <TrendingUp fontSize="small" sx={{ mr: 1 }} />
+              <TrendingUp size={16} style={{ marginRight: 8 }} />
               {isMobile ? 'Revenue' : 'Revenue'}
             </ToggleButton>
             <ToggleButton value="orders">
-              <ShoppingCart fontSize="small" sx={{ mr: 1 }} />
+              <ShoppingCart size={16} style={{ marginRight: 8 }} />
               {isMobile ? 'Orders' : 'Orders'}
             </ToggleButton>
             <ToggleButton value="conversion">
-              <Percent fontSize="small" sx={{ mr: 1 }} />
+              <Percent size={16} style={{ marginRight: 8 }} />
               {isMobile ? 'Conversion' : 'Conversion'}
             </ToggleButton>
           </ToggleButtonGroup>

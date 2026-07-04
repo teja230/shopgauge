@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Home, ArrowBack, Dashboard, Business } from '@mui/icons-material';
+import { Home, ArrowLeft, LayoutDashboard, Building2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { styled, keyframes } from '@mui/material/styles';
 
@@ -386,7 +386,7 @@ const NotFoundPage: React.FC = () => {
             </Button>
             <Button
               variant="outlined"
-              startIcon={<ArrowBack />}
+              startIcon={<ArrowLeft />}
               onClick={handleGoBack}
               sx={{ minWidth: 120 }}
             >
@@ -400,7 +400,7 @@ const NotFoundPage: React.FC = () => {
           <ButtonContainer>
           <Button
             variant="outlined"
-            startIcon={<Dashboard />}
+            startIcon={<LayoutDashboard />}
             onClick={handleGoDashboard}
             sx={{ minWidth: 140 }}
             color="primary"
@@ -409,7 +409,7 @@ const NotFoundPage: React.FC = () => {
           </Button>
           <Button
             variant="outlined"
-            startIcon={<Business />}
+            startIcon={<Building2 />}
             onClick={handleGoCompetitors}
             sx={{ mr: 1, mb: 1 }}
           >

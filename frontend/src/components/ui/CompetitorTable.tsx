@@ -34,24 +34,24 @@ import {
 } from '@mui/material';
 import {
   Archive as ArchiveIcon,
-  OpenInNew as OpenInNewIcon,
-  ExpandMore as ExpandMoreIcon,
-  AttachMoney as AttachMoneyIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
+  ExternalLink as OpenInNewIcon,
+  ChevronDown as ExpandMoreIcon,
+  DollarSign as AttachMoneyIcon,
+  CheckCircle2 as CheckCircleIcon,
+  XCircle as CancelIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  Group as GroupIcon,
-  Schedule as ScheduleIcon,
-  Launch as LaunchIcon,
+  Users as GroupIcon,
+  Clock as ScheduleIcon,
+  ExternalLink as LaunchIcon,
   Link as LinkIcon,
-  BarChart as BarChartIcon,
+  BarChart3 as BarChartIcon,
   History as HistoryIcon,
-  Refresh as RefreshIcon,
-  VisibilityOff as VisibilityOffIcon,
-  MoreVert as MoreVertIcon,
-  ContentCopy as ContentCopyIcon,
-} from '@mui/icons-material';
+  RefreshCw as RefreshIcon,
+  EyeOff as VisibilityOffIcon,
+  MoreVertical as MoreVertIcon,
+  Copy as ContentCopyIcon,
+} from 'lucide-react';
 import StoreLogo from './StoreLogo';
 import { debugLog } from './DebugPanel';
 
@@ -102,27 +102,27 @@ const RowOverflowMenu: React.FC<{
     <>
       <Tooltip title="More actions">
         <IconButton size="small" aria-label="More actions" onClick={handleOpen} className="row-more-actions-button desktop-row-more-actions-button row-quick-action">
-          <MoreVertIcon fontSize="small" />
+          <MoreVertIcon size={16} />
         </IconButton>
       </Tooltip>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
         <MenuItem onClick={() => { onOpenSite(); handleClose(); }}>
           <ListItemIcon>
-            <LaunchIcon fontSize="small" />
+            <LaunchIcon size={16} />
           </ListItemIcon>
           <ListItemText primary="Visit site" />
         </MenuItem>
         {onLinkProduct && (
           <MenuItem onClick={() => { onLinkProduct(competitor); handleClose(); }}>
             <ListItemIcon>
-              <LinkIcon fontSize="small" />
+              <LinkIcon size={16} />
             </ListItemIcon>
             <ListItemText primary={competitor.shopifyProductId ? 'Change product link' : 'Link to product'} />
           </MenuItem>
         )}
         <MenuItem onClick={handleCopy}>
           <ListItemIcon>
-            <ContentCopyIcon fontSize="small" />
+            <ContentCopyIcon size={16} />
           </ListItemIcon>
           <ListItemText primary="Copy URL" />
         </MenuItem>
@@ -520,8 +520,8 @@ const getPriceChangeColor = (percentDiff: number): 'success' | 'error' | 'defaul
 };
 
 const getPriceChangeIcon = (percentDiff: number): React.ReactElement | undefined => {
-  if (percentDiff > 0) return <TrendingUpIcon fontSize="small" />;
-  if (percentDiff < 0) return <TrendingDownIcon fontSize="small" />;
+  if (percentDiff > 0) return <TrendingUpIcon size={16} />;
+  if (percentDiff < 0) return <TrendingDownIcon size={16} />;
   return undefined;
 };
 
@@ -781,7 +781,7 @@ const MobileCompetitorCard: React.FC<{
                  },
                }}
              >
-               <VisibilityOffIcon fontSize="small" />
+               <VisibilityOffIcon size={16} />
              </IconButton>
            </Tooltip>
                    ) : competitor.showingOldPrice ? (
@@ -804,7 +804,7 @@ const MobileCompetitorCard: React.FC<{
                  justifyContent: 'center',
                }}
              >
-               <HistoryIcon sx={{ fontSize: '1rem' }} />
+               <HistoryIcon size={16} />
                {formatPrice(competitor.price)}
              </Box>
            </Tooltip>
@@ -887,7 +887,7 @@ const MobileCompetitorCard: React.FC<{
                 Last Checked
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <ScheduleIcon fontSize="small" color="action" />
+                <ScheduleIcon size={16} />
                 <Typography variant="body2" color="text.secondary">
                   {formatLastChecked(competitor.lastChecked)}
                 </Typography>
@@ -1134,7 +1134,7 @@ const DesktopTableRow: React.FC<{
                  },
                }}
              >
-               <VisibilityOffIcon fontSize="small" />
+               <VisibilityOffIcon size={16} />
              </IconButton>
            </Tooltip>
                  ) : competitor.showingOldPrice ? (
@@ -1157,7 +1157,7 @@ const DesktopTableRow: React.FC<{
                  textAlign: 'center',
                }}
              >
-               <HistoryIcon fontSize="small" />
+               <HistoryIcon size={16} />
                {formatPrice(competitor.price)}
              </Typography>
            </Tooltip>
@@ -1229,7 +1229,7 @@ const DesktopTableRow: React.FC<{
 
       <StyledTableCell>
         <Stack direction="row" spacing={1} alignItems="center">
-          <ScheduleIcon fontSize="small" color="action" />
+          <ScheduleIcon size={16} />
           <Typography variant="body2" color="text.secondary">
             {formatLastChecked(competitor.lastChecked)}
           </Typography>
@@ -1250,7 +1250,7 @@ const DesktopTableRow: React.FC<{
                 className="row-refresh-button desktop-row-refresh-button row-quick-action"
               
               >
-                {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+                {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon size={16} />}
               </IconButton>
             </span>
           </Tooltip>
@@ -1267,7 +1267,7 @@ const DesktopTableRow: React.FC<{
                 sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
                 className="row-graph-button desktop-row-graph-button row-quick-action"
               >
-                <BarChartIcon fontSize="small" />
+                <BarChartIcon size={16} />
               </IconButton>
             </span>
           </Tooltip>
@@ -1275,7 +1275,7 @@ const DesktopTableRow: React.FC<{
           {/* Primary action: Archive */}
           <Tooltip title="Archive competitor">
             <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning" className="row-archive-button desktop-row-archive-button row-quick-action">
-              <ArchiveIcon fontSize="small" />
+              <ArchiveIcon size={16} />
             </IconButton>
           </Tooltip>
 
@@ -1495,7 +1495,7 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
           border: '1px solid rgba(47, 91, 234, 0.18)',
           color: '#2f5bea',
         }}>
-          <GroupIcon sx={{ fontSize: 28 }} />
+          <GroupIcon size={28} />
         </Box>
         <Typography variant="h6" sx={{ color: '#101820', fontWeight: 800 }} gutterBottom>
           No competitors yet

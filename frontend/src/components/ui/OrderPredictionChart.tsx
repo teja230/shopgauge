@@ -33,16 +33,16 @@ import {
   standardDateFormatter,
   responsiveMargins,
 } from './ChartStyles';
-import { 
-  AutoAwesome,
-  ShowChart,
-  Timeline,
-  BarChart as BarChartIcon,
+import {
+  Sparkles as AutoAwesome,
+  LineChart as ShowChart,
+  Activity as Timeline,
+  BarChart3 as BarChartIcon,
   CandlestickChart,
-  WaterfallChart,
-  StackedLineChart,
-  Analytics,
-} from '@mui/icons-material';
+  BarChart3 as WaterfallChart,
+  LineChart as StackedLineChart,
+  BarChart3 as Analytics,
+} from 'lucide-react';
 
 interface OrderPredictionData {
   date: string;
@@ -288,7 +288,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
               pt: 1, 
               borderTop: `1px solid ${theme.palette.divider}` 
             }}>
-              <AutoAwesome sx={{ fontSize: 14, color: theme.palette.primary.main }} />
+              <AutoAwesome size={14} color={theme.palette.primary.main} />
               <Typography variant="caption" color="primary" fontWeight={600}>
                 AI Forecast
               </Typography>
@@ -855,7 +855,7 @@ const OrderPredictionChart: React.FC<OrderPredictionChartProps> = ({
           gap: 1,
           color: theme.palette.text.primary,
         }}>
-          <AutoAwesome color="secondary" fontSize="small" />
+          <AutoAwesome color={theme.palette.secondary.main} size={16} />
           {showPredictions ? 'Order Forecast' : 'Orders'}
         </Typography>
         

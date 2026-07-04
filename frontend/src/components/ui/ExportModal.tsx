@@ -19,11 +19,11 @@ import {
 import { useTheme } from '@mui/material/styles';
 import {
   Download as DownloadIcon,
-  Close as CloseIcon,
-  PhotoCamera as PhotoCameraIcon,
-  PictureAsPdf as PdfIcon,
-  TableChart as ExcelIcon,
-} from '@mui/icons-material';
+  X as CloseIcon,
+  Camera as PhotoCameraIcon,
+  FileText as PdfIcon,
+  Table as ExcelIcon,
+} from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { debugLog } from './DebugPanel';
 import html2canvas from 'html2canvas-pro';
@@ -1262,7 +1262,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <DownloadIcon sx={{ mr: 1.5, fontSize: 28 }} />
+              <DownloadIcon size={28} style={{ marginRight: 12 }} />
               <Box>
                 <Typography variant="h5" fontWeight={700}>
                   Export
@@ -1309,7 +1309,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
                 onClick={() => setExportSettings(prev => ({ ...prev, format: format.value as any }))}
               >
                 <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                  <format.icon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                  <format.icon size={40} color="#2f5bea" style={{ marginBottom: 8 }} />
                   <Typography variant="subtitle1" fontWeight={600}>
                     {format.title}
                   </Typography>

@@ -35,20 +35,20 @@ import {
   AccordionDetails
 } from '@mui/material';
 import {
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  Security as SecurityIcon,
-  Refresh as RefreshIcon,
-  Computer as ComputerIcon,
-  Schedule as ScheduleIcon,
-  Visibility as VisibilityIcon,
-  Block as BlockIcon,
-  Timeline as TimelineIcon,
-  ExpandMore as ExpandMoreIcon,
-  Report as ReportIcon,
+  AlertTriangle as WarningIcon,
+  AlertCircle as ErrorIcon,
+  ShieldCheck as SecurityIcon,
+  RefreshCw as RefreshIcon,
+  Monitor as ComputerIcon,
+  Clock as ScheduleIcon,
+  Eye as VisibilityIcon,
+  Ban as BlockIcon,
+  Activity as TimelineIcon,
+  ChevronDown as ExpandMoreIcon,
+  FileWarning as ReportIcon,
   Shield as ShieldIcon,
-  CheckCircle as CheckCircleIcon
-} from '@mui/icons-material';
+  CheckCircle2 as CheckCircleIcon
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import RefreshHeader from './RefreshHeader';
 import { fetchWithAdminAuth } from '../../api';
@@ -217,7 +217,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center">
-          <ReportIcon sx={{ fontSize: 32, color: 'error.main', mr: 2 }} />
+          <ReportIcon size={32} color="#dc2626" style={{ marginRight: 16 }} />
           <Typography variant="h4" component="h1">
             Suspicious Activity Monitor
           </Typography>
@@ -256,7 +256,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
         <Box flex="1" minWidth="250px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
-              <ErrorIcon color="error" />
+              <ErrorIcon color="#dc2626" />
               <Typography variant="h6" sx={{ ml: 1 }}>
                 Total Events
               </Typography>
@@ -290,7 +290,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
         <Box flex="1" minWidth="250px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
-              <BlockIcon color="error" />
+              <BlockIcon color="#dc2626" />
               <Typography variant="h6" sx={{ ml: 1 }}>
                 Failed Logins
               </Typography>
@@ -307,7 +307,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
         <Box flex="1" minWidth="250px">
           <MetricCard>
             <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
-              <ShieldIcon color="info" />
+              <ShieldIcon color="#0ea5a6" />
               <Typography variant="h6" sx={{ ml: 1 }}>
                 Threat Level
               </Typography>
@@ -378,7 +378,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
         <SecurityCard sx={{ mb: 3 }}>
           <CardHeader 
             title="Failed Login Attempts by IP" 
-            avatar={<BlockIcon color="error" />}
+            avatar={<BlockIcon color="#dc2626" />}
           />
           <CardContent>
             <TableContainer>
@@ -397,7 +397,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
                       <TableRow key={ip}>
                         <TableCell>
                           <Box display="flex" alignItems="center">
-                            <ComputerIcon fontSize="small" sx={{ mr: 1 }} />
+                            <ComputerIcon size={16} style={{ marginRight: 8 }} />
                             {ip}
                           </Box>
                         </TableCell>
@@ -428,7 +428,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
           title="Recent Suspicious Events" 
           avatar={
             <Badge badgeContent={suspiciousActivity?.suspicious_events.length || 0} color="error">
-              <TimelineIcon color="primary" />
+              <TimelineIcon color="#2f5bea" />
             </Badge>
           }
         />
@@ -495,7 +495,7 @@ const SuspiciousActivityMonitor: React.FC = () => {
             </Stack>
           ) : (
             <Box textAlign="center" py={4}>
-              <CheckCircleIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
+              <CheckCircleIcon size={64} color="#059669" style={{ marginBottom: 16 }} />
               <Typography variant="h6" color="success.main" gutterBottom>
                 No Suspicious Activity Detected
               </Typography>

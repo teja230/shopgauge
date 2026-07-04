@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, ChartBarIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { X as XMarkIcon, BarChart3 as ChartBarIcon, Clock as ClockIcon, DollarSign as CurrencyDollarIcon } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,

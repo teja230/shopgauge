@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, IconButton, Tooltip, Typography, CircularProgress, Badge } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import { RefreshCw as RefreshIcon } from 'lucide-react';
 
 interface RefreshHeaderProps {
   lastUpdated: string;

@@ -19,25 +19,25 @@ import {
   CircularProgress
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  SignalCellularAlt as SignalIcon,
-  SignalCellularConnectedNoInternet0Bar as SignalOffIcon,
-  SignalCellular4Bar as SignalGoodIcon,
-  SignalCellular2Bar as SignalWarningIcon,
-  SignalCellular0Bar as SignalCriticalIcon,
+  RefreshCw as RefreshIcon,
+  Signal as SignalIcon,
+  SignalZero as SignalOffIcon,
+  SignalHigh as SignalGoodIcon,
+  SignalMedium as SignalWarningIcon,
+  SignalZero as SignalCriticalIcon,
   Wifi as WifiIcon,
   WifiOff as WifiOffIcon,
-  People as PeopleIcon,
+  Users as PeopleIcon,
   Store as StoreIcon,
-  Speed as SpeedIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
+  Gauge as SpeedIcon,
+  AlertTriangle as WarningIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
   Info as InfoIcon,
-  Timeline as TimelineIcon,
-  Memory as MemoryIcon,
-  NetworkCheck as NetworkCheckIcon
-} from '@mui/icons-material';
+  Activity as TimelineIcon,
+  MemoryStick as MemoryIcon,
+  Activity as NetworkCheckIcon
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../../hooks/useNotifications';
 import { getAdminSseStats } from '../../api/admin';
@@ -235,13 +235,13 @@ const SseStatsCard: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'HEALTHY':
-        return <CheckCircleIcon color="success" />;
+        return <CheckCircleIcon color="#059669" />;
       case 'WARNING':
-        return <WarningIcon color="warning" />;
+        return <WarningIcon color="#f59e0b" />;
       case 'CRITICAL':
-        return <ErrorIcon color="error" />;
+        return <ErrorIcon color="#dc2626" />;
       default:
-        return <InfoIcon color="info" />;
+        return <InfoIcon color="#0ea5a6" />;
     }
   };
 
@@ -291,7 +291,7 @@ const SseStatsCard: React.FC = () => {
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
           <Typography variant="h5" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <NetworkCheckIcon color="primary" />
+            <NetworkCheckIcon color="#2f5bea" />
             Server-Sent Events (SSE) Monitor
           </Typography>
           <RefreshHeader
@@ -352,7 +352,7 @@ const SseStatsCard: React.FC = () => {
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
               <MetricCard>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
-                  <WifiIcon color="primary" sx={{ mr: 1 }} />
+                  <WifiIcon color="#2f5bea" style={{ marginRight: 8 }} />
                   <Typography variant="h4" color="primary" fontWeight="bold">
                     {sseStats.activeConnections}
                   </Typography>
@@ -364,7 +364,7 @@ const SseStatsCard: React.FC = () => {
               
               <MetricCard>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
-                  <StoreIcon color="success" sx={{ mr: 1 }} />
+                  <StoreIcon color="#059669" style={{ marginRight: 8 }} />
                   <Typography variant="h4" color="success.main" fontWeight="bold">
                     {sseStats.activeShops}
                   </Typography>
@@ -376,7 +376,7 @@ const SseStatsCard: React.FC = () => {
               
               <MetricCard>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
-                  <ErrorIcon color="error" sx={{ mr: 1 }} />
+                  <ErrorIcon color="#dc2626" style={{ marginRight: 8 }} />
                   <Typography variant="h4" color="error.main" fontWeight="bold">
                     {sseStats.totalErrors}
                   </Typography>
@@ -388,7 +388,7 @@ const SseStatsCard: React.FC = () => {
               
               <MetricCard>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
-                  <SpeedIcon color="warning" sx={{ mr: 1 }} />
+                  <SpeedIcon color="#f59e0b" style={{ marginRight: 8 }} />
                   <Typography variant="h4" color="warning.main" fontWeight="bold">
                     {sseStats.totalRateLimited}
                   </Typography>
@@ -402,7 +402,7 @@ const SseStatsCard: React.FC = () => {
             {/* Connection Limits */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MemoryIcon color="info" />
+                <MemoryIcon color="#0ea5a6" />
                 Connection Limits
               </Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
@@ -421,7 +421,7 @@ const SseStatsCard: React.FC = () => {
             {Object.keys(sseStats.connectionsByShop).length > 0 && (
               <Box>
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PeopleIcon color="primary" />
+                  <PeopleIcon color="#2f5bea" />
                   Connections by Shop ({Object.keys(sseStats.connectionsByShop).length} shops)
                 </Typography>
                 <List dense>

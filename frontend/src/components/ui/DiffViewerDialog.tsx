@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dialog, DialogTitle, DialogContent, IconButton, Box, Typography, Paper } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { X as CloseIcon } from 'lucide-react';
 
 interface DiffViewerDialogProps {
   open: boolean;

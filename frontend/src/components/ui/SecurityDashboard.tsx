@@ -22,21 +22,21 @@ import {
   Paper
 } from '@mui/material';
 import {
-  Security as SecurityIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckCircleIcon,
+  ShieldCheck as SecurityIcon,
+  AlertTriangle as WarningIcon,
+  AlertCircle as ErrorIcon,
+  CheckCircle2 as CheckCircleIcon,
   Shield as ShieldIcon,
-  Refresh as RefreshIcon,
-  Timeline as TimelineIcon,
-  Assessment as AssessmentIcon,
-  Visibility as VisibilityIcon,
-  Block as BlockIcon,
-  VpnLock as VpnLockIcon,
-  AdminPanelSettings as AdminIcon,
-  Computer as ComputerIcon,
-  Speed as SpeedIcon
-} from '@mui/icons-material';
+  RefreshCw as RefreshIcon,
+  Activity as TimelineIcon,
+  ClipboardList as AssessmentIcon,
+  Eye as VisibilityIcon,
+  Ban as BlockIcon,
+  Lock as VpnLockIcon,
+  ShieldCheck as AdminIcon,
+  Monitor as ComputerIcon,
+  Gauge as SpeedIcon
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import RefreshHeader from './RefreshHeader';
 import { fetchWithAdminAuth } from '../../api';
@@ -188,7 +188,7 @@ const SecurityDashboard: React.FC = () => {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center">
-          <SecurityIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+          <SecurityIcon size={32} color="#2f5bea" style={{ marginRight: 16 }} />
           <Typography variant="h4" component="h1">
             Security Dashboard
           </Typography>
@@ -361,7 +361,7 @@ const SecurityDashboard: React.FC = () => {
                         .map(([ip, count]) => (
                           <ListItem key={ip} sx={{ px: 0 }}>
                             <ListItemIcon>
-                              <ComputerIcon fontSize="small" />
+                              <ComputerIcon size={16} />
                             </ListItemIcon>
                             <ListItemText 
                               primary={ip} 

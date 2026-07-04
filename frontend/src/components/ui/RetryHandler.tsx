@@ -14,14 +14,14 @@ import {
   CardContent,
 } from '@mui/material';
 import {
-  Replay as RetryIcon,
-  Schedule as ScheduleIcon,
-  Error as ErrorIcon,
-  CheckCircle as SuccessIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Cancel as CancelIcon,
-} from '@mui/icons-material';
+  RotateCcw as RetryIcon,
+  Clock as ScheduleIcon,
+  AlertCircle as ErrorIcon,
+  CheckCircle2 as SuccessIcon,
+  ChevronDown as ExpandMoreIcon,
+  ChevronUp as ExpandLessIcon,
+  XCircle as CancelIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
 // Types

@@ -12,11 +12,11 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Refresh as RefreshIcon,
-  Notifications as NotificationsIcon,
-  Logout as LogoutIcon,
-  NavigateNext as NavigateNextIcon,
-} from '@mui/icons-material';
+  RefreshCw as RefreshIcon,
+  Bell as NotificationsIcon,
+  LogOut as LogoutIcon,
+  ChevronRight as NavigateNextIcon,
+} from 'lucide-react';
 import { useAdminNavigation } from '../../context/AdminNavigationContext';
 import { useFocusAnnouncement } from '../../hooks/useKeyboardNavigation';
 import type { BreadcrumbItem, NotificationItem, AdminUser } from '../../context/AdminNavigationContext';
@@ -155,9 +155,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                 {breadcrumb.label}
               </span>
               {index < breadcrumbs.length - 1 && (
-                <NavigateNextIcon 
-                  className="admin-breadcrumb__separator" 
-                  fontSize="small" 
+                <NavigateNextIcon
+                  className="admin-breadcrumb__separator"
+                  size={16}
                   aria-hidden="true"
                 />
               )}
@@ -197,7 +197,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
               color="error"
               aria-label={`${unreadNotifications.length} unread notifications`}
             >
-              <NotificationsIcon sx={{ color: 'text.primary' }} />
+              <NotificationsIcon />
             </Badge>
           </IconButton>
         </Tooltip>
@@ -352,7 +352,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
           role="menuitem"
           aria-label="Logout from admin panel"
         >
-          <LogoutIcon sx={{ mr: 1 }} aria-hidden="true" />
+          <LogoutIcon style={{ marginRight: 8 }} aria-hidden="true" />
           Logout
         </MenuItem>
       </Menu>

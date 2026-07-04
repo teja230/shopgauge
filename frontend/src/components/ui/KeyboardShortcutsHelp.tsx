@@ -13,9 +13,9 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Close as CloseIcon,
+  X as CloseIcon,
   Keyboard as KeyboardIcon,
-} from '@mui/icons-material';
+} from 'lucide-react';
 import type { KeyboardShortcut } from '../../hooks/useKeyboardNavigation';
 
 interface KeyboardShortcutsHelpProps {
@@ -96,7 +96,7 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <KeyboardIcon color="primary" />
+          <KeyboardIcon color="#2f5bea" />
           <Typography variant="h6" component="h2">
             Keyboard Shortcuts
           </Typography>

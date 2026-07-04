@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
-import { XMarkIcon, CheckIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { X as XMarkIcon, Check as CheckIcon, XCircle as XCircleIcon } from 'lucide-react';
 import type { CompetitorSuggestion } from '../../api';
 import { getCompetitorSuggestions, approveSuggestion, ignoreSuggestion } from '../../api';
 import { useNotifications } from '../../hooks/useNotifications';

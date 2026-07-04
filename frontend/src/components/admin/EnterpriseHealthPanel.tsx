@@ -20,20 +20,20 @@ import {
   LinearProgress,
 } from '@mui/material';
 import {
-  ExpandMore as ExpandMoreIcon,
-  Memory as MemoryIcon,
-  Speed as SpeedIcon,
-  Storage as StorageIcon,
-  Security as SecurityIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
+  ChevronDown as ExpandMoreIcon,
+  MemoryStick as MemoryIcon,
+  Gauge as SpeedIcon,
+  Database as StorageIcon,
+  ShieldCheck as SecurityIcon,
+  AlertTriangle as WarningIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
   Info as InfoIcon,
-  Refresh as RefreshIcon,
+  RefreshCw as RefreshIcon,
   Settings as SettingsIcon,
   TrendingUp as TrendingUpIcon,
-  Assessment as AssessmentIcon,
-} from '@mui/icons-material';
+  ClipboardList as AssessmentIcon,
+} from 'lucide-react';
 import { 
   getEnterpriseHealth, 
   getMemoryProfileStatus, 
@@ -123,11 +123,11 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
 
   const getStatusIcon = (status: string) => {
     switch (status?.toUpperCase()) {
-      case 'HEALTHY': return <CheckCircleIcon color="success" />;
-      case 'CAUTION': return <WarningIcon color="warning" />;
-      case 'WARNING': return <WarningIcon color="warning" />;
-      case 'CRITICAL': return <ErrorIcon color="error" />;
-      default: return <InfoIcon color="info" />;
+      case 'HEALTHY': return <CheckCircleIcon color="#059669" />;
+      case 'CAUTION': return <WarningIcon color="#f59e0b" />;
+      case 'WARNING': return <WarningIcon color="#f59e0b" />;
+      case 'CRITICAL': return <ErrorIcon color="#dc2626" />;
+      default: return <InfoIcon color="#0ea5a6" />;
     }
   };
 
@@ -176,7 +176,7 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center" mb={2}>
-              <AssessmentIcon sx={{ mr: 1 }} />
+              <AssessmentIcon style={{ marginRight: 8 }} />
               <Typography variant="h6">System Status</Typography>
             </Box>
             
@@ -221,7 +221,7 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
-                <MemoryIcon sx={{ mr: 1 }} />
+                <MemoryIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">Memory Profile</Typography>
               </Box>
               
@@ -272,7 +272,7 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
-                <SpeedIcon sx={{ mr: 1 }} />
+                <SpeedIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">Request Throttling</Typography>
                 <Chip label="Active" color="warning" size="small" sx={{ ml: 1 }} />
               </Box>
@@ -308,7 +308,7 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                 <Box display="flex" alignItems="center">
-                  <SettingsIcon sx={{ mr: 1 }} />
+                  <SettingsIcon style={{ marginRight: 8 }} />
                   <Typography variant="h6">Configuration</Typography>
                 </Box>
                 <Button 
@@ -364,7 +364,7 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
           <Accordion>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box display="flex" alignItems="center">
-                <TrendingUpIcon sx={{ mr: 1 }} />
+                <TrendingUpIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">
                   Intelligent Recommendations ({enterpriseHealth.recommendations.length})
                 </Typography>
@@ -376,9 +376,9 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
                   <React.Fragment key={index}>
                     <ListItem>
                       <ListItemIcon>
-                        {rec.type === 'CRITICAL' ? <ErrorIcon color="error" /> :
-                         rec.type === 'OPTIMIZATION' ? <TrendingUpIcon color="warning" /> :
-                         <InfoIcon color="info" />}
+                        {rec.type === 'CRITICAL' ? <ErrorIcon color="#dc2626" /> :
+                         rec.type === 'OPTIMIZATION' ? <TrendingUpIcon color="#f59e0b" /> :
+                         <InfoIcon color="#0ea5a6" />}
                       </ListItemIcon>
                       <ListItemText
                         primary={rec.title}
@@ -414,7 +414,7 @@ const EnterpriseHealthPanel: React.FC<EnterpriseHealthPanelProps> = ({ onRefresh
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
-                <WarningIcon sx={{ mr: 1 }} />
+                <WarningIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">
                   Active Alerts ({enterpriseHealth.alerts.length})
                 </Typography>

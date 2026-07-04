@@ -23,15 +23,15 @@ import {
 } from '@mui/material';
 import { fetchWithAdminAuth } from '../../api';
 import {
-  Refresh as RefreshIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckCircleIcon,
-  Speed as SpeedIcon,
-  Storage as StorageIcon,
-  Timeline as TimelineIcon,
-  Assessment as AssessmentIcon
-} from '@mui/icons-material';
+  RefreshCw as RefreshIcon,
+  AlertTriangle as WarningIcon,
+  AlertCircle as ErrorIcon,
+  CheckCircle2 as CheckCircleIcon,
+  Gauge as SpeedIcon,
+  Database as StorageIcon,
+  Activity as TimelineIcon,
+  ClipboardList as AssessmentIcon
+} from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface PerformanceMetrics {
@@ -149,9 +149,9 @@ const PerformanceMetricsDashboard: React.FC<PerformanceMetricsDashboardProps> = 
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'success': return <CheckCircleIcon color="success" />;
-      case 'warning': return <WarningIcon color="warning" />;
-      case 'error': return <ErrorIcon color="error" />;
+      case 'success': return <CheckCircleIcon color="#059669" />;
+      case 'warning': return <WarningIcon color="#f59e0b" />;
+      case 'error': return <ErrorIcon color="#dc2626" />;
       default: return <CheckCircleIcon />;
     }
   };
@@ -260,7 +260,7 @@ const PerformanceMetricsDashboard: React.FC<PerformanceMetricsDashboardProps> = 
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" mb={2}>
-                  <SpeedIcon sx={{ mr: 1 }} />
+                  <SpeedIcon style={{ marginRight: 8 }} />
                   <Typography variant="h6">API Response Times</Typography>
                 </Box>
                 
@@ -293,7 +293,7 @@ const PerformanceMetricsDashboard: React.FC<PerformanceMetricsDashboardProps> = 
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" mb={2}>
-                  <ErrorIcon sx={{ mr: 1 }} />
+                  <ErrorIcon style={{ marginRight: 8 }} />
                   <Typography variant="h6">Error Rates</Typography>
                 </Box>
                 
@@ -327,7 +327,7 @@ const PerformanceMetricsDashboard: React.FC<PerformanceMetricsDashboardProps> = 
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" mb={2}>
-                  <StorageIcon sx={{ mr: 1 }} />
+                  <StorageIcon style={{ marginRight: 8 }} />
                   <Typography variant="h6">Cache Performance</Typography>
                 </Box>
                 
@@ -386,7 +386,7 @@ const PerformanceMetricsDashboard: React.FC<PerformanceMetricsDashboardProps> = 
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" mb={2}>
-                  <TimelineIcon sx={{ mr: 1 }} />
+                  <TimelineIcon style={{ marginRight: 8 }} />
                   <Typography variant="h6">Operations Performance</Typography>
                 </Box>
                 
@@ -442,7 +442,7 @@ const PerformanceMetricsDashboard: React.FC<PerformanceMetricsDashboardProps> = 
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center" mb={2}>
-              <AssessmentIcon sx={{ mr: 1 }} />
+              <AssessmentIcon style={{ marginRight: 8 }} />
               <Typography variant="h6">Throughput Metrics</Typography>
             </Box>
             

@@ -14,24 +14,25 @@ import {
 } from '../api';
 import { marketIntelligenceAPI, type LimitsResponse } from '../api/marketIntelligence';
 import { useAuth } from '../context/AuthContext';
-import { 
-  SparklesIcon, 
-  PlusIcon, 
-  ChartBarIcon,
-  PlayIcon,
-  StopIcon,
-  MagnifyingGlassIcon,
-  BoltIcon,
-  ArrowTrendingUpIcon,
-  CheckCircleIcon,
-  FunnelIcon,
-  AcademicCapIcon,
-  CogIcon,
-  InformationCircleIcon,
-  XMarkIcon,
-  ArchiveBoxIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
+import {
+  Sparkles as SparklesIcon,
+  Plus as PlusIcon,
+  BarChart3 as ChartBarIcon,
+  Play as PlayIcon,
+  Square as StopIcon,
+  Search as MagnifyingGlassIcon,
+  Zap as BoltIcon,
+  TrendingUp as ArrowTrendingUpIcon,
+  CheckCircle2 as CheckCircleIcon,
+  Filter as FunnelIcon,
+  GraduationCap as AcademicCapIcon,
+  Settings as CogIcon,
+  Info as InformationCircleIcon,
+  X as XMarkIcon,
+  Archive as ArchiveBoxIcon,
+  RefreshCw as ArrowPathIcon,
+  HelpCircle as HelpOutlineIcon,
+} from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationSettings } from '../context/NotificationSettingsContext';
 import { fetchWithAuth } from '../api/index';
@@ -40,7 +41,6 @@ import { useNavigate } from 'react-router-dom';
 import Joyride from 'react-joyride';
 import type { CallBackProps, Step } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { debugLog } from '../components/ui/DebugPanel';
 import { getSuggestionCount } from '../api';
 import { refreshCompetitorPrices, getPriceRefreshProgress } from '../api/index';
@@ -2996,19 +2996,12 @@ export default function CompetitorsPage() {
     <div className="min-h-screen bg-[#f6f7f9] px-4 py-6 sm:px-6">
       <DemoModeBanner />
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white shadow-[0_28px_70px_-52px_rgba(16,24,32,0.9)]">
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white">
           <p className="text-sm font-black uppercase text-[#9db4ff]">Market Intelligence</p>
-          <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-black leading-tight text-white">Competitor price command</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#c3ccd5]">
-                Track price movement, stock status, and market pressure from one retail intelligence board.
-              </p>
-            </div>
-            <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-black text-[#b9c8ff]">
-              {competitors.length} active competitors
-            </div>
-          </div>
+          <h1 className="mt-1 text-2xl font-black leading-tight text-white">Competitor price command</h1>
+          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#c3ccd5]">
+            Track price movement, stock status, and market pressure from one retail intelligence board.
+          </p>
         </div>
 
         {/* Limit Display */}
@@ -3847,8 +3840,7 @@ export default function CompetitorsPage() {
             transition: 'all 0.3s ease',
           }}
         >
-          {/* Use Material-UI HelpOutlineIcon for perfect match with Dashboard */}
-          <HelpOutlineIcon sx={{ fontSize: 24 }} />
+          <HelpOutlineIcon size={24} />
         </button>
       </div>
 

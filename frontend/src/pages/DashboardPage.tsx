@@ -10,7 +10,22 @@ import { fetchWithAuth, retryWithBackoff, getRevenue, getInsights, getProducts, 
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
-import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart, Sort, ArrowUpward, ArrowDownward, Close, ShoppingCartCheckout, AutoAwesome } from '@mui/icons-material';
+import {
+  ExternalLink as OpenInNew,
+  RefreshCw as Refresh,
+  Store as Storefront,
+  ClipboardList as ListAlt,
+  PackageCheck as Inventory2,
+  BarChart3 as Analytics,
+  LineChart as ShowChart,
+  ArrowUpDown as Sort,
+  ArrowUp as ArrowUpward,
+  ArrowDown as ArrowDownward,
+  X as Close,
+  ShoppingCart as ShoppingCartCheckout,
+  Sparkles as AutoAwesome,
+  HelpCircle as HelpOutlineIcon,
+} from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
@@ -27,7 +42,6 @@ import { debugLog } from '../components/ui/DebugPanel';
 import Joyride from 'react-joyride';
 import type { Step, CallBackProps } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 
@@ -3051,80 +3065,39 @@ const DashboardPage = () => {
             flexDirection: { xs: 'column', md: 'row' },
             border: '1px solid rgba(255,255,255,0.10)',
             bgcolor: '#101820',
-            backgroundImage:
-              'radial-gradient(circle at 20% 0%, rgba(47,91,234,0.30), transparent 32%), linear-gradient(135deg, #101820 0%, #0b1016 100%)',
+            backgroundImage: 'linear-gradient(135deg, #101820 0%, #0b1016 100%)',
             color: 'white',
             borderRadius: 1,
-            p: { xs: 2.5, md: 3.5 },
-            overflow: 'hidden',
-            position: 'relative',
-            boxShadow: '0 28px 70px -52px rgb(16 24 32 / 0.9)',
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              right: -90,
-              top: -120,
-              width: 260,
-              height: 260,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(124,156,255,0.18), transparent 62%)',
-              pointerEvents: 'none',
-            },
+            p: { xs: 2.5, md: 3 },
           }}
         >
-          <Box sx={{ maxWidth: 760, position: 'relative', zIndex: 1 }}>
+          <Box sx={{ maxWidth: 640 }}>
             <Typography variant="overline" sx={{ color: '#9db4ff', fontWeight: 900 }}>
               Operating overview
             </Typography>
-            <Typography variant="h3" sx={{ fontWeight: 900, mt: 0.5, lineHeight: 1.05 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, mt: 0.25, lineHeight: 1.15 }}>
               Dashboard
             </Typography>
-            <Typography variant="body1" sx={{ color: '#c3ccd5', mt: 1.5, maxWidth: 660 }}>
+            <Typography variant="body2" sx={{ color: '#c3ccd5', mt: 1, maxWidth: 560 }}>
               Revenue, orders, inventory risk, and forecast signals for {shop || 'your Shopify store'}.
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2.5 }}>
-              {[
-                ['Revenue', `$${insights?.totalRevenue?.toLocaleString() || '0'}`],
-                ['Low inventory', typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'],
-                ['Orders', sortedOrders?.length ? sortedOrders.length.toString() : '0'],
-              ].map(([label, value]) => (
-                <Chip
-                  key={label}
-                  label={`${label}: ${value}`}
-                  size="small"
-                  sx={{
-                    bgcolor: 'rgba(255,255,255,0.08)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    fontWeight: 800,
-                    fontFeatureSettings: '"tnum"',
-                  }}
-                />
-              ))}
-            </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
             {lastRefreshTime > 0 && (
-              <Chip
-                label={`Updated ${new Date(lastRefreshTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                size="small"
-                variant="outlined"
-                sx={{
-                  color: '#d7e4dd',
-                  borderColor: 'rgba(255,255,255,0.18)',
-                }}
-              />
+              <Typography variant="caption" sx={{ color: '#8b96a2', whiteSpace: 'nowrap' }}>
+                Updated {new Date(lastRefreshTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
             )}
             <RefreshButton
               className="dashboard-refresh-button"
-              variant="contained"
+              variant="outlined"
               startIcon={<Refresh />}
               onClick={handleRefreshAll}
               disabled={isRefreshing || debounceCountdown > 0}
               sx={{
-                bgcolor: '#2f5bea',
                 color: '#ffffff',
-                '&:hover': { bgcolor: '#244bd4' },
+                borderColor: 'rgba(255,255,255,0.24)',
+                '&:hover': { borderColor: 'rgba(255,255,255,0.4)', bgcolor: 'rgba(255,255,255,0.06)' },
               }}
             >
               {isRefreshing ? 'Refreshing...' : debounceCountdown > 0 ? `${debounceCountdown}s` : 'Refresh'}
@@ -3243,7 +3216,7 @@ const DashboardPage = () => {
             typeof insights?.lowInventory === 'number' && insights.lowInventory > 0
               ? {
                   id: 'low-stock',
-                  icon: <Inventory2 sx={{ fontSize: 18 }} />,
+                  icon: <Inventory2 size={18} />,
                   tone: { fg: '#b45309', bg: 'rgba(245, 158, 11, 0.10)', border: 'rgba(245, 158, 11, 0.35)' },
                   title: `${insights.lowInventory} product${insights.lowInventory === 1 ? '' : 's'} low on stock`,
                   sub: 'Restock before you miss sales.',
@@ -3254,7 +3227,7 @@ const DashboardPage = () => {
             typeof insights?.abandonedCarts === 'number' && insights.abandonedCarts > 0
               ? {
                   id: 'abandoned-carts',
-                  icon: <ShoppingCartCheckout sx={{ fontSize: 18 }} />,
+                  icon: <ShoppingCartCheckout size={18} />,
                   tone: { fg: '#1d3db8', bg: 'rgba(47, 91, 234, 0.08)', border: 'rgba(47, 91, 234, 0.30)' },
                   title: `${insights.abandonedCarts} abandoned checkout${insights.abandonedCarts === 1 ? '' : 's'}`,
                   sub: 'Recover potential revenue with follow-ups.',
@@ -3264,7 +3237,7 @@ const DashboardPage = () => {
               : null,
             {
               id: 'ask-shopgpt',
-              icon: <AutoAwesome sx={{ fontSize: 18 }} />,
+              icon: <AutoAwesome size={18} />,
               tone: { fg: '#0f766e', bg: 'rgba(14, 165, 166, 0.08)', border: 'rgba(14, 165, 166, 0.30)' },
               title: 'Not sure what to tackle first?',
               sub: 'Ask ShopGPT for a prioritized plan.',
@@ -3329,7 +3302,7 @@ const DashboardPage = () => {
                     </Button>
                   </Box>
                   <IconButton size="small" aria-label="Dismiss" onClick={() => dismiss(item.id)} sx={{ color: '#98a1ab', mt: -0.5, mr: -0.5 }}>
-                    <Close sx={{ fontSize: 16 }} />
+                    <Close size={16} />
                   </IconButton>
                 </Box>
               ))}
@@ -3361,7 +3334,7 @@ const DashboardPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
                     <Box sx={{ minWidth: 0 }}>
                       <SectionTitle>
-                        <Inventory2 color="primary" />
+                        <Inventory2 color={theme.palette.primary.main} />
                         Top Products
                       </SectionTitle>
                       <Typography variant="caption" sx={{ color: '#667085', fontWeight: 700 }}>
@@ -3386,7 +3359,7 @@ const DashboardPage = () => {
                         onClick={() => handleCardLoad('products', true)}
                         className="text-red-500 hover:text-red-700"
                       >
-                        <Refresh fontSize="small" />
+                        <Refresh size={16} />
                       </IconButton>
                     )}
                     </Box>
@@ -3470,7 +3443,7 @@ const DashboardPage = () => {
                                 rel="noopener noreferrer"
                               >
                                 {product.title}
-                                <OpenInNew sx={{ fontSize: 16, flexShrink: 0 }} />
+                                <OpenInNew size={16} style={{ flexShrink: 0 }} />
                               </ProductLink>
                             </ProductName>
                             <Typography
@@ -3567,7 +3540,7 @@ const DashboardPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
                     <Box sx={{ minWidth: 0 }}>
                       <SectionTitle>
-                        <ListAlt color="primary" />
+                        <ListAlt color={theme.palette.primary.main} />
                         Recent Orders
                       </SectionTitle>
                       <Typography variant="caption" sx={{ color: '#667085', fontWeight: 700 }}>
@@ -3592,7 +3565,7 @@ const DashboardPage = () => {
                         onClick={() => handleCardLoad('orders')}
                         className="text-red-500 hover:text-red-700"
                       >
-                        <Refresh fontSize="small" />
+                        <Refresh size={16} />
                       </IconButton>
                     )}
                     </Box>
@@ -3676,7 +3649,7 @@ const DashboardPage = () => {
                                     rel="noopener noreferrer"
                                   >
                                     Order #{formatOrderNumber(order.id, index)}
-                                    <OpenInNew sx={{ fontSize: 16, flexShrink: 0 }} />
+                                    <OpenInNew size={16} style={{ flexShrink: 0 }} />
                                   </OrderLink>
                                 ) : (
                                   <Typography variant="body1" color="text.secondary" component="div">
@@ -3799,7 +3772,7 @@ const DashboardPage = () => {
                   flexShrink: 0,
                 }}
               >
-                {chartMode === 'unified' ? <Analytics sx={{ fontSize: 20 }} /> : <ShowChart sx={{ fontSize: 20 }} />}
+                {chartMode === 'unified' ? <Analytics size={20} /> : <ShowChart size={20} />}
               </Box>
               <Box sx={{ minWidth: 0 }}>
                 <Typography variant="overline" sx={{ color: '#2f5bea', fontWeight: 900, lineHeight: 1.2 }}>
@@ -3849,11 +3822,11 @@ const DashboardPage = () => {
                 }}
               >
                 <ToggleButton value="classic">
-                  <ShowChart sx={{ fontSize: '1.05rem' }} />
+                  <ShowChart size={17} />
                   Classic
                 </ToggleButton>
                 <ToggleButton value="unified">
-                  <Analytics sx={{ fontSize: '1.05rem' }} />
+                  <Analytics size={17} />
                   AI forecasts
                 </ToggleButton>
               </ToggleButtonGroup>
@@ -4165,7 +4138,7 @@ const DashboardPage = () => {
             title="Start Dashboard Tutorial"
             aria-label="Start Dashboard Tutorial"
           >
-            <HelpOutlineIcon sx={{ fontSize: 24 }} />
+            <HelpOutlineIcon size={24} />
           </Button>
         </Box>
 

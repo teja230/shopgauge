@@ -32,6 +32,12 @@ import {
   Bot as BotIcon,
   Copy as CopyIcon,
   Check as CheckIcon,
+  ThumbsUp as ThumbsUpIcon,
+  ThumbsDown as ThumbsDownIcon,
+  RotateCcw as RegenerateIcon,
+  Paperclip as AttachIcon,
+  X as RemoveIcon,
+  FileText as FileIcon,
   Store as StorefrontIcon,
   PackageCheck as InventoryIcon,
   ShoppingCart as OrdersIcon,
@@ -49,6 +55,18 @@ import type { GeneratedInsight } from '../services/aiInsightsService';
 import type { InsightRequest } from '../services/insightPromptTemplates';
 import ErrorBoundary from '../components/ErrorBoundary';
 
+interface QuickAction {
+  label: string;
+  kind: 'ask' | 'navigate';
+  payload: string;
+}
+
+interface ChatAttachment {
+  name: string;
+  rowCount: number;
+  digest: string;
+}
+
 interface ChatMessage {
   id: string;
   type: 'user' | 'assistant';
@@ -57,6 +75,11 @@ interface ChatMessage {
   insight?: GeneratedInsight;
   contextUsed?: InsightDataType[];
   isStreaming?: boolean;
+  /** For assistant messages: the user question this answered (enables regenerate + feedback telemetry) */
+  question?: string;
+  attachment?: { name: string; rowCount: number };
+  actions?: QuickAction[];
+  feedback?: 'up' | 'down';
 }
 
 interface PromptCard {
@@ -90,6 +113,64 @@ const relativeTime = (iso?: string): string => {
   return `${Math.floor(hours / 24)}d ago`;
 };
 
+type SyncState = 'syncing' | 'fresh' | 'delayed' | 'none';
+
+const SYNC_TONE: Record<SyncState, { color: string; pulse: boolean }> = {
+  syncing: { color: '#f59e0b', pulse: true },
+  fresh: { color: '#15b87a', pulse: false },
+  delayed: { color: '#f59e0b', pulse: false },
+  none: { color: '#6f7c88', pulse: false },
+};
+
+/** Tiny single-series trend: de-emphasis line, latest point in the accent hue. */
+const Sparkline: React.FC<{ data: number[]; width?: number; height?: number }> = ({
+  data,
+  width = 64,
+  height = 20,
+}) => {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pad = 3;
+  const points = data.map((value, i) => [
+    pad + (i * (width - pad * 2)) / (data.length - 1),
+    pad + (height - pad * 2) * (1 - (value - min) / range),
+  ]);
+  const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const [lastX, lastY] = points[points.length - 1];
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden="true"
+      style={{ display: 'block', flexShrink: 0, marginLeft: 'auto', overflow: 'visible' }}
+    >
+      <path d={path} fill="none" stroke="#c3ccd5" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lastX} cy={lastY} r={2.5} fill="#2f5bea" />
+    </svg>
+  );
+};
+
+/** Compact digest of an uploaded CSV/TSV so answers can cross-reference it. */
+const buildAttachmentDigest = (fileName: string, text: string): ChatAttachment => {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const delimiter = (lines[0] || '').includes('\t') ? '\t' : ',';
+  const headers = (lines[0] || '').split(delimiter).map((h) => h.trim()).filter(Boolean);
+  const rowCount = Math.max(lines.length - 1, 0);
+  const sample = lines.slice(1, 9).join('\n');
+  const digest = [
+    `Attached file "${fileName}" (${rowCount} rows).`,
+    headers.length ? `Columns: ${headers.join(', ')}.` : '',
+    sample ? `Sample rows:\n${sample}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 1500);
+  return { name: fileName, rowCount, digest };
+};
+
 const BusinessIntelligencePage: React.FC = () => {
   const { isAuthenticated, shop, isDemoMode } = useAuth();
   const theme = useTheme();
@@ -111,8 +192,11 @@ const BusinessIntelligencePage: React.FC = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('7d');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [pendingAsk, setPendingAsk] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const askHandledRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Right-rail state
   const [briefing, setBriefing] = useState<{ insight: GeneratedInsight | null; loading: boolean }>({
@@ -182,6 +266,31 @@ const BusinessIntelligencePage: React.FC = () => {
     if ((aggregatedData.marketIntelligence?.costs?.daily ?? 0) > 0) set.add('costs');
     return set;
   }, [aggregatedData, hasCompetitors]);
+
+  // Per-source sync status for the header pills
+  const sourceSyncState = useCallback(
+    (key: InsightDataType): SyncState => {
+      if (dataLoading) return 'syncing';
+      if (!availableSources.has(key)) return 'none';
+      const freshness = aggregatedData?.metadata?.freshness?.[key];
+      if (freshness !== undefined && freshness >= 999) return 'delayed';
+      return 'fresh';
+    },
+    [dataLoading, availableSources, aggregatedData]
+  );
+
+  const sourceSyncTooltip = (key: InsightDataType, label: string): string => {
+    const state = sourceSyncState(key);
+    if (state === 'syncing') return `${label} · syncing…`;
+    if (state === 'delayed') return `${label} · sync delayed — showing last known data`;
+    if (state === 'none') return `No ${label.toLowerCase()} data yet`;
+    const timestamp = aggregatedData?.metadata?.timestamp;
+    const freshnessMinutes = aggregatedData?.metadata?.freshness?.[key] ?? 0;
+    const syncedAt = timestamp
+      ? new Date(new Date(timestamp).getTime() - freshnessMinutes * 60000).toISOString()
+      : undefined;
+    return `${label} · synced ${relativeTime(syncedAt)}`;
+  };
 
   // Live intent preview for the composer: show which sources will be used
   const composerContext = useMemo(() => {
@@ -320,37 +429,73 @@ const BusinessIntelligencePage: React.FC = () => {
       }, 60);
     });
 
+  // Actionable follow-ups shown as buttons inside the chat stream, derived from
+  // the data sources an answer drew on and the store's current state.
+  const buildQuickActions = (dataTypes: InsightDataType[]): QuickAction[] => {
+    const actions: QuickAction[] = [];
+    if (dataTypes.includes('products') && (aggregatedData?.products?.lowInventory ?? 0) > 0) {
+      actions.push({
+        label: 'Generate restock plan',
+        kind: 'ask',
+        payload: `Generate a prioritized restock plan for my ${aggregatedData!.products.lowInventory} low-stock items.`,
+      });
+      actions.push({ label: 'Review inventory', kind: 'navigate', payload: '/dashboard' });
+    }
+    if (dataTypes.includes('orders') && (aggregatedData?.orders?.abandonedCarts ?? 0) > 0) {
+      actions.push({
+        label: 'Draft cart recovery plan',
+        kind: 'ask',
+        payload: `Draft a recovery plan for my ${aggregatedData!.orders.abandonedCarts} abandoned carts.`,
+      });
+    }
+    if (dataTypes.includes('competitors') && hasCompetitors) {
+      actions.push({ label: 'Open competitor monitor', kind: 'navigate', payload: '/competitors' });
+    }
+    if (dataTypes.includes('revenue')) {
+      actions.push({ label: 'Break down revenue drivers', kind: 'ask', payload: 'What is driving my revenue trend right now?' });
+    }
+    return actions.slice(0, 3);
+  };
+
   const handleChatSubmit = async (question?: string) => {
     const messageText = (question || chatInput).trim();
     if (!messageText || !aggregatedData) return;
 
     setShowSuggestions(false);
 
+    const pendingAttachment = question ? null : attachment;
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
       content: messageText,
       timestamp: new Date(),
+      attachment: pendingAttachment
+        ? { name: pendingAttachment.name, rowCount: pendingAttachment.rowCount }
+        : undefined,
     };
 
     setChatMessages((prev) => [...prev, userMessage]);
     setChatInput('');
+    if (pendingAttachment) setAttachment(null);
     setChatLoading(true);
 
     try {
       const { intent, dataTypes } = detectQuestionIntent(messageText);
       const detectedTimeframe = detectTimeframeFromQuestion(messageText);
+      const enrichedQuestion = pendingAttachment
+        ? `${messageText}\n\n${pendingAttachment.digest}`
+        : messageText;
 
       const request: InsightRequest = {
         type: 'question',
         data: aggregatedData,
-        userQuestion: messageText,
+        userQuestion: enrichedQuestion,
         context: {
           timeframe: detectedTimeframe,
           focus: [intent],
           intent,
           dataTypes,
-          userQuestion: messageText,
+          userQuestion: enrichedQuestion,
         },
       };
 
@@ -366,6 +511,8 @@ const BusinessIntelligencePage: React.FC = () => {
         insight,
         contextUsed,
         isStreaming: true,
+        question: messageText,
+        actions: buildQuickActions(contextUsed),
       };
 
       setChatMessages((prev) => [...prev, assistantMessage]);
@@ -418,6 +565,49 @@ const BusinessIntelligencePage: React.FC = () => {
     navigator.clipboard?.writeText(message.content);
     setCopiedMessageId(message.id);
     setTimeout(() => setCopiedMessageId(null), 1800);
+  };
+
+  // Thumbs up/down: toggles on the message and appends to a local telemetry log
+  // used to refine prompts over time.
+  const handleFeedback = (message: ChatMessage, rating: 'up' | 'down') => {
+    const next = message.feedback === rating ? undefined : rating;
+    setChatMessages((prev) => prev.map((m) => (m.id === message.id ? { ...m, feedback: next } : m)));
+    if (!next) return;
+    try {
+      const key = 'shopgpt_feedback';
+      const log = JSON.parse(localStorage.getItem(key) || '[]');
+      log.push({
+        question: message.question,
+        rating: next,
+        source: message.insight?.source,
+        confidence: message.insight?.confidence,
+        at: new Date().toISOString(),
+      });
+      localStorage.setItem(key, JSON.stringify(log.slice(-100)));
+    } catch {
+      // Telemetry is best-effort; never block the UI on storage errors.
+    }
+  };
+
+  const handleRegenerate = (message: ChatMessage) => {
+    if (message.question && !chatLoading) handleChatSubmit(message.question);
+  };
+
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setAttachError(null);
+    if (file.size > 2 * 1024 * 1024) {
+      setAttachError('File too large — attach a CSV under 2 MB.');
+      return;
+    }
+    try {
+      const text = await file.text();
+      setAttachment(buildAttachmentDigest(file.name, text));
+    } catch {
+      setAttachError("Couldn't read that file. Try a plain CSV or TSV export.");
+    }
   };
 
   const formatMessageTime = (timestamp: Date) =>
@@ -507,16 +697,34 @@ const BusinessIntelligencePage: React.FC = () => {
                 {SOURCE_META.map(({ key, label, icon: SourceIcon }) => {
                   const active = availableSources.has(key);
                   const count = key === 'competitors' && hasCompetitors ? ` · ${competitors.length}` : '';
+                  const syncState = sourceSyncState(key);
+                  const syncTone = SYNC_TONE[syncState];
                   return (
-                    <Tooltip
-                      key={key}
-                      title={active ? `${label} data connected` : `No ${label.toLowerCase()} data yet`}
-                    >
+                    <Tooltip key={key} title={sourceSyncTooltip(key, label)}>
                       <Chip
                         data-testid={`source-chip-${key}`}
+                        data-sync-state={syncState}
                         size="small"
                         icon={<SourceIcon size={13} />}
-                        label={`${label}${count}`}
+                        label={
+                          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
+                            {`${label}${count}`}
+                            <Box
+                              component="span"
+                              sx={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                                bgcolor: syncTone.color,
+                                ...(syncTone.pulse && {
+                                  animation: 'shopgptSyncPulse 1.4s ease-in-out infinite',
+                                  '@keyframes shopgptSyncPulse': { '50%': { opacity: 0.3 } },
+                                }),
+                              }}
+                            />
+                          </Box>
+                        }
                         sx={{
                           height: 24,
                           fontWeight: 800,
@@ -769,9 +977,32 @@ const BusinessIntelligencePage: React.FC = () => {
                             }}
                           >
                             {isUser ? (
-                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                                {message.content}
-                              </Typography>
+                              <>
+                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                                  {message.content}
+                                </Typography>
+                                {message.attachment && (
+                                  <Box
+                                    data-testid="message-attachment"
+                                    sx={{
+                                      mt: 1,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 0.75,
+                                      px: 1,
+                                      py: 0.5,
+                                      borderRadius: 1,
+                                      bgcolor: 'rgba(255,255,255,0.16)',
+                                      border: '1px solid rgba(255,255,255,0.25)',
+                                    }}
+                                  >
+                                    <FileIcon size={13} />
+                                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                                      {message.attachment.name} · {message.attachment.rowCount} rows
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </>
                             ) : message.isStreaming ? (
                               <>
                                 <ChatMarkdown text={streamingMessage || '…'} />
@@ -831,32 +1062,115 @@ const BusinessIntelligencePage: React.FC = () => {
                             </Box>
                           ) : null}
 
+                          {/* In-chat quick actions: close the loop from insight to execution */}
+                          {!isUser && !message.isStreaming && (message.actions?.length ?? 0) > 0 && (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+                              {message.actions!.map((action) => (
+                                <Chip
+                                  key={action.label}
+                                  data-testid="quick-action"
+                                  size="small"
+                                  icon={<ArrowForwardIcon size={12} />}
+                                  label={action.label}
+                                  disabled={chatLoading}
+                                  onClick={() =>
+                                    action.kind === 'ask'
+                                      ? handleChatSubmit(action.payload)
+                                      : navigate(action.payload)
+                                  }
+                                  sx={{
+                                    height: 26,
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    bgcolor: '#ffffff',
+                                    color: '#2f5bea',
+                                    border: '1px solid rgba(47,91,234,0.35)',
+                                    '& .MuiChip-icon': { color: 'inherit' },
+                                    '&:hover': { bgcolor: 'rgba(47,91,234,0.08)' },
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          )}
+
                           <Box
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 0.75,
+                              gap: 0.25,
                               mt: 0.5,
                               justifyContent: isUser ? 'flex-end' : 'flex-start',
                             }}
                           >
-                            <Typography variant="caption" sx={{ color: '#98a1ab' }}>
+                            <Typography variant="caption" sx={{ color: '#98a1ab', mr: 0.5 }}>
                               {formatMessageTime(message.timestamp)}
                             </Typography>
                             {!isUser && !message.isStreaming && (
-                              <IconButton
-                                className="msg-actions"
-                                size="small"
-                                onClick={() => handleCopyMessage(message)}
-                                sx={{ width: 22, height: 22, opacity: 0, transition: 'opacity 0.2s ease', color: '#98a1ab' }}
-                                aria-label="Copy answer"
-                              >
-                                {copiedMessageId === message.id ? (
-                                  <CheckIcon size={13} color="#15b87a" />
-                                ) : (
-                                  <CopyIcon size={13} />
+                              <>
+                                <Tooltip title="Helpful">
+                                  <IconButton
+                                    className="msg-actions"
+                                    size="small"
+                                    onClick={() => handleFeedback(message, 'up')}
+                                    aria-label="Helpful answer"
+                                    sx={{
+                                      width: 22,
+                                      height: 22,
+                                      opacity: message.feedback === 'up' ? 1 : 0,
+                                      transition: 'opacity 0.2s ease',
+                                      color: message.feedback === 'up' ? '#08734c' : '#98a1ab',
+                                    }}
+                                  >
+                                    <ThumbsUpIcon size={13} />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Not helpful">
+                                  <IconButton
+                                    className="msg-actions"
+                                    size="small"
+                                    onClick={() => handleFeedback(message, 'down')}
+                                    aria-label="Unhelpful answer"
+                                    sx={{
+                                      width: 22,
+                                      height: 22,
+                                      opacity: message.feedback === 'down' ? 1 : 0,
+                                      transition: 'opacity 0.2s ease',
+                                      color: message.feedback === 'down' ? '#b42318' : '#98a1ab',
+                                    }}
+                                  >
+                                    <ThumbsDownIcon size={13} />
+                                  </IconButton>
+                                </Tooltip>
+                                {message.question && (
+                                  <Tooltip title="Regenerate answer">
+                                    <IconButton
+                                      className="msg-actions"
+                                      size="small"
+                                      onClick={() => handleRegenerate(message)}
+                                      disabled={chatLoading}
+                                      aria-label="Regenerate answer"
+                                      sx={{ width: 22, height: 22, opacity: 0, transition: 'opacity 0.2s ease', color: '#98a1ab' }}
+                                    >
+                                      <RegenerateIcon size={13} />
+                                    </IconButton>
+                                  </Tooltip>
                                 )}
-                              </IconButton>
+                                <Tooltip title="Copy answer">
+                                  <IconButton
+                                    className="msg-actions"
+                                    size="small"
+                                    onClick={() => handleCopyMessage(message)}
+                                    sx={{ width: 22, height: 22, opacity: 0, transition: 'opacity 0.2s ease', color: '#98a1ab' }}
+                                    aria-label="Copy answer"
+                                  >
+                                    {copiedMessageId === message.id ? (
+                                      <CheckIcon size={13} color="#15b87a" />
+                                    ) : (
+                                      <CopyIcon size={13} />
+                                    )}
+                                  </IconButton>
+                                </Tooltip>
+                              </>
                             )}
                           </Box>
                         </Box>
@@ -943,6 +1257,35 @@ const BusinessIntelligencePage: React.FC = () => {
                 bottom: 0,
               }}
             >
+              {(attachment || attachError) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                  {attachment && (
+                    <Chip
+                      data-testid="composer-attachment"
+                      size="small"
+                      icon={<FileIcon size={13} />}
+                      label={`${attachment.name} · ${attachment.rowCount} rows`}
+                      onDelete={() => setAttachment(null)}
+                      deleteIcon={<RemoveIcon size={13} />}
+                      sx={{
+                        height: 24,
+                        fontWeight: 800,
+                        fontSize: 11.5,
+                        bgcolor: 'rgba(47,91,234,0.08)',
+                        color: '#2f5bea',
+                        border: '1px solid rgba(47,91,234,0.18)',
+                        '& .MuiChip-icon': { color: 'inherit' },
+                        '& .MuiChip-deleteIcon': { color: 'inherit', '&:hover': { color: '#b42318' } },
+                      }}
+                    />
+                  )}
+                  {attachError && (
+                    <Typography variant="caption" sx={{ color: '#b42318', fontWeight: 700 }}>
+                      {attachError}
+                    </Typography>
+                  )}
+                </Box>
+              )}
               {composerContext && composerContext.dataTypes.length > 0 && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
                   <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 700, mr: 0.25 }}>
@@ -989,6 +1332,28 @@ const BusinessIntelligencePage: React.FC = () => {
                   },
                 }}
               >
+                <Box
+                  component="input"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt"
+                  onChange={handleFileSelected}
+                  sx={{ display: 'none' }}
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
+                <Tooltip title="Attach a CSV for extra context (ad spend, supplier pricing…)">
+                  <span>
+                    <IconButton
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={chatLoading}
+                      aria-label="Attach file"
+                      sx={{ width: 34, height: 34, mb: 0.4, color: attachment ? '#2f5bea' : '#98a1ab' }}
+                    >
+                      <AttachIcon size={17} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
                 <Box
                   component="textarea"
                   rows={1}
@@ -1095,6 +1460,10 @@ const BusinessIntelligencePage: React.FC = () => {
                         value: formatCurrency(aggregatedData.revenue?.total || 0),
                         detail: `${(aggregatedData.revenue?.growth || 0) >= 0 ? '+' : ''}${(aggregatedData.revenue?.growth || 0).toFixed(1)}% growth`,
                         positive: (aggregatedData.revenue?.growth || 0) >= 0,
+                        trend: [...(aggregatedData.revenue?.timeseries || [])]
+                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                          .slice(-12)
+                          .map((point) => point.revenue),
                       },
                       {
                         label: 'Orders',
@@ -1103,6 +1472,9 @@ const BusinessIntelligencePage: React.FC = () => {
                           ? `${aggregatedData.orders.conversionRate.toFixed(1)}% conversion`
                           : `${aggregatedData.orders?.abandonedCarts || 0} abandoned carts`,
                         positive: (aggregatedData.orders?.abandonedCarts || 0) <= 5,
+                        trend: [...(aggregatedData.orders?.recent || [])]
+                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                          .map((order) => order.total || 0),
                       },
                       {
                         label: 'Products',
@@ -1112,18 +1484,20 @@ const BusinessIntelligencePage: React.FC = () => {
                             ? `${aggregatedData.products.lowInventory} low stock`
                             : 'inventory healthy',
                         positive: (aggregatedData.products?.lowInventory || 0) === 0,
+                        trend: [] as number[],
                       },
                     ].map((row) => (
-                      <Box key={row.label} sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                      <Box key={row.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 800, width: 64, flexShrink: 0 }}>
                           {row.label}
                         </Typography>
                         <Typography variant="body2" sx={{ fontWeight: 900, color: '#101820' }}>
                           {row.value}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: row.positive ? '#08734c' : '#b45309', fontWeight: 700 }}>
+                        <Typography variant="caption" noWrap sx={{ color: row.positive ? '#08734c' : '#b45309', fontWeight: 700 }}>
                           {row.detail}
                         </Typography>
+                        <Sparkline data={row.trend} />
                       </Box>
                     ))}
                   </Stack>

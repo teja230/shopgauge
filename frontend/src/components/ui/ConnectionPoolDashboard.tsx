@@ -13,18 +13,18 @@ import {
   Paper,
 } from '@mui/material';
 import {
-  Timeline as TimelineIcon,
-  Speed as SpeedIcon,
-  Memory as MemoryIcon,
-  Storage as StorageIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
+  Activity as TimelineIcon,
+  Gauge as SpeedIcon,
+  MemoryStick as MemoryIcon,
+  Database as StorageIcon,
+  AlertTriangle as WarningIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
   Info as InfoIcon,
   TrendingUp as TrendingUpIcon,
-  BugReport as BugReportIcon,
-  Healing as HealingIcon,
-} from '@mui/icons-material';
+  Bug as BugReportIcon,
+  HeartPulse as HealingIcon,
+} from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import RefreshHeader from './RefreshHeader';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -422,19 +422,19 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'HEALTHY': return <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />;
-      case 'WARNING': return <WarningIcon sx={{ fontSize: 40, color: 'warning.main', opacity: 0.7 }} />;
-      case 'CRITICAL': return <ErrorIcon sx={{ fontSize: 40, color: 'error.main', opacity: 0.7 }} />;
-      default: return <InfoIcon sx={{ fontSize: 40, color: 'text.secondary', opacity: 0.7 }} />;
+      case 'HEALTHY': return <CheckCircleIcon size={40} color="#059669" style={{ opacity: 0.7 }} />;
+      case 'WARNING': return <WarningIcon size={40} color="#f59e0b" style={{ opacity: 0.7 }} />;
+      case 'CRITICAL': return <ErrorIcon size={40} color="#dc2626" style={{ opacity: 0.7 }} />;
+      default: return <InfoIcon size={40} color="#6b7280" style={{ opacity: 0.7 }} />;
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'LOW': return 'success.main';
-      case 'MEDIUM': return 'warning.main';
-      case 'HIGH': return 'error.main';
-      default: return 'text.secondary';
+      case 'LOW': return '#059669';
+      case 'MEDIUM': return '#f59e0b';
+      case 'HIGH': return '#dc2626';
+      default: return '#6b7280';
     }
   };
 
@@ -619,7 +619,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
                     of {systemMetrics?.poolMetrics.maxPoolSize || 0} max
                   </Typography>
                 </Box>
-                <TimelineIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.7 }} />
+                <TimelineIcon size={40} color="#2f5bea" style={{ opacity: 0.7 }} />
               </Box>
               <LinearProgress
                 variant="determinate"
@@ -645,7 +645,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
                     Pool Utilization
                   </Typography>
                 </Box>
-                <SpeedIcon sx={{ fontSize: 40, color: 'secondary.main', opacity: 0.7 }} />
+                <SpeedIcon size={40} color="#15b87a" style={{ opacity: 0.7 }} />
               </Box>
               <LinearProgress
                 variant="determinate"
@@ -675,7 +675,7 @@ const ConnectionPoolDashboard: React.FC<ConnectionPoolDashboardProps> = ({
                     Leak Risk Level
                   </Typography>
                 </Box>
-                <BugReportIcon sx={{ fontSize: 40, color: getRiskColor(systemMetrics?.poolMetrics.connectionLeakRisk || 'LOW'), opacity: 0.7 }} />
+                <BugReportIcon size={40} color={getRiskColor(systemMetrics?.poolMetrics.connectionLeakRisk || 'LOW')} style={{ opacity: 0.7 }} />
               </Box>
             </CardContent>
           </Card>

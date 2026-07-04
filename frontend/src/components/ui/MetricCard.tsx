@@ -16,11 +16,11 @@ import {
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  Remove as RemoveIcon,
-  Refresh as RefreshIcon,
-  ExpandMore as ExpandMoreIcon,
-  Error as ErrorIcon,
-} from '@mui/icons-material';
+  Minus as RemoveIcon,
+  RefreshCw as RefreshIcon,
+  ChevronDown as ExpandMoreIcon,
+  AlertCircle as ErrorIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
 interface MetricCardProps {
@@ -434,7 +434,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         <StyledCardContent>
           <MetricHeader>
             <MetricIconContainer>
-              <ErrorIcon color="error" />
+              <ErrorIcon color="#dc2626" />
               <MetricLabelContainer>
                 <MetricLabel>{label}</MetricLabel>
                 <MetricSubtitle color="error">Error loading data</MetricSubtitle>

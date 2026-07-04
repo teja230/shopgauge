@@ -19,27 +19,27 @@ import {
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  Remove as StableIcon,
-  CheckCircle as HealthyIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
+  Minus as StableIcon,
+  CheckCircle2 as HealthyIcon,
+  AlertTriangle as WarningIcon,
+  AlertCircle as ErrorIcon,
   Info as InfoIcon,
-  Storage as StorageIcon,
-  People as PeopleIcon,
-  Security as SecurityIcon,
-  Timeline as TimelineIcon,
-  Refresh as RefreshIcon,
+  Database as StorageIcon,
+  Users as PeopleIcon,
+  ShieldCheck as SecurityIcon,
+  Activity as TimelineIcon,
+  RefreshCw as RefreshIcon,
   Settings as SettingsIcon,
-  Notifications as NotificationsIcon,
-  Speed as SpeedIcon,
-  Memory as MemoryIcon,
-  NetworkCheck as NetworkIcon,
+  Bell as NotificationsIcon,
+  Gauge as SpeedIcon,
+  MemoryStick as MemoryIcon,
+  Activity as NetworkIcon,
   Shield as ShieldIcon,
-  Visibility as VisibilityIcon,
-  Analytics as AnalyticsIcon,
-  Assessment as AssessmentIcon,
-  HealthAndSafety as HealthIcon,
-} from '@mui/icons-material';
+  Eye as VisibilityIcon,
+  BarChart3 as AnalyticsIcon,
+  ClipboardList as AssessmentIcon,
+  ShieldCheck as HealthIcon,
+} from 'lucide-react';
 import { DashboardMetricsSkeleton } from './SkeletonLoaders';
 import SectionErrorBoundary from './SectionErrorBoundary';
 import NetworkStatusHandler from './NetworkStatusHandler';
@@ -115,24 +115,24 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const getStatusIcon = (status: MetricCardData['status']) => {
     switch (status) {
       case 'healthy':
-        return <HealthyIcon sx={{ color: '#2e7d32' }} />;
+        return <HealthyIcon color="#2e7d32" />;
       case 'warning':
-        return <WarningIcon sx={{ color: '#ed6c02' }} />;
+        return <WarningIcon color="#ed6c02" />;
       case 'error':
-        return <ErrorIcon sx={{ color: '#d32f2f' }} />;
+        return <ErrorIcon color="#d32f2f" />;
       default:
-        return <InfoIcon sx={{ color: '#0288d1' }} />;
+        return <InfoIcon color="#0288d1" />;
     }
   };
 
   const getTrendIcon = (trend?: MetricCardData['trend']) => {
     switch (trend) {
       case 'up':
-        return <TrendingUpIcon sx={{ color: '#2e7d32', fontSize: 16 }} />;
+        return <TrendingUpIcon color="#2e7d32" size={16} />;
       case 'down':
-        return <TrendingDownIcon sx={{ color: '#d32f2f', fontSize: 16 }} />;
+        return <TrendingDownIcon color="#d32f2f" size={16} />;
       case 'stable':
-        return <StableIcon sx={{ color: '#616161', fontSize: 16 }} />;
+        return <StableIcon color="#616161" size={16} />;
       default:
         return null;
     }
@@ -411,7 +411,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             fontWeight: 600,
             color: 'text.primary'
           }}>
-            <SettingsIcon color="primary" />
+            <SettingsIcon color="#2f5bea" />
             Quick Actions
           </Typography>
           
@@ -610,7 +610,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Button
                 size="small"
                 onClick={() => setShowAllAlerts(!showAllAlerts)}
-                startIcon={<NotificationsIcon sx={{ color: 'text.primary' }} />}
+                startIcon={<NotificationsIcon />}
                 variant="outlined"
               >
                 {showAllAlerts ? 'Show Less' : `Show All (${alerts.length})`}

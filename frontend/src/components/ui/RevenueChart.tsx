@@ -28,16 +28,16 @@ import {
 } from '@mui/material';
 import {
   TrendingUp,
-  BarChart as BarChartIcon,
-  ShowChart,
-  Timeline,
+  BarChart3 as BarChartIcon,
+  LineChart as ShowChart,
+  Activity as Timeline,
   CandlestickChart,
-  WaterfallChart,
-  StackedLineChart,
-  Analytics,
-  Share as ShareIcon,
+  BarChart3 as WaterfallChart,
+  LineChart as StackedLineChart,
+  BarChart3 as Analytics,
+  Share2 as ShareIcon,
   Download as DownloadIcon,
-} from '@mui/icons-material';
+} from 'lucide-react';
 import LoadingIndicator from './LoadingIndicator';
 import ShareModal from './ShareModal';
 import ExportModal from './ExportModal';
@@ -730,7 +730,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           borderRadius: 2,
         }}
       >
-        <TrendingUp sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
+        <TrendingUp size={48} color="rgba(0, 0, 0, 0.2)" />
         <Typography variant="body2" color="text.secondary">
           No revenue data available
         </Typography>
@@ -769,7 +769,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             gap: theme.spacing(1),
           }}
         >
-          <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
+          <TrendingUp size={isMobile ? 18 : 20} color="#2f5bea" />
           Revenue Chart
         </Typography>
         
@@ -784,7 +784,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               '&:hover': { backgroundColor: 'primary.dark' },
             }}
           >
-            <ShareIcon fontSize="small" />
+            <ShareIcon size={16} />
           </IconButton>
         </MuiTooltip>
           
@@ -798,7 +798,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
                 '&:hover': { backgroundColor: 'success.dark' },
               }}
             >
-              <DownloadIcon fontSize="small" />
+              <DownloadIcon size={16} />
             </IconButton>
           </MuiTooltip>
         </Box>

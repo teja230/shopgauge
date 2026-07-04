@@ -9,24 +9,24 @@ import {
   Box,
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  HealthAndSafety as HealthIcon,
-  People as PeopleIcon,
-  Security as SecurityIcon,
+  LayoutDashboard as DashboardIcon,
+  HeartPulse as HealthIcon,
+  Users as PeopleIcon,
+  ShieldCheck as SecurityIcon,
   Monitor as MonitoringIcon,
   Settings as SettingsIcon,
-  ExpandLess,
-  ExpandMore,
-  Storage as StorageIcon,
-  Warning as WarningIcon,
-  Assessment as AssessmentIcon,
-  AdminPanelSettings as AdminIcon,
-  Timeline as TimelineIcon,
-  BugReport as BugIcon,
-  Close as CloseIcon,
-  Speed as SpeedIcon,
-  Memory as MemoryIcon,
-} from '@mui/icons-material';
+  ChevronUp as ExpandLess,
+  ChevronDown as ExpandMore,
+  Database as StorageIcon,
+  AlertTriangle as WarningIcon,
+  ClipboardList as AssessmentIcon,
+  UserCog as AdminIcon,
+  Activity as TimelineIcon,
+  Bug as BugIcon,
+  X as CloseIcon,
+  Gauge as SpeedIcon,
+  MemoryStick as MemoryIcon,
+} from 'lucide-react';
 import { useAdminNavigation } from '../../context/AdminNavigationContext';
 import { useKeyboardNavigation, useFocusAnnouncement } from '../../hooks/useKeyboardNavigation';
 import type { NavigationSection } from '../../context/AdminNavigationContext';
@@ -286,7 +286,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {isMobile && (
         <div className="admin-sidebar__mobile-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--admin-space-2)' }}>
-            <AdminIcon color="primary" aria-hidden="true" />
+            <AdminIcon color="#2f5bea" aria-hidden="true" />
             <h2 className="admin-sidebar__mobile-title" id="sidebar-title">
               Admin Panel
             </h2>
@@ -305,7 +305,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* Desktop header */}
       {!isMobile && (
         <div className="admin-sidebar__header">
-          <AdminIcon color="primary" aria-hidden="true" />
+          <AdminIcon color="#2f5bea" aria-hidden="true" />
           {!isCollapsed && (
             <h2 className="admin-sidebar__title" id="sidebar-title">
               Admin Panel

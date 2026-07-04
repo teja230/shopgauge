@@ -12,14 +12,16 @@ import {
   Tooltip,
   IconButton
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import WarningIcon from '@mui/icons-material/Warning';
-import StorageIcon from '@mui/icons-material/Storage';
-import DatabaseIcon from '@mui/icons-material/Storage';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import SpeedIcon from '@mui/icons-material/Speed';
-import TimerIcon from '@mui/icons-material/Timer';
+import {
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorOutlineIcon,
+  AlertTriangle as WarningIcon,
+  Database as StorageIcon,
+  Database as DatabaseIcon,
+  RefreshCw as RefreshIcon,
+  Gauge as SpeedIcon,
+  Timer as TimerIcon,
+} from 'lucide-react';
 import { getHealthSummary } from '../../api/index';
 import { useServiceStatus } from '../../context/ServiceStatusContext';
 
@@ -119,7 +121,7 @@ const DatabaseConnectionsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metri
       <CardContent>
         <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DatabaseIcon color="primary" />
+            <DatabaseIcon color="#2f5bea" />
             Connection Pool
           </Typography>
           <Chip 
@@ -191,7 +193,7 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
   <Card sx={{ height: '100%' }}>
     <CardContent>
       <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <TimerIcon color="primary" />
+        <TimerIcon color="#2f5bea" />
         Performance Metrics
       </Typography>
       
@@ -362,7 +364,7 @@ const HealthSummary: React.FC = () => {
     <Paper sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SpeedIcon color="primary" />
+          <SpeedIcon color="#2f5bea" />
           System Health & Performance
         </Typography>
         <Box display="flex" alignItems="center" gap={2}>

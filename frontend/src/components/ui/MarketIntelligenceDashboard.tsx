@@ -29,22 +29,22 @@ import {
   MenuItem,
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  Timeline as TimelineIcon,
-  Speed as SpeedIcon,
-  Storage as StorageIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
+  RefreshCw as RefreshIcon,
+  Activity as TimelineIcon,
+  Gauge as SpeedIcon,
+  Database as StorageIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
   TrendingUp as TrendingUpIcon,
   Search as SearchIcon,
-  Storefront as StorefrontIcon,
-  MonetizationOn as MonetizationOnIcon,
-  Analytics as AnalyticsIcon,
+  Store as StorefrontIcon,
+  CircleDollarSign as MonetizationOnIcon,
+  BarChart3 as AnalyticsIcon,
   Settings as SettingsIcon,
-  ShowChart as ShowChartIcon,
-  BugReport as DebugIcon,
+  LineChart as ShowChartIcon,
+  Bug as DebugIcon,
   Archive as ArchiveIcon,
-} from '@mui/icons-material';
+} from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { CostAnalytics, ProviderStats } from '../../api/marketIntelligenceAdmin';
@@ -329,8 +329,8 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
 
   const getStatusIcon = (status: boolean) => {
     return status ? 
-      <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} /> :
-      <ErrorIcon sx={{ fontSize: 40, color: 'error.main', opacity: 0.7 }} />;
+      <CheckCircleIcon size={40} color="#059669" style={{ opacity: 0.7 }} /> :
+      <ErrorIcon size={40} color="#dc2626" style={{ opacity: 0.7 }} />;
   };
 
   const getCostColor = (cost: number, budget: number) => {
@@ -446,7 +446,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
               {availableShops.map((shop) => (
                 <MenuItem key={shop.id} value={shop.id}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                    <StorefrontIcon sx={{ fontSize: 20, color: 'primary.main' }} />
+                    <StorefrontIcon size={20} color="#2f5bea" />
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
                         {shop.shopify_domain}
@@ -556,7 +556,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                     System Status
                   </Typography>
                 </Box>
-                <AnalyticsIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.7 }} />
+                <AnalyticsIcon size={40} color="#2f5bea" style={{ opacity: 0.7 }} />
               </Box>
             </CardContent>
           </Card>
@@ -579,7 +579,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                     {formatPercentage(metrics?.costAnalytics.dailyUsagePercentage || 0)} of budget
                   </Typography>
                 </Box>
-                <MonetizationOnIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.7 }} />
+                <MonetizationOnIcon size={40} color="#2f5bea" style={{ opacity: 0.7 }} />
               </Box>
               <LinearProgress
                 variant="determinate"
@@ -609,7 +609,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                     {formatPercentage(metrics?.costAnalytics.monthlyUsagePercentage || 0)} of budget
                   </Typography>
                 </Box>
-                <TimelineIcon sx={{ fontSize: 40, color: 'secondary.main', opacity: 0.7 }} />
+                <TimelineIcon size={40} color="#15b87a" style={{ opacity: 0.7 }} />
               </Box>
               <LinearProgress
                 variant="determinate"
@@ -638,7 +638,7 @@ const MarketIntelligenceDashboard: React.FC<MarketIntelligenceDashboardProps> = 
                     This month
                   </Typography>
                 </Box>
-                <TrendingUpIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />
+                <TrendingUpIcon size={40} color="#059669" style={{ opacity: 0.7 }} />
               </Box>
             </CardContent>
           </Card>

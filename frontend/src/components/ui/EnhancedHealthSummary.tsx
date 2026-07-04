@@ -14,18 +14,18 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
-  Speed as SpeedIcon,
-  Refresh as RefreshIcon,
-  Clear as ClearIcon,
-  HealthAndSafety as HealthAndSafetyIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
+  Gauge as SpeedIcon,
+  RefreshCw as RefreshIcon,
+  X as ClearIcon,
+  ShieldCheck as HealthAndSafetyIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertTriangle as WarningIcon,
+  Database as StorageIcon,
+  Database as DatabaseIcon,
+} from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import RefreshHeader from './RefreshHeader';
 import { debugLog } from './DebugPanel';
-import StorageIcon from '@mui/icons-material/Storage';
-import DatabaseIcon from '@mui/icons-material/Storage';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -141,7 +141,7 @@ const DatabaseConnectionsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metri
     <Card sx={{ height: '100%' }}>
       <CardContent>
         <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <DatabaseIcon color="primary" />
+          <DatabaseIcon color="#2f5bea" />
           Database Connections
         </Typography>
         
@@ -196,7 +196,7 @@ const PerformanceMetricsCard: React.FC<{ metrics: DatabaseMetrics }> = ({ metric
   <Card sx={{ height: '100%' }}>
     <CardContent>
       <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <SpeedIcon color="primary" />
+        <SpeedIcon color="#2f5bea" />
         Performance Metrics
       </Typography>
       
@@ -249,7 +249,7 @@ const CacheStatisticsCard: React.FC<{ metrics: CacheMetrics }> = ({ metrics }) =
     <Card>
       <CardContent>
         <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <StorageIcon color="primary" />
+          <StorageIcon color="#2f5bea" />
           Cache Performance
         </Typography>
         
@@ -477,7 +477,7 @@ const EnhancedHealthSummary: React.FC = () => {
     <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 3, borderRadius: 3, bgcolor: 'grey.50' }}>
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={3} gap={2}>
         <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-          <SpeedIcon color="primary" />
+          <SpeedIcon color="#2f5bea" />
           System Health & Performance
         </Typography>
         <RefreshHeader

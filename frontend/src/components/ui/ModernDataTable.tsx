@@ -35,14 +35,14 @@ import RetryHandler from './RetryHandler';
 import { useKeyboardNavigation, useFocusAnnouncement } from '../../hooks/useKeyboardNavigation';
 import {
   Search as SearchIcon,
-  FilterList as FilterIcon,
-  Clear as ClearIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Sort as SortIcon,
-  ArrowUpward as ArrowUpwardIcon,
-  ArrowDownward as ArrowDownwardIcon,
-} from '@mui/icons-material';
+  ListFilter as FilterIcon,
+  X as ClearIcon,
+  ChevronDown as ExpandMoreIcon,
+  ChevronUp as ExpandLessIcon,
+  ArrowUpDown as SortIcon,
+  ArrowUp as ArrowUpwardIcon,
+  ArrowDown as ArrowDownwardIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
 // Types
@@ -283,7 +283,7 @@ const SearchField: React.FC<{
       InputProps={{
         startAdornment: (
           <InputAdornment position="start">
-            <SearchIcon color="action" />
+            <SearchIcon color="#5f6b76" />
           </InputAdornment>
         ),
         endAdornment: localValue && (
@@ -486,9 +486,9 @@ const SortableHeader: React.FC<{
     >
       {column.label}
       {isActive ? (
-        direction === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+        direction === 'asc' ? <ArrowUpwardIcon size={16} /> : <ArrowDownwardIcon size={16} />
       ) : (
-        <SortIcon fontSize="small" sx={{ opacity: 0.5 }} />
+        <SortIcon size={16} style={{ opacity: 0.5 }} />
       )}
     </Box>
   );

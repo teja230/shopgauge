@@ -24,13 +24,13 @@ import {
 import {
   Search as SearchIcon,
   Link as LinkIcon,
-  LinkOff as UnlinkIcon,
-  Close as CloseIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  AttachMoney as AttachMoneyIcon,
-  Inventory as InventoryIcon,
-} from '@mui/icons-material';
+  Unlink as UnlinkIcon,
+  X as CloseIcon,
+  CheckCircle2 as CheckCircleIcon,
+  XCircle as CancelIcon,
+  DollarSign as AttachMoneyIcon,
+  Package as InventoryIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { fetchWithAuth } from '../../api';
 
@@ -387,7 +387,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <LinkIcon sx={{ fontSize: 24, color: '#3b82f6' }} />
+              <LinkIcon size={24} color="#3b82f6" />
             </Box>
             <Box>
               <Typography variant="h6" fontWeight="600" sx={{ color: '#111827' }}>
@@ -549,7 +549,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#6b7280' }} />
+                    <SearchIcon color="#6b7280" />
                   </InputAdornment>
                 ),
               }}
@@ -606,7 +606,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
                             {product.handle ? `/${product.handle}` : `/${generateHandleFromTitle(product.title)}`}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1}>
-                            <AttachMoneyIcon fontSize="small" sx={{ color: '#059669' }} />
+                            <AttachMoneyIcon size={16} color="#059669" />
                             <Typography variant="body2" fontWeight="500" sx={{ color: '#059669' }}>
                               ${typeof product.price === 'string' ? product.price.replace(/\$/g, '') : product.price.toFixed(2)}
                             </Typography>
@@ -621,7 +621,7 @@ export const ProductAssociationModal: React.FC<ProductAssociationModalProps> = (
                             alignItems: 'center',
                             justifyContent: 'center'
                           }}>
-                            <CheckCircleIcon sx={{ color: 'white', fontSize: 20 }} />
+                            <CheckCircleIcon size={20} color="white" />
                           </Box>
                         )}
                       </Box>

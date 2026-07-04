@@ -33,20 +33,20 @@ import {
   AccordionDetails,
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  PlayArrow as PlayArrowIcon,
-  BugReport as DebugIcon,
-  Storage as StorageIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
+  RefreshCw as RefreshIcon,
+  Play as PlayArrowIcon,
+  Bug as DebugIcon,
+  Database as StorageIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
+  AlertTriangle as WarningIcon,
   Info as InfoIcon,
-  ExpandMore as ExpandMoreIcon,
-  Visibility as VisibilityIcon,
-  Speed as SpeedIcon,
-  Timeline as TimelineIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+  ChevronDown as ExpandMoreIcon,
+  Eye as VisibilityIcon,
+  Gauge as SpeedIcon,
+  Activity as TimelineIcon,
+  Trash2 as DeleteIcon,
+} from 'lucide-react';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { 
   CompetitorScrapingStatus, 
@@ -351,7 +351,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          <DebugIcon sx={{ fontSize: 40 }} />
+          <DebugIcon size={40} />
         Competitor Admin Panel
       </Typography>
         <Typography variant="body1" color="text.secondary">

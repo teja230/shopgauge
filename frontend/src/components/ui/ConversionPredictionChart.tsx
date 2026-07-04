@@ -27,16 +27,16 @@ import {
   Paper,
   Tooltip,
 } from '@mui/material';
-import { 
-  AutoAwesome,
-  ShowChart,
-  Timeline,
-  BarChart as BarChartIcon,
+import {
+  Sparkles as AutoAwesome,
+  LineChart as ShowChart,
+  Activity as Timeline,
+  BarChart3 as BarChartIcon,
   CandlestickChart,
-  WaterfallChart,
-  StackedLineChart,
-  Analytics,
-} from '@mui/icons-material';
+  BarChart3 as WaterfallChart,
+  LineChart as StackedLineChart,
+  BarChart3 as Analytics,
+} from 'lucide-react';
 import { 
   UNIFIED_COLOR_SCHEME,
   standardTooltipFormatter,
@@ -266,7 +266,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
               pt: 1, 
               borderTop: `1px solid ${theme.palette.divider}` 
             }}>
-              <AutoAwesome sx={{ fontSize: 14, color: theme.palette.primary.main }} />
+              <AutoAwesome size={14} color={theme.palette.primary.main} />
               <Typography variant="caption" color="primary" fontWeight={600}>
                 AI Forecast
               </Typography>
@@ -841,7 +841,7 @@ const ConversionPredictionChart: React.FC<ConversionPredictionChartProps> = ({
           gap: 1,
           color: theme.palette.text.primary,
         }}>
-          <AutoAwesome color="secondary" fontSize="small" />
+          <AutoAwesome color="#15b87a" size={16} />
           {showPredictions ? 'Conversion Forecast' : 'Conversion'}
         </Typography>
         
