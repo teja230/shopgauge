@@ -1,11 +1,11 @@
 import React from 'react';
 import { Box, Typography, Paper, useTheme, alpha } from '@mui/material';
-import { 
-  TrendingUp, 
-  Business, 
-  Analytics, 
-  BarChart,
-} from '@mui/icons-material';
+import {
+  TrendingUp,
+  Building2 as Business,
+  BarChart3 as Analytics,
+  BarChart3 as BarChart,
+} from 'lucide-react';
 
 // Helper function to format conversion percentages with proper precision for small values
 const formatConversionPercentage = (value: number): string => {
@@ -77,7 +77,7 @@ export const ExecutiveSummaryTemplate: React.FC<TemplateProps> = ({
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Business sx={{ fontSize: 32, color: brandColors?.primary || theme.palette.primary.main }} />
+          <Business size={32} color={brandColors?.primary || theme.palette.primary.main} />
           {companyLogo && (
             <img 
               src={companyLogo} 
@@ -240,7 +240,7 @@ export const SocialCelebrationTemplate: React.FC<TemplateProps> = ({
               textAlign: 'center',
               backdropFilter: 'blur(10px)',
             }}>
-              <TrendingUp sx={{ fontSize: 32, mb: 1 }} />
+              <TrendingUp size={32} style={{ marginBottom: 8 }} />
               <Typography variant="h4" fontWeight={600}>
                 ${metrics.revenue.toLocaleString()}
               </Typography>
@@ -257,7 +257,7 @@ export const SocialCelebrationTemplate: React.FC<TemplateProps> = ({
               textAlign: 'center',
               backdropFilter: 'blur(10px)',
             }}>
-              <BarChart sx={{ fontSize: 32, mb: 1 }} />
+              <BarChart size={32} style={{ marginBottom: 8 }} />
               <Typography variant="h4" fontWeight={600}>
                 {metrics.orders.toLocaleString()}
               </Typography>
@@ -456,11 +456,11 @@ export const MarketingInsightsTemplate: React.FC<TemplateProps> = ({
         backgroundColor: alpha(brandColors?.primary || theme.palette.primary.main, 0.1),
         borderRadius: 1,
       }}>
-        <Analytics sx={{ 
-          fontSize: 32, 
-          color: brandColors?.primary || theme.palette.primary.main,
-          mr: 2,
-        }} />
+        <Analytics
+          size={32}
+          color={brandColors?.primary || theme.palette.primary.main}
+          style={{ marginRight: 16 }}
+        />
         <Box>
           <Typography variant="h5" fontWeight={600} color="text.primary">
             {title}

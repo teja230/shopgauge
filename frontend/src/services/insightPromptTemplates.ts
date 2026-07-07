@@ -7,6 +7,10 @@ export interface PromptTemplate {
   priority: 'high' | 'medium' | 'low';
 }
 
+export type InsightDataType = 'revenue' | 'products' | 'orders' | 'competitors' | 'costs';
+
+export type InsightIntent = InsightDataType | 'recommendations' | 'summary';
+
 export interface InsightRequest {
   type: PromptTemplate['type'];
   data: Partial<AggregatedDashboardData>;
@@ -16,8 +20,12 @@ export interface InsightRequest {
     focus: string[];
     previousInsights?: string[];
     userQuestion?: string;
+    dataTypes?: InsightDataType[];
+    intent?: InsightIntent;
   };
 }
+
+type CompetitorRecord = AggregatedDashboardData['marketIntelligence']['competitors'][number];
 
 export class InsightPromptTemplates {
   /**
@@ -229,12 +237,8 @@ Max 120 words, be specific and actionable.`
 
     if (data.marketIntelligence) {
       const mi = data.marketIntelligence;
-      prompt = prompt.replace('{COMPETITORS_DATA}', JSON.stringify({
-        count: mi.competitors.length,
-        avgPriceDiff: this.calculateAvgPriceDiff(mi.competitors),
-        recentChanges: mi.competitors.slice(0, 3)
-      }));
-      
+      prompt = prompt.replace('{COMPETITORS_DATA}', JSON.stringify(this.buildCompetitorContext(mi)));
+
       prompt = prompt.replace('{{DAILY_COST}}', mi.costs.daily.toFixed(2));
       prompt = prompt.replace('{{MONTHLY_COST}}', mi.costs.monthly.toFixed(2));
       prompt = prompt.replace('{{BUDGET_USAGE}}', mi.costs.budgetUsage.toFixed(1));
@@ -253,13 +257,14 @@ Max 120 words, be specific and actionable.`
       prompt = prompt.replace('{DATA_FRESHNESS}', this.formatFreshness(data.metadata.freshness));
     }
 
-    // Question replacement
-    if (userQuestion) {
-      prompt = prompt.replace('{USER_QUESTION}', userQuestion);
+    // Question replacement (top-level takes precedence over context)
+    const question = userQuestion || context?.userQuestion;
+    if (question) {
+      prompt = prompt.replace('{USER_QUESTION}', question);
     }
 
     // Comprehensive data replacement for summary/recommendations
-    const relevantData = this.formatRelevantData(data, request.type);
+    const relevantData = this.formatRelevantData(data, request.type, context?.dataTypes);
     prompt = prompt.replace('{DATA}', relevantData);
     prompt = prompt.replace('{RELEVANT_DATA}', relevantData);
     prompt = prompt.replace('{PERFORMANCE_SUMMARY}', this.generatePerformanceSummary(data));
@@ -273,6 +278,49 @@ Max 120 words, be specific and actionable.`
     if (competitors.length === 0) return '0%';
     const avg = competitors.reduce((sum, c) => sum + (c.percentDiff || 0), 0) / competitors.length;
     return `${avg.toFixed(1)}%`;
+  }
+
+  private static readonly STALE_CHECK_MS = 24 * 60 * 60 * 1000;
+
+  /**
+   * Rich competitor snapshot for prompts: named competitors ranked by how far
+   * their price sits from ours, stock split, stale checks, and monitoring spend.
+   */
+  static buildCompetitorContext(mi: Partial<AggregatedDashboardData>['marketIntelligence']) {
+    const competitors: CompetitorRecord[] = mi?.competitors || [];
+    const now = Date.now();
+    const staleChecks = competitors.filter((c) => {
+      const checked = new Date(c.lastChecked).getTime();
+      return !Number.isFinite(checked) || now - checked > this.STALE_CHECK_MS;
+    }).length;
+
+    const topByGap = [...competitors]
+      .sort((a, b) => Math.abs(b.percentDiff || 0) - Math.abs(a.percentDiff || 0))
+      .slice(0, 3)
+      .map((c) => ({
+        name: c.name,
+        price: `$${(c.price || 0).toFixed(2)}`,
+        priceGap: `${(c.percentDiff || 0) > 0 ? '+' : ''}${(c.percentDiff || 0).toFixed(1)}% vs your price`,
+        inStock: c.inStock,
+        lastChecked: c.lastChecked
+      }));
+
+    return {
+      count: competitors.length,
+      topCompetitorsByPriceGap: topByGap,
+      avgPriceGap: this.calculateAvgPriceDiff(competitors),
+      inStockCount: competitors.filter((c) => c.inStock).length,
+      outOfStockCount: competitors.filter((c) => !c.inStock).length,
+      staleChecks,
+      pendingSuggestions: mi?.suggestions || 0,
+      monitoringCosts: mi?.costs
+        ? {
+            daily: `$${mi.costs.daily.toFixed(2)}`,
+            monthly: `$${mi.costs.monthly.toFixed(2)}`,
+            budgetUsage: `${mi.costs.budgetUsage.toFixed(1)}%`
+          }
+        : undefined
+    };
   }
 
   private static estimateCompetitorValue(competitors: any[]): string {
@@ -293,10 +341,15 @@ Max 120 words, be specific and actionable.`
     return 'Older (> 2 hours)';
   }
 
-  private static formatRelevantData(data: Partial<AggregatedDashboardData>, type: PromptTemplate['type']): string {
+  private static formatRelevantData(
+    data: Partial<AggregatedDashboardData>,
+    type: PromptTemplate['type'],
+    dataTypes?: InsightDataType[]
+  ): string {
     const formatted: any = {};
+    const wants = (dataType: InsightDataType) => !dataTypes || dataTypes.includes(dataType);
 
-    if (data.revenue) {
+    if (data.revenue && wants('revenue')) {
       formatted.revenue = {
         total: `$${data.revenue.total.toLocaleString()}`,
         growth: `${(data.revenue.growth || 0).toFixed(1)}%`,
@@ -304,15 +357,16 @@ Max 120 words, be specific and actionable.`
       };
     }
 
-    if (data.products) {
+    if (data.products && wants('products')) {
       formatted.products = {
         total: data.products.total,
         lowInventory: data.products.lowInventory,
-        newProducts: data.products.newProducts
+        newProducts: data.products.newProducts,
+        topProducts: data.products.topProducts?.slice(0, 3) || []
       };
     }
 
-    if (data.orders) {
+    if (data.orders && wants('orders')) {
       formatted.orders = {
         total: data.orders.total,
         abandoned: data.orders.abandonedCarts,
@@ -320,11 +374,15 @@ Max 120 words, be specific and actionable.`
       };
     }
 
-    if (data.marketIntelligence) {
-      formatted.competition = {
-        competitors: data.marketIntelligence.competitors.length,
-        avgPriceDiff: this.calculateAvgPriceDiff(data.marketIntelligence.competitors),
-        dailyCost: `$${data.marketIntelligence.costs.daily.toFixed(2)}`
+    if (data.marketIntelligence && wants('competitors')) {
+      formatted.competition = this.buildCompetitorContext(data.marketIntelligence);
+    }
+
+    if (data.marketIntelligence && wants('costs')) {
+      formatted.monitoringCosts = {
+        daily: `$${data.marketIntelligence.costs.daily.toFixed(2)}`,
+        monthly: `$${data.marketIntelligence.costs.monthly.toFixed(2)}`,
+        budgetUsage: `${data.marketIntelligence.costs.budgetUsage.toFixed(1)}%`
       };
     }
 

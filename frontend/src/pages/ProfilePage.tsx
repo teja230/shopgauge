@@ -11,6 +11,7 @@ import {
   getPrivacyReport,
   API_BASE_URL
 } from '../api';
+import { AlertTriangle, BarChart3, CheckCircle2, Clock, FileText, Lock, Monitor, RefreshCw, Scale, Store, XCircle } from 'lucide-react';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
@@ -212,7 +213,7 @@ export default function ProfilePage() {
     }
 
     if (reauth === 'success') {
-      notifications.showSuccess('🔐 Re-authentication successful!', {
+      notifications.showSuccess('Re-authentication successful.', {
         persistent: true,
         category: 'Authentication',
         action: {
@@ -420,7 +421,7 @@ export default function ProfilePage() {
     setConfirmDialog({
       isOpen: true,
       title: 'Force Disconnect',
-      message: '🚨 FORCE DISCONNECT - Use only if normal disconnect fails\n\nThis will:\n• Clear ALL authentication tokens and cookies\n• Force logout from all sessions\n• Remove all cached data\n• Require fresh authentication\n\nUse this only if you\'re experiencing authentication issues.\n\nProceed with force disconnect?',
+      message: 'FORCE DISCONNECT - Use only if normal disconnect fails\n\nThis will:\n• Clear ALL authentication tokens and cookies\n• Force logout from all sessions\n• Remove all cached data\n• Require fresh authentication\n\nUse this only if you\'re experiencing authentication issues.\n\nProceed with force disconnect?',
       type: 'danger',
       size: 'lg',
       onConfirm: async () => {
@@ -534,7 +535,7 @@ export default function ProfilePage() {
     setConfirmDialog({
       isOpen: true,
       title: 'Permanent Data Deletion',
-      message: '⚠️ PERMANENT DATA DELETION\n\nThis will permanently delete ALL your data from our systems including:\n• Order history and analytics\n• Revenue data and metrics\n• Store configuration and settings\n• Audit logs and access history\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to proceed?',
+      message: 'PERMANENT DATA DELETION\n\nThis will permanently delete ALL your data from our systems including:\n• Order history and analytics\n• Revenue data and metrics\n• Store configuration and settings\n• Audit logs and access history\n\nThis action CANNOT be undone.\n\nAre you absolutely sure you want to proceed?',
       type: 'danger',
       size: 'lg',
       onConfirm: () => {
@@ -545,7 +546,7 @@ export default function ProfilePage() {
           setConfirmDialog({
             isOpen: true,
             title: 'Final Confirmation',
-            message: `🚨 FINAL CONFIRMATION\n\nYou are about to PERMANENTLY DELETE all your data.\n\nStore domain: ${shop}\n\nThis is your LAST CHANCE to cancel.\n\nProceed with permanent deletion?`,
+            message: `FINAL CONFIRMATION\n\nYou are about to PERMANENTLY DELETE all your data.\n\nStore domain: ${shop}\n\nThis is your LAST CHANCE to cancel.\n\nProceed with permanent deletion?`,
             type: 'danger',
             size: 'lg',
             onConfirm: async () => {
@@ -760,9 +761,9 @@ export default function ProfilePage() {
 
   const getConnectionStatusIcon = () => {
     switch (connectionStatus) {
-      case 'connected': return '✅';
-      case 'error': return '❌';
-      default: return '⏳';
+      case 'connected': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case 'error': return <XCircle className="h-5 w-5 text-red-600" />;
+      default: return <Clock className="h-5 w-5 text-yellow-600" />;
     }
   };
 
@@ -786,17 +787,19 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#f6f7f9] px-4 py-6 sm:px-6">
       <DemoModeBanner />
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile & Settings</h1>
-        <p className="text-gray-600">Manage your store connection, data privacy, and account settings</p>
+      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white">
+        <p className="text-sm font-black uppercase text-[#9db4ff]">Account</p>
+        <h1 className="mt-1 text-2xl font-black leading-tight text-white">Profile & Settings</h1>
+        <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#c3ccd5]">Manage your store connection, data privacy, and account settings.</p>
       </div>
-      
+
       {/* Store Information - Enhanced */}
-      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <span className="mr-3 text-2xl">🏪</span>
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
+          <Store className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Store Information
         </h2>
         
@@ -810,7 +813,7 @@ export default function ProfilePage() {
                     <span className="text-gray-900 font-mono text-sm">{shop}</span>
                   </div>
                 <div className={`flex items-center ${getConnectionStatusColor()}`}>
-                  <span className="text-lg mr-2">{getConnectionStatusIcon()}</span>
+                  <span className="mr-2 inline-flex">{getConnectionStatusIcon()}</span>
                   <span className="text-sm font-medium capitalize">{connectionStatus}</span>
           </div>
         </div>
@@ -852,7 +855,8 @@ export default function ProfilePage() {
                       </>
                     ) : (
                       <>
-                        🔄 Update Stats
+                        <RefreshCw className="h-3 w-3" />
+                        Update Stats
                       </>
                     )}
                   </button>
@@ -868,7 +872,10 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-2 space-y-1">
-                  <div className="text-center">📊 Data reflects the last 60 days of activity</div>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    Data reflects the last 60 days of activity
+                  </div>
                   {storeStatsLastUpdated && (
                     <div className="text-center">
                       Last updated: {storeStatsLastUpdated.toLocaleString('en-US', {
@@ -979,9 +986,9 @@ export default function ProfilePage() {
       </div>
 
       {/* Store Management Section - Enhanced */}
-      <div className="bg-white shadow-sm rounded-lg p-6 mb-8 border border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <span className="mr-3 text-2xl">🔄</span>
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
+          <RefreshCw className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Store Management
         </h2>
         <div className="space-y-6">
@@ -1010,7 +1017,7 @@ export default function ProfilePage() {
           {showStoreSwitcher && (
             <div className="border-t pt-6 space-y-6">
               {/* Current Store - Enhanced */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-200">
+              <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-semibold text-blue-900 mb-1">Current Store</h4>
@@ -1020,7 +1027,7 @@ export default function ProfilePage() {
                     </p>
                   </div>
                   <div className="flex items-center text-blue-600">
-                    <span className="text-2xl mr-2">🏪</span>
+                    <Store className="w-6 h-6 mr-2" />
                     <div className="text-right">
                       <div className="flex items-center">
                         <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
@@ -1038,21 +1045,21 @@ export default function ProfilePage() {
               
               {/* Past Stores - New Section */}
               {pastStores.length > 0 && (
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-5 rounded-xl border border-purple-200">
-                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center">
+                <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+                  <h4 className="font-black text-[#101820] mb-3 flex items-center">
                     <span className="mr-2">🕒</span>
                     Recent Stores
                   </h4>
                   <div className="space-y-2">
                     {pastStores.slice(0, 3).map((pastStore, index) => (
-                      <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-purple-200">
+                      <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
                         <div className="flex items-center">
-                          <div className="w-2 h-2 bg-purple-400 rounded-full mr-3"></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
                           <span className="text-sm font-mono text-gray-700">{pastStore}</span>
                         </div>
                         <button
                           onClick={() => handleReconnectPastStore(pastStore)}
-                          className="inline-flex items-center px-3 py-1 border border-purple-300 text-xs font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-blue-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                         >
                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1066,8 +1073,8 @@ export default function ProfilePage() {
               )}
 
               {/* Connect New Store - Enhanced */}
-              <div className="bg-gray-50 p-5 rounded-xl">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+                <h4 className="font-black text-[#101820] mb-3 flex items-center">
                   <span className="mr-2">➕</span>
                   Connect New Store
                 </h4>
@@ -1117,7 +1124,7 @@ export default function ProfilePage() {
                         <p className="text-blue-700">• Authorize via Shopify (secure OAuth)</p>
                         <p className="text-blue-700">• Automatically redirected to Dashboard</p>
                         <p className="text-blue-600 mt-2 text-xs italic">
-                          ✨ Same account stores connect instantly with success notification
+                          Same-account stores connect instantly with success notification.
                         </p>
                       </div>
                     </div>
@@ -1126,8 +1133,8 @@ export default function ProfilePage() {
               </div>
               
               {/* Quick Actions - Enhanced */}
-              <div className="bg-gray-50 p-5 rounded-xl">
-                <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+              <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+                <h4 className="font-black text-[#101820] mb-4 flex items-center">
                   <span className="mr-2">⚡</span>
                   Quick Actions
                 </h4>
@@ -1176,21 +1183,21 @@ export default function ProfilePage() {
       </div>
 
       {/* Privacy & Data Rights Section - Enhanced */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm rounded-lg p-6 mb-8 border border-blue-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <span className="mr-3 text-2xl">🔒</span>
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-4 flex items-center">
+          <Lock className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Privacy & Data Rights
         </h2>
-        <p className="text-sm text-gray-700 mb-6">
-          StoreSignt respects your privacy and provides full transparency about data processing. 
+        <p className="text-sm text-[#5f6b76] mb-6">
+          ShopGauge respects your privacy and provides full transparency about data processing. 
           Exercise your data rights using the controls below. All actions are GDPR/CCPA compliant.
         </p>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Data Access & Export */}
-          <div className="bg-white p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-              <span className="mr-2">📊</span>
+          <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
+              <FileText className="mr-2 h-5 w-5 text-blue-600" />
               Data Access & Export
             </h3>
           <div className="space-y-3">
@@ -1230,9 +1237,9 @@ export default function ProfilePage() {
           </div>
           
           {/* Legal & Compliance */}
-          <div className="bg-white p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-              <span className="mr-2">⚖️</span>
+          <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
+              <Scale className="mr-2 h-5 w-5 text-gray-600" />
               Legal & Compliance
             </h3>
           <div className="space-y-3">
@@ -1273,9 +1280,9 @@ export default function ProfilePage() {
         </div>
         
         {/* Compliance Info */}
-        <div className="mt-6 bg-white p-4 rounded-xl shadow-sm">
-          <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-            <span className="mr-2">✅</span>
+        <div className="mt-6 bg-[#f9fafb] p-4 rounded-lg border border-[#e4e7eb]">
+          <h4 className="font-black text-[#101820] mb-3 flex items-center">
+            <CheckCircle2 className="mr-2 h-5 w-5 text-green-600" />
             Your Data Rights & Our Commitments
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600">
@@ -1303,12 +1310,12 @@ export default function ProfilePage() {
 
       {/* Privacy Report Modal - Enhanced */}
       {showPrivacyReport && privacyReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full z-[1300] flex items-center justify-center p-4">
           <div className="relative mx-auto border w-full max-w-4xl shadow-2xl rounded-xl bg-white max-h-[90vh] overflow-hidden">
             <div className="sticky top-0 bg-white border-b px-6 py-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-gray-900 flex items-center">
-                  <span className="mr-3 text-2xl">📊</span>
+                <h3 className="text-xl font-black text-[#101820] flex items-center">
+                  <BarChart3 className="w-5 h-5 mr-3 text-blue-600" />
                   Privacy Compliance Report
                 </h3>
                 <button
@@ -1325,7 +1332,7 @@ export default function ProfilePage() {
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-6">
                 {/* Compliance Status - Enhanced */}
-                <div className="relative bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-6 rounded-2xl border-2 border-green-200 shadow-lg overflow-hidden">
+                <div className="relative bg-green-50 p-6 rounded-xl border border-green-200 overflow-hidden">
                   {/* Decorative background pattern */}
                   <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
                     <svg viewBox="0 0 100 100" className="w-full h-full text-green-600">
@@ -1396,7 +1403,7 @@ export default function ProfilePage() {
                 
                 {/* Data Processing Practices */}
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+                  <h4 className="font-black text-[#101820] mb-4 flex items-center">
                     <span className="mr-2">🛡️</span>
                     Data Processing Practices
                   </h4>
@@ -1424,9 +1431,9 @@ export default function ProfilePage() {
                 </div>
                 
                 {/* Access Statistics */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                   <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-                    <span className="mr-2">📈</span>
+                    <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
                     Data Access Activity Summary
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1441,9 +1448,9 @@ export default function ProfilePage() {
                       <div className="text-xs text-indigo-400 mt-1">Weekly activity</div>
               </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-purple-600">{privacyReport.recent_audit_activity || 0}</div>
-                      <div className="text-sm text-purple-500">30-Day Total</div>
-                      <div className="text-xs text-purple-400 mt-1">Monthly activity</div>
+                      <div className="text-3xl font-bold text-blue-600">{privacyReport.recent_audit_activity || 0}</div>
+                      <div className="text-sm text-blue-500">30-Day Total</div>
+                      <div className="text-xs text-blue-400 mt-1">Monthly activity</div>
             </div>
                     <div className="text-center">
                       <div className="text-3xl font-bold text-green-600">100%</div>
@@ -1475,7 +1482,7 @@ export default function ProfilePage() {
                 
                 {/* Additional Privacy Info */}
                 <div className="bg-gray-50 p-4 rounded-xl">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                  <h4 className="font-black text-[#101820] mb-3 flex items-center">
                     <span className="mr-2">ℹ️</span>
                     Additional Information
                   </h4>
@@ -1514,20 +1521,20 @@ export default function ProfilePage() {
       )}
 
       {/* Session Management Section */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 shadow-sm rounded-lg p-6 mb-8 border border-purple-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-          <span className="mr-3 text-2xl">🖥️</span>
+      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-4 flex items-center">
+          <Monitor className="mr-3 h-6 w-6 text-[#2f5bea]" />
           Active Sessions
         </h2>
-        <p className="text-sm text-gray-700 mb-6">
+        <p className="text-sm text-[#5f6b76] mb-6">
           Manage your active sessions across different devices and browsers. You can have up to 5 active sessions at once.
         </p>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Session Status */}
-          <div className="bg-white p-4 lg:p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-              <span className="mr-2">📊</span>
+          <div className="bg-[#f9fafb] p-4 lg:p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
+              <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
               Session Status
             </h3>
             <div className="space-y-4">
@@ -1546,7 +1553,7 @@ export default function ProfilePage() {
                           ? 'bg-red-100 text-red-800' 
                           : 'bg-green-100 text-green-800'
                       }`}>
-                        {sessionLimitData.limitReached ? '⚠️ Limit Reached' : '✅ Available'}
+                        {sessionLimitData.limitReached ? 'Limit Reached' : 'Available'}
                       </div>
                     </div>
                   </div>
@@ -1565,7 +1572,7 @@ export default function ProfilePage() {
                       return (
                         <div key={session.sessionId} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                           session.isCurrentSession 
-                            ? 'bg-gradient-to-r from-green-50 to-blue-50 border-green-300 shadow-md' 
+                            ? 'bg-green-50 border-green-300 shadow-sm' 
                             : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                         }`}>
                           <div className="flex items-center space-x-3 flex-1">
@@ -1631,8 +1638,8 @@ export default function ProfilePage() {
           </div>
           
           {/* Session Actions */}
-          <div className="bg-white p-4 lg:p-5 rounded-xl shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <div className="bg-[#f9fafb] p-4 lg:p-5 rounded-lg border border-[#e4e7eb]">
+            <h3 className="font-black text-[#101820] mb-3 flex items-center">
               <span className="mr-2">🔧</span>
               Session Management
             </h3>
@@ -1674,7 +1681,7 @@ export default function ProfilePage() {
               <button
                 onClick={openSessionDialog}
                 disabled={(!sessionLimitData || sessionLimitData.sessions.length === 0) && !sessionLimitError}
-                className="w-full inline-flex items-center justify-center px-4 py-3 border border-purple-300 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition-colors"
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-blue-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -1709,9 +1716,9 @@ export default function ProfilePage() {
       />
 
       {/* Danger Zone - Enhanced with Better Explanations */}
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-red-200">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-          <span className="mr-3 text-2xl">⚠️</span>
+      <div className="rounded-lg border border-red-200 bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+        <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
+          <AlertTriangle className="mr-3 h-6 w-6 text-red-600" />
           Danger Zone
         </h2>
         <div className="space-y-6">
@@ -1721,7 +1728,7 @@ export default function ProfilePage() {
               <div className="flex-1">
                 <h3 className="font-semibold text-red-900 mb-2">Disconnect Store</h3>
                 <p className="text-sm text-red-700 mb-3">
-                  Safely disconnect your store from StoreSignt. This will log you out and require re-authentication 
+                  Safely disconnect your store from ShopGauge. This will log you out and require re-authentication 
                   to access your data again. Your data will be preserved.
                 </p>
                 <div className="text-xs text-red-600">
@@ -1751,7 +1758,7 @@ export default function ProfilePage() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="font-semibold text-yellow-900 mb-2 flex items-center">
-                  <span className="mr-2">🚨</span>
+                  <AlertTriangle className="mr-2 h-5 w-5 text-yellow-700" />
                   Force Disconnect (Troubleshooting)
                 </h3>
                 <p className="text-sm text-yellow-800 mb-3">
@@ -1801,6 +1808,7 @@ export default function ProfilePage() {
         </div>
 
 
+      </div>
       </div>
       </div>
 

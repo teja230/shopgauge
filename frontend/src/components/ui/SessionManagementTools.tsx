@@ -11,15 +11,15 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  Security as SecurityIcon,
-  Clear as ClearIcon,
-  RestartAlt as RestartAltIcon,
-  MonitorHeart as MonitorHeartIcon,
+  ShieldCheck as SecurityIcon,
+  X as ClearIcon,
+  RotateCcw as RestartAltIcon,
+  Activity as MonitorHeartIcon,
   Info as InfoIcon,
-  Refresh as RefreshIcon,
+  RefreshCw as RefreshIcon,
   Settings as SettingsIcon,
   Search as SearchIcon,
-} from '@mui/icons-material';
+} from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 
 interface SessionSyncStatus {

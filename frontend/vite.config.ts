@@ -62,7 +62,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          ui: ['@mui/material', '@mui/icons-material'],
+          ui: ['@mui/material'],
           utils: ['axios', 'date-fns'],
         },
         // Add cache busting with timestamp

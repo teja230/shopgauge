@@ -1,6 +1,6 @@
 import React from 'react';
 import type { TooltipRenderProps } from 'react-joyride';
-import { AcademicCapIcon } from '@heroicons/react/24/outline';
+import { GraduationCap } from 'lucide-react';
 
 interface ThemedJoyrideTooltipProps extends TooltipRenderProps {
   icon?: React.ReactNode;
@@ -18,7 +18,7 @@ const ThemedJoyrideTooltip: React.FC<ThemedJoyrideTooltipProps> = ({
   tooltipProps,
   isLastStep,
   icon,
-  accentColor = '#2563eb',
+  accentColor = '#2f5bea',
 }) => (
   <div
     {...tooltipProps}
@@ -33,7 +33,7 @@ const ThemedJoyrideTooltip: React.FC<ThemedJoyrideTooltipProps> = ({
   >
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
-        {icon || <AcademicCapIcon className="h-8 w-8" style={{ color: accentColor }} />}
+        {icon || <GraduationCap className="h-8 w-8" style={{ color: accentColor }} />}
         <span className="text-lg font-semibold" style={{ color: accentColor }}>{step.title}</span>
       </div>
       <button {...closeProps} className="text-gray-400 hover:text-gray-600 text-xl font-bold focus:outline-none">×</button>

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ServiceStatusProvider, useServiceStatus } from './context/ServiceStatusContext';
+import { ServiceStatusProvider } from './context/ServiceStatusContext';
 import { NotificationSettingsProvider } from './context/NotificationSettingsContext';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
@@ -14,6 +14,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ServiceUnavailablePage from './pages/ServiceUnavailablePage';
 import NavBar from './components/NavBar';
+import Footer from './components/ui/Footer';
 import PrivacyBanner from './components/ui/PrivacyBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ThemeProvider } from '@mui/material/styles';
@@ -28,22 +29,23 @@ import useSessionLimit from './hooks/useSessionLimit';
 import SessionExtensionPrompt from './components/ui/SessionExtensionPrompt';
 import { useNotifications } from './hooks/useNotifications';
 import DemoPerformanceConsole from './components/dev/DemoPerformanceConsole';
+import { isAppShellPath } from './utils/routeChrome';
 
 // Simple Protected Route for shop authentication
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, authLoading, hasInitiallyLoaded, isDemoMode: contextDemoMode } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // Check if this is a demo mode request from multiple sources
   const urlParams = new URLSearchParams(location.search);
   const isDemoInUrl = urlParams.get('demo') === 'true';
   const isDemoInLocalStorage = localStorage.getItem('demo_mode_active') === 'true';
   const isDemoMode = isDemoInUrl || isDemoInLocalStorage || contextDemoMode;
-  
-  debugLog.debug('ProtectedRoute: Auth status', { 
-    isAuthenticated, 
-    authLoading, 
+
+  debugLog.debug('ProtectedRoute: Auth status', {
+    isAuthenticated,
+    authLoading,
     hasInitiallyLoaded,
     path: location.pathname,
     isDemoInUrl,
@@ -51,7 +53,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     contextDemoMode,
     isDemoMode
   }, 'ProtectedRoute');
-  
+
   // Handle redirect for unauthenticated users (but allow demo mode to proceed)
   useEffect(() => {
     if (!isAuthenticated && !authLoading && hasInitiallyLoaded && !isDemoMode) {
@@ -63,23 +65,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       navigate(redirectUrl, { replace: true });
     }
   }, [isAuthenticated, authLoading, hasInitiallyLoaded, isDemoMode, navigate, location.pathname, location.search, location.hash]);
-  
+
   // For demo mode, immediately render without waiting for auth checks
   if (isDemoMode) {
     debugLog.debug('ProtectedRoute: Demo mode detected, rendering immediately', { isDemoMode });
     return <>{children}</>;
   }
-  
+
   // Show loading state while auth is being checked (non-demo mode)
   if (authLoading || !hasInitiallyLoaded) {
     return <IntelligentLoadingScreen fastMode={true} message="Authenticating..." />;
   }
-  
+
   // Show loading state for redirect (non-demo mode)
   if (!isAuthenticated) {
     return <IntelligentLoadingScreen fastMode={true} message="Redirecting..." />;
   }
-  
+
   // Render protected content
   return <>{children}</>;
 };
@@ -87,7 +89,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Admin Protected Route - Independent of shop authentication
 const AdminProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   debugLog.debug('AdminProtectedRoute: Rendering AdminPage (admin handles own auth)', {}, 'AdminProtectedRoute');
-  
+
   // Always render AdminPage - it has its own password dialog for authentication
   // This allows admin access independent of shop authentication
   return <>{children}</>;
@@ -96,10 +98,10 @@ const AdminProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children
 // Component to clear errors on route changes
 const RouteErrorCleaner: React.FC = () => {
   const location = useLocation();
-  
+
   useEffect(() => {
     debugLog.info('RouteErrorCleaner: Route changed', { pathname: location.pathname }, 'RouteErrorCleaner');
-    
+
     // Clear component errors on navigation
     window.dispatchEvent(new CustomEvent('clearComponentErrors'));
   }, [location.pathname]);
@@ -108,11 +110,11 @@ const RouteErrorCleaner: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, shop } = useAuth();
-  const { handleServiceError } = useServiceStatus();
-    const { addNotification } = useNotifications();
+  const location = useLocation();
+  const { isAuthenticated, authLoading, loading, hasInitiallyLoaded, isDemoMode: contextDemoMode } = useAuth();
+  const { addNotification } = useNotifications();
   const [showDebugPanel, setShowDebugPanel] = React.useState(false);
-  
+
   // Session limit management
   const {
     sessionLimitData,
@@ -123,7 +125,7 @@ const AppContent: React.FC = () => {
     deleteSessions,
     closeSessionDialog,
   } = useSessionLimit();
-  
+
   // Track session initialization to prevent repeated calls
   const [sessionInitialized, setSessionInitialized] = useState(false);
   const [showSessionExtensionPrompt, setShowSessionExtensionPrompt] = useState(false);
@@ -231,7 +233,7 @@ const AppContent: React.FC = () => {
     };
 
     const handleSessionInvalidated = (event: CustomEvent) => {
-      debugLog.warn('Session invalidated event received', { 
+      debugLog.warn('Session invalidated event received', {
         detail: event.detail,
         timestamp: new Date().toISOString()
       }, 'App');
@@ -250,7 +252,7 @@ const AppContent: React.FC = () => {
       // Check if we were redirected due to session expiration
       const urlParams = new URLSearchParams(window.location.search);
       const sessionExpired = urlParams.get('sessionExpired');
-      
+
       if (sessionExpired === 'true') {
         addNotification('Your session has expired due to inactivity. Please login again.', 'warning', {
           duration: 8000,
@@ -260,7 +262,7 @@ const AppContent: React.FC = () => {
             onClick: () => window.location.href = '/'
           }
         });
-        
+
         // Clean up the URL parameter
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('sessionExpired');
@@ -275,7 +277,7 @@ const AppContent: React.FC = () => {
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
-      
+
       // Check for session expiration header
       const sessionExpired = response.headers.get('X-Session-Expired');
       if (sessionExpired === 'true') {
@@ -288,7 +290,7 @@ const AppContent: React.FC = () => {
           }
         });
       }
-      
+
       return response;
     };
 
@@ -310,7 +312,7 @@ const AppContent: React.FC = () => {
       window.removeEventListener('sessionRefreshNeeded', handleSessionRefreshNeeded as any);
       window.removeEventListener('sessionError', handleSessionError as any);
       window.removeEventListener('sessionInvalidated', handleSessionInvalidated as any);
-      
+
       // Restore original fetch
       window.fetch = originalFetch;
     };
@@ -320,7 +322,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && hasInitiallyLoaded && !authLoading && !sessionInitialized) {
       debugLog.info('🔧 Initializing session management for authenticated user', {}, 'SessionManager');
-      
+
       // Start heartbeat if not already active
       if (!sessionManager.isHeartbeatActive()) {
         sessionManager.startHeartbeat();
@@ -338,9 +340,9 @@ const AppContent: React.FC = () => {
               // Log session status
         const sessionStatus = getSessionStatus();
         debugLog.debug('📊 Session status', sessionStatus, 'SessionManager');
-      
+
       setSessionInitialized(true);
-      
+
     } else if (!isAuthenticated && sessionManager.isHeartbeatActive()) {
       debugLog.info('🛑 User not authenticated - stopping session heartbeat', {}, 'SessionManager');
       sessionManager.stopHeartbeat();
@@ -351,11 +353,18 @@ const AppContent: React.FC = () => {
 
   // Show global loading state during initial load - always show something to prevent blank pages
   // Skip loading screen for admin pages - they handle their own authentication
-  const currentPath = window.location.pathname;
+  const currentPath = location.pathname;
+  const shellHasDemoMode =
+    contextDemoMode ||
+    localStorage.getItem('demo_mode_active') === 'true' ||
+    new URLSearchParams(location.search).get('demo') === 'true';
+  const showAppShell = isAppShellPath(currentPath) && (isAuthenticated || shellHasDemoMode);
+  const debugToolsEnabled =
+    import.meta.env.DEV && new URLSearchParams(location.search).get('debug') === 'true';
   if ((loading || (authLoading && !hasInitiallyLoaded)) && !currentPath.startsWith('/admin')) {
     return <IntelligentLoadingScreen fastMode={true} message="Loading ShopGauge..." />;
   }
-  
+
   const handleSessionDeleted = (sessionId: string) => {
     deleteSession(sessionId);
   };
@@ -365,17 +374,19 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col animate-fadeIn">
+    <div className={`${showAppShell ? 'lg:pl-64' : ''} min-h-screen bg-[#f6f7f9] flex flex-col animate-fadeIn`}>
       <CommandPalette />
       <RouteErrorCleaner />
-      <DemoPerformanceConsole />
-            <NavBar />
+      {debugToolsEnabled && <DemoPerformanceConsole />}
+      <NavBar />
       <PrivacyBanner />
-      <DebugPanel 
-        isVisible={showDebugPanel} 
-        onToggleVisibility={setShowDebugPanel} 
-      />
-      
+      {debugToolsEnabled && (
+        <DebugPanel
+          isVisible={showDebugPanel}
+          onToggleVisibility={setShowDebugPanel}
+        />
+      )}
+
       {/* Session Limit Management Dialog */}
       <SessionLimitDialog
         open={showSessionDialog}
@@ -388,7 +399,7 @@ const AppContent: React.FC = () => {
         maxSessions={sessionLimitData?.maxSessions || 5}
         limitReached={sessionLimitData?.limitReached || false}
       />
-      
+
       {/* Session Extension Prompt */}
       {showSessionExtensionPrompt && sessionExtensionData && (
         <SessionExtensionPrompt
@@ -399,8 +410,9 @@ const AppContent: React.FC = () => {
           onLogout={handleSessionLogout}
         />
       )}
-      
+
       <main className="flex-1">
+        <div key={location.pathname} className="route-transition">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
@@ -412,7 +424,9 @@ const AppContent: React.FC = () => {
           <Route path="/service-unavailable" element={<ServiceUnavailablePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </div>
       </main>
+      <Footer />
     </div>
   );
 };
@@ -438,26 +452,29 @@ const App: React.FC = () => {
           <NotificationSettingsProvider>
             <ServiceStatusProvider>
               <AuthProvider>
-                <Toaster 
+                <Toaster
                   position="top-center"
                   toastOptions={{
                     duration: 4000,
                     style: {
-                      borderRadius: '8px',
+                      borderRadius: '10px',
                       fontWeight: '500',
                       zIndex: 9999,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                      background: '#ffffff',
+                      color: '#111827',
+                      border: '1px solid #e5e7eb',
+                      boxShadow: '0 10px 30px -6px rgb(15 23 42 / 0.15)',
                     },
                     success: {
-                      style: {
-                        background: '#10b981',
-                        color: '#ffffff',
+                      iconTheme: {
+                        primary: '#16a34a',
+                        secondary: '#ffffff',
                       },
                     },
                     error: {
-                      style: {
-                        background: '#ef4444',
-                        color: '#ffffff',
+                      iconTheme: {
+                        primary: '#dc2626',
+                        secondary: '#ffffff',
                       },
                     },
                   }}

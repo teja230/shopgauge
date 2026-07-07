@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, ChartBarIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { X as XMarkIcon, BarChart3 as ChartBarIcon, Clock as ClockIcon, DollarSign as CurrencyDollarIcon } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -213,7 +213,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[1300] flex items-center justify-center">
       <div className="bg-white rounded-xl p-6 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">

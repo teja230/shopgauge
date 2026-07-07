@@ -34,24 +34,24 @@ import {
 } from '@mui/material';
 import {
   Archive as ArchiveIcon,
-  OpenInNew as OpenInNewIcon,
-  ExpandMore as ExpandMoreIcon,
-  AttachMoney as AttachMoneyIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
+  ExternalLink as OpenInNewIcon,
+  ChevronDown as ExpandMoreIcon,
+  DollarSign as AttachMoneyIcon,
+  CheckCircle2 as CheckCircleIcon,
+  XCircle as CancelIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  Group as GroupIcon,
-  Schedule as ScheduleIcon,
-  Launch as LaunchIcon,
+  Users as GroupIcon,
+  Clock as ScheduleIcon,
+  ExternalLink as LaunchIcon,
   Link as LinkIcon,
-  BarChart as BarChartIcon,
+  BarChart3 as BarChartIcon,
   History as HistoryIcon,
-  Refresh as RefreshIcon,
-  VisibilityOff as VisibilityOffIcon,
-  MoreVert as MoreVertIcon,
-  ContentCopy as ContentCopyIcon,
-} from '@mui/icons-material';
+  RefreshCw as RefreshIcon,
+  EyeOff as VisibilityOffIcon,
+  MoreVertical as MoreVertIcon,
+  Copy as ContentCopyIcon,
+} from 'lucide-react';
 import StoreLogo from './StoreLogo';
 import { debugLog } from './DebugPanel';
 
@@ -101,28 +101,28 @@ const RowOverflowMenu: React.FC<{
   return (
     <>
       <Tooltip title="More actions">
-        <IconButton size="small" aria-label="More actions" onClick={handleOpen} className="row-more-actions-button desktop-row-more-actions-button">
-          <MoreVertIcon fontSize="small" />
+        <IconButton size="small" aria-label="More actions" onClick={handleOpen} className="row-more-actions-button desktop-row-more-actions-button row-quick-action">
+          <MoreVertIcon size={16} />
         </IconButton>
       </Tooltip>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
         <MenuItem onClick={() => { onOpenSite(); handleClose(); }}>
           <ListItemIcon>
-            <LaunchIcon fontSize="small" />
+            <LaunchIcon size={16} />
           </ListItemIcon>
           <ListItemText primary="Visit site" />
         </MenuItem>
         {onLinkProduct && (
           <MenuItem onClick={() => { onLinkProduct(competitor); handleClose(); }}>
             <ListItemIcon>
-              <LinkIcon fontSize="small" />
+              <LinkIcon size={16} />
             </ListItemIcon>
             <ListItemText primary={competitor.shopifyProductId ? 'Change product link' : 'Link to product'} />
           </MenuItem>
         )}
         <MenuItem onClick={handleCopy}>
           <ListItemIcon>
-            <ContentCopyIcon fontSize="small" />
+            <ContentCopyIcon size={16} />
           </ListItemIcon>
           <ListItemText primary="Copy URL" />
         </MenuItem>
@@ -298,22 +298,22 @@ const MetricChip = styled(Chip)(({ theme }) => ({
 
 // Enhanced desktop table styling
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
-  borderRadius: 16,
-  boxShadow: theme.shadows[2],
+  borderRadius: 8,
+  boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
   overflow: 'hidden',
   border: `1px solid ${theme.palette.divider}`,
   backgroundColor: theme.palette.background.paper,
 }));
 
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
-  backgroundColor: theme.palette.grey[50],
+  backgroundColor: '#f9fafb',
   '& .MuiTableCell-head': {
-    fontWeight: 600,
-    color: theme.palette.text.primary,
-    borderBottom: `2px solid ${theme.palette.divider}`,
-    fontSize: '0.875rem',
+    fontWeight: 800,
+    color: '#5f6b76',
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    fontSize: '0.75rem',
     textTransform: 'uppercase',
-    letterSpacing: '0.05em',
+    letterSpacing: '0.08em',
     padding: theme.spacing(2),
     [theme.breakpoints.down('lg')]: {
       padding: theme.spacing(1.5),
@@ -323,9 +323,18 @@ const StyledTableHead = styled(TableHead)(({ theme }) => ({
 }));
 
 const StyledTableRow = styled(TableRow)<{ $highlighted?: boolean; $highlightColor?: 'success' | 'warning' }>(({ theme, $highlighted, $highlightColor }) => ({
-  transition: 'background-color 0.2s ease',
+  position: 'relative',
+  transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+  '& .row-quick-action': {
+    transition: 'background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, opacity 0.2s ease',
+  },
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: 'rgba(47, 91, 234, 0.045)',
+    boxShadow: 'inset 3px 0 0 #2f5bea',
+    '& .row-quick-action': {
+      backgroundColor: '#ffffff',
+      transform: 'translateY(-1px)',
+    },
   },
   '&:last-child .MuiTableCell-root': {
     borderBottom: 0,
@@ -351,11 +360,55 @@ const StyledTableRow = styled(TableRow)<{ $highlighted?: boolean; $highlightColo
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontSize: '0.875rem',
   fontWeight: 500,
+  borderBottomColor: '#edf0f3',
+  fontFeatureSettings: '"tnum"',
   [theme.breakpoints.down('lg')]: {
     fontSize: '0.8125rem',
     padding: theme.spacing(1.5),
   },
 }));
+
+const StockStatusChip: React.FC<{ inStock: boolean; size?: 'small' | 'medium' }> = ({ inStock, size = 'small' }) => {
+  const color = inStock ? '#08734c' : '#b42318';
+  const bg = inStock ? 'rgba(21, 184, 122, 0.10)' : 'rgba(244, 63, 94, 0.10)';
+  const border = inStock ? 'rgba(21, 184, 122, 0.22)' : 'rgba(244, 63, 94, 0.22)';
+
+  return (
+    <Chip
+      label={getStatusLabel(inStock)}
+      size={size}
+      variant="outlined"
+      icon={
+        <Box
+          component="span"
+          sx={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            bgcolor: color,
+            boxShadow: `0 0 0 4px ${inStock ? 'rgba(21, 184, 122, 0.13)' : 'rgba(244, 63, 94, 0.13)'}`,
+          }}
+        />
+      }
+      sx={{
+        height: size === 'small' ? 26 : 30,
+        borderColor: border,
+        bgcolor: bg,
+        color,
+        fontWeight: 800,
+        fontSize: size === 'small' ? '0.72rem' : '0.78rem',
+        '& .MuiChip-label': {
+          px: 1.25,
+          fontFeatureSettings: '"tnum"',
+        },
+        '& .MuiChip-icon': {
+          ml: 1,
+          mr: -0.25,
+        },
+      }}
+    />
+  );
+};
 
 const ActionButtonGroup = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -457,9 +510,6 @@ const CompetitorSkeleton: React.FC = () => {
 };
 
 // Helper functions
-const getStatusColor = (inStock: boolean): 'success' | 'error' => 
-  inStock ? 'success' : 'error';
-
 const getStatusLabel = (inStock: boolean): string => 
   inStock ? 'In Stock' : 'Out of Stock';
 
@@ -470,8 +520,8 @@ const getPriceChangeColor = (percentDiff: number): 'success' | 'error' | 'defaul
 };
 
 const getPriceChangeIcon = (percentDiff: number): React.ReactElement | undefined => {
-  if (percentDiff > 0) return <TrendingUpIcon fontSize="small" />;
-  if (percentDiff < 0) return <TrendingDownIcon fontSize="small" />;
+  if (percentDiff > 0) return <TrendingUpIcon size={16} />;
+  if (percentDiff < 0) return <TrendingDownIcon size={16} />;
   return undefined;
 };
 
@@ -731,7 +781,7 @@ const MobileCompetitorCard: React.FC<{
                  },
                }}
              >
-               <VisibilityOffIcon fontSize="small" />
+               <VisibilityOffIcon size={16} />
              </IconButton>
            </Tooltip>
                    ) : competitor.showingOldPrice ? (
@@ -754,7 +804,7 @@ const MobileCompetitorCard: React.FC<{
                  justifyContent: 'center',
                }}
              >
-               <HistoryIcon sx={{ fontSize: '1rem' }} />
+               <HistoryIcon size={16} />
                {formatPrice(competitor.price)}
              </Box>
            </Tooltip>
@@ -767,12 +817,7 @@ const MobileCompetitorCard: React.FC<{
             />
           )}
           
-          <MetricChip
-            label={getStatusLabel(competitor.inStock)}
-            color={getStatusColor(competitor.inStock)}
-            variant="outlined"
-            icon={competitor.inStock ? <CheckCircleIcon /> : <CancelIcon />}
-          />
+          <StockStatusChip inStock={competitor.inStock} />
           
           {percentChangeText && (
             <MetricChip
@@ -842,7 +887,7 @@ const MobileCompetitorCard: React.FC<{
                 Last Checked
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                <ScheduleIcon fontSize="small" color="action" />
+                <ScheduleIcon size={16} />
                 <Typography variant="body2" color="text.secondary">
                   {formatLastChecked(competitor.lastChecked)}
                 </Typography>
@@ -858,7 +903,7 @@ const MobileCompetitorCard: React.FC<{
                   disabled={isRefreshing}
                   color="primary"
                   aria-label="Refresh price"
-                  className="row-refresh-button"
+                  className="row-refresh-button row-quick-action"
                 >
                   {isRefreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
                 </IconButton>
@@ -874,7 +919,7 @@ const MobileCompetitorCard: React.FC<{
                       color="info"
                       aria-label="View price history"
                       sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
-                      className="row-graph-button"
+                      className="row-graph-button row-quick-action"
                     >
                       <BarChartIcon />
                     </IconButton>
@@ -888,7 +933,7 @@ const MobileCompetitorCard: React.FC<{
                   onClick={handleDelete}
                   color="warning"
                   aria-label="Archive competitor"
-                  className="row-archive-button"
+                  className="row-archive-button row-quick-action"
                 >
                   <ArchiveIcon />
                 </IconButton>
@@ -954,7 +999,7 @@ const MobileCompetitorCard: React.FC<{
                     document.addEventListener('click', closeMenu);
                   }}
                   aria-label="More actions"
-                  className="row-more-actions-button"
+                  className="row-more-actions-button row-quick-action"
                 >
                   <MoreVertIcon />
                 </IconButton>
@@ -1089,7 +1134,7 @@ const DesktopTableRow: React.FC<{
                  },
                }}
              >
-               <VisibilityOffIcon fontSize="small" />
+               <VisibilityOffIcon size={16} />
              </IconButton>
            </Tooltip>
                  ) : competitor.showingOldPrice ? (
@@ -1112,7 +1157,7 @@ const DesktopTableRow: React.FC<{
                  textAlign: 'center',
                }}
              >
-               <HistoryIcon fontSize="small" />
+               <HistoryIcon size={16} />
                {formatPrice(competitor.price)}
              </Typography>
            </Tooltip>
@@ -1124,13 +1169,7 @@ const DesktopTableRow: React.FC<{
       </StyledTableCell>
 
       <StyledTableCell>
-        <Chip
-          label={getStatusLabel(competitor.inStock)}
-          color={getStatusColor(competitor.inStock)}
-          size="small"
-          variant="outlined"
-          icon={competitor.inStock ? <CheckCircleIcon /> : <CancelIcon />}
-        />
+        <StockStatusChip inStock={competitor.inStock} />
       </StyledTableCell>
 
       <StyledTableCell>
@@ -1190,7 +1229,7 @@ const DesktopTableRow: React.FC<{
 
       <StyledTableCell>
         <Stack direction="row" spacing={1} alignItems="center">
-          <ScheduleIcon fontSize="small" color="action" />
+          <ScheduleIcon size={16} />
           <Typography variant="body2" color="text.secondary">
             {formatLastChecked(competitor.lastChecked)}
           </Typography>
@@ -1208,10 +1247,10 @@ const DesktopTableRow: React.FC<{
                 disabled={rowRefreshing}
                 aria-label="Refresh price"
                 color="primary"
-                className="row-refresh-button desktop-row-refresh-button"
+                className="row-refresh-button desktop-row-refresh-button row-quick-action"
               
               >
-                {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+                {rowRefreshing ? <CircularProgress size={16} /> : <RefreshIcon size={16} />}
               </IconButton>
             </span>
           </Tooltip>
@@ -1226,17 +1265,17 @@ const DesktopTableRow: React.FC<{
                 aria-label="View price history"
                 color="info"
                 sx={{ opacity: competitor.lastChecked ? 1 : 0.4 }}
-                className="row-graph-button desktop-row-graph-button"
+                className="row-graph-button desktop-row-graph-button row-quick-action"
               >
-                <BarChartIcon fontSize="small" />
+                <BarChartIcon size={16} />
               </IconButton>
             </span>
           </Tooltip>
 
           {/* Primary action: Archive */}
           <Tooltip title="Archive competitor">
-            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning" className="row-archive-button desktop-row-archive-button">
-              <ArchiveIcon fontSize="small" />
+            <IconButton size="small" onClick={handleDelete} aria-label="Archive competitor" color="warning" className="row-archive-button desktop-row-archive-button row-quick-action">
+              <ArchiveIcon size={16} />
             </IconButton>
           </Tooltip>
 
@@ -1436,12 +1475,32 @@ export const CompetitorTable: React.FC<CompetitorTableProps> = ({
   // Empty state
   if (data.length === 0) {
     return (
-      <Card sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
-        <GroupIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-        <Typography variant="h6" color="text.secondary" gutterBottom>
+      <Card sx={{
+        p: 4,
+        textAlign: 'center',
+        borderRadius: 2,
+        border: '1px solid #e4e7eb',
+        boxShadow: '0 18px 42px -36px rgb(16 24 32 / 0.75)',
+      }}>
+        <Box sx={{
+          width: 58,
+          height: 58,
+          borderRadius: 2,
+          mx: 'auto',
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'rgba(47, 91, 234, 0.10)',
+          border: '1px solid rgba(47, 91, 234, 0.18)',
+          color: '#2f5bea',
+        }}>
+          <GroupIcon size={28} />
+        </Box>
+        <Typography variant="h6" sx={{ color: '#101820', fontWeight: 800 }} gutterBottom>
           No competitors yet
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360, mx: 'auto' }}>
           Add competitors to track their prices and inventory status.
         </Typography>
       </Card>

@@ -1,7 +1,7 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Box, Typography, Button, Alert, Collapse } from '@mui/material';
-import { Refresh, ExpandMore, ExpandLess } from '@mui/icons-material';
+import { RefreshCw as Refresh, ChevronDown as ExpandMore, ChevronUp as ExpandLess } from 'lucide-react';
 import { debugLog } from './DebugPanel';
 
 interface Props {

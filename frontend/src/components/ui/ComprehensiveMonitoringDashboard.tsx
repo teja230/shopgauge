@@ -36,24 +36,24 @@ import {
   Stack
 } from '@mui/material';
 import {
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckCircleIcon,
+  AlertTriangle as WarningIcon,
+  AlertCircle as ErrorIcon,
+  CheckCircle2 as CheckCircleIcon,
   Info as InfoIcon,
-  Refresh as RefreshIcon,
-  ExpandMore as ExpandMoreIcon,
-  Memory as MemoryIcon,
-  Storage as StorageIcon,
-  Speed as SpeedIcon,
-  Timeline as TimelineIcon,
-  Assessment as AssessmentIcon,
-  Notifications as NotificationsIcon,
-  NotificationsActive as NotificationsActiveIcon,
-  Computer as ComputerIcon,
-  Storage as DatabaseIcon,
+  RefreshCw as RefreshIcon,
+  ChevronDown as ExpandMoreIcon,
+  MemoryStick as MemoryIcon,
+  Database as StorageIcon,
+  Gauge as SpeedIcon,
+  Activity as TimelineIcon,
+  ClipboardList as AssessmentIcon,
+  Bell as NotificationsIcon,
+  BellRing as NotificationsActiveIcon,
+  Monitor as ComputerIcon,
+  Database as DatabaseIcon,
   Cloud as CloudIcon,
-  Security as SecurityIcon
-} from '@mui/icons-material';
+  ShieldCheck as SecurityIcon
+} from 'lucide-react';
 import { fetchWithAdminAuth } from '../../api';
 import RefreshHeader from './RefreshHeader';
 
@@ -240,7 +240,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
             <CardContent>
               <Box display="flex" alignItems="center">
                 <Badge badgeContent={alerts?.activeCriticalAlerts || 0} color="error">
-                  <ErrorIcon color="error" />
+                  <ErrorIcon color="#d32f2f" />
                 </Badge>
                 <Box ml={2}>
                   <Typography variant="h6">{alerts?.activeCriticalAlerts || 0}</Typography>
@@ -255,7 +255,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
             <CardContent>
               <Box display="flex" alignItems="center">
                 <Badge badgeContent={alerts?.activeWarningAlerts || 0} color="warning">
-                  <WarningIcon color="warning" />
+                  <WarningIcon color="#ed6c02" />
                 </Badge>
                 <Box ml={2}>
                   <Typography variant="h6">{alerts?.activeWarningAlerts || 0}</Typography>
@@ -269,7 +269,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center">
-                <NotificationsIcon sx={{ color: 'text.primary' }} />
+                <NotificationsIcon />
                 <Box ml={2}>
                   <Typography variant="h6">{alerts?.totalAlertsGenerated || 0}</Typography>
                   <Typography variant="body2" color="textSecondary">Total Alerts</Typography>
@@ -282,7 +282,7 @@ const ComprehensiveMonitoringDashboard: React.FC = () => {
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center">
-                <CheckCircleIcon color="success" />
+                <CheckCircleIcon color="#2e7d32" />
                 <Box ml={2}>
                   <Typography variant="h6">
                     {(alerts?.activeAlerts || 0) === 0 ? 'Healthy' : 'Issues'}

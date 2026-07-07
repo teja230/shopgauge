@@ -76,7 +76,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       
       {/* Modern glassmorphism dialog */}
       <div className={`relative ${sizeConfig[size]} w-full transform transition-all duration-300 scale-100`}>
-        <div className="bg-gradient-to-br from-white/95 to-gray-50/90 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden">
           {/* Header with modern design */}
           <div className="flex items-start justify-between p-6 pb-4">
             <div className="flex items-center gap-4">
@@ -124,12 +124,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <button
             onClick={onCancel}
               className="
-                px-6 py-2.5 text-sm font-medium text-gray-700 
-                bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl 
-                hover:bg-gray-50/90 hover:border-gray-300
-                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 
-                transition-all duration-200 shadow-sm
-                hover:shadow-md hover:-translate-y-0.5
+                px-6 py-2.5 text-sm font-medium text-gray-700
+                bg-white border border-gray-200 rounded-xl
+                hover:bg-gray-50 hover:border-gray-300
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500
+                transition-colors duration-200 shadow-sm
               "
           >
             {cancelText}
@@ -137,12 +136,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <button
             onClick={onConfirm}
               className={`
-                px-6 py-2.5 text-sm font-semibold text-white 
-                ${config.buttonBg} rounded-xl shadow-lg
-                focus:outline-none focus:ring-2 focus:ring-offset-2 
-                transition-all duration-200
-                hover:shadow-xl hover:-translate-y-0.5
-                backdrop-blur-sm
+                px-6 py-2.5 text-sm font-semibold text-white
+                ${config.buttonBg} rounded-xl shadow-sm
+                focus:outline-none focus:ring-2 focus:ring-offset-2
+                transition-colors duration-200 hover:shadow-md
               `}
           >
             {confirmText}

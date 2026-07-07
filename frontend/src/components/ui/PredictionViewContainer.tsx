@@ -18,16 +18,16 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  Analytics,
-  AutoAwesome,
+  BarChart3 as Analytics,
+  Sparkles as AutoAwesome,
   TrendingUp,
   ShoppingCart,
   Percent,
-  Psychology,
-  Share as ShareIcon,
+  Brain as Psychology,
+  Share2 as ShareIcon,
   Download as DownloadIcon,
-  Refresh,
-} from '@mui/icons-material';
+  RefreshCw as Refresh,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import RevenuePredictionChart from './RevenuePredictionChart';
 import OrderPredictionChart from './OrderPredictionChart';
@@ -306,7 +306,7 @@ const PredictionViewContainer = memo(({
           flexDirection: 'column',
           gap: 2,
         }}>
-          <Analytics sx={{ fontSize: 48, color: 'text.secondary' }} />
+          <Analytics size={48} color="#5f6b76" />
           <Typography variant="h6" color="text.secondary">
             No data available
           </Typography>
@@ -409,7 +409,7 @@ const PredictionViewContainer = memo(({
             mb: 3,
             pb: 2,
             borderBottom: `2px solid ${theme.palette.divider}`,
-            background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)',
+            background: 'linear-gradient(90deg, rgba(47, 91, 234, 0.08) 0%, rgba(16, 24, 32, 0.04) 100%)',
             borderRadius: 2,
             p: 2,
           }}>
@@ -418,17 +418,17 @@ const PredictionViewContainer = memo(({
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
               }}>
-                <Analytics sx={{ color: 'white', fontSize: '1.5rem' }} />
+                <Analytics color="white" size={24} />
               </Box>
               <Box>
                 <Typography variant="h5" fontWeight={700} sx={{ 
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -445,10 +445,10 @@ const PredictionViewContainer = memo(({
                     size="small"
                     sx={{ 
                       fontWeight: 600,
-                      background: 'linear-gradient(135deg, #9333ea 0%, #c084fc 100%)',
+                      background: 'linear-gradient(135deg, #2f5bea 0%, #7c9cff 100%)',
                       color: 'white',
                       '& .MuiChip-icon': { color: 'white' },
-                      boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3)',
+                      boxShadow: '0 2px 8px rgba(47, 91, 234, 0.3)',
                     }}
                   />
                 </Box>
@@ -461,20 +461,20 @@ const PredictionViewContainer = memo(({
                 onClick={handleShareChart}
                 size="large"
                 sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                  background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                   color: 'white',
                   width: 48,
                   height: 48,
                   boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
                   '&:hover': { 
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                    background: 'linear-gradient(135deg, #0b1016 0%, #254bd6 100%)',
                     transform: 'translateY(-2px)',
                     boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
                   },
                   transition: 'all 0.3s ease-in-out',
                 }}
               >
-                <ShareIcon fontSize="medium" />
+                <ShareIcon size={20} />
               </IconButton>
             </Tooltip>
               
@@ -496,7 +496,7 @@ const PredictionViewContainer = memo(({
                     transition: 'all 0.3s ease-in-out',
                   }}
                 >
-                  <DownloadIcon fontSize="medium" />
+                  <DownloadIcon size={20} />
                 </IconButton>
               </Tooltip>
             </Box>
@@ -534,11 +534,11 @@ const PredictionViewContainer = memo(({
               }
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AutoAwesome sx={{ 
-                    fontSize: 18, 
-                    color: showPredictions ? 'secondary.main' : 'text.secondary',
-                    transition: 'color 0.3s ease-in-out',
-                  }} />
+                  <AutoAwesome
+                    size={18}
+                    color={showPredictions ? '#15b87a' : '#5f6b76'}
+                    style={{ transition: 'color 0.3s ease-in-out' }}
+                  />
                   <Typography variant="body2" fontWeight={600} sx={{
                     color: showPredictions ? 'secondary.main' : 'text.secondary',
                     transition: 'color 0.3s ease-in-out',
@@ -573,11 +573,11 @@ const PredictionViewContainer = memo(({
                       transform: 'translateY(-1px)',
                     },
                     '&.Mui-selected': {
-                      background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+                      background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
                       color: 'white',
                       boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+                        background: 'linear-gradient(135deg, #0b1016 0%, #254bd6 100%)',
                       },
                     },
                   },
@@ -696,7 +696,7 @@ const PredictionViewContainer = memo(({
                   },
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <AutoAwesome sx={{ fontSize: isMobile ? 10 : 12, color: 'secondary.main' }} />
+                    <AutoAwesome size={isMobile ? 10 : 12} color="#15b87a" />
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
                       Forecast ({predictionDays}d)
                     </Typography>
@@ -870,15 +870,15 @@ const PredictionViewContainer = memo(({
             }}
           >
             <ToggleButton value="revenue">
-              <TrendingUp fontSize="small" sx={{ mr: 1 }} />
+              <TrendingUp size={16} style={{ marginRight: 8 }} />
               {isMobile ? 'Revenue' : 'Revenue'}
             </ToggleButton>
             <ToggleButton value="orders">
-              <ShoppingCart fontSize="small" sx={{ mr: 1 }} />
+              <ShoppingCart size={16} style={{ marginRight: 8 }} />
               {isMobile ? 'Orders' : 'Orders'}
             </ToggleButton>
             <ToggleButton value="conversion">
-              <Percent fontSize="small" sx={{ mr: 1 }} />
+              <Percent size={16} style={{ marginRight: 8 }} />
               {isMobile ? 'Conversion' : 'Conversion'}
             </ToggleButton>
           </ToggleButtonGroup>
@@ -974,4 +974,4 @@ const PredictionViewContainer = memo(({
   );
 });
 
-export default PredictionViewContainer; 
+export default PredictionViewContainer;

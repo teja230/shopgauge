@@ -31,14 +31,14 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { styled } from '@mui/material/styles';
 import {
-  Restore as RestoreIcon,
-  Delete as DeleteIcon,
-  Visibility as ViewIcon,
+  Undo2 as RestoreIcon,
+  Trash2 as DeleteIcon,
+  Eye as ViewIcon,
   History as HistoryIcon,
   TrendingUp as TrendingUpIcon,
-  OpenInNew as OpenInNewIcon
-} from '@mui/icons-material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+  ExternalLink as OpenInNewIcon,
+  ChevronDown as ExpandMoreIcon,
+} from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAuth } from '../../api';
 import StoreLogo from './StoreLogo';
@@ -644,7 +644,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                             </Typography>
                           </Box>
                           <IconButton size="small" aria-label="expand">
-                            <ExpandMoreIcon sx={{ transform: expandedRows.has(c.id) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                            <ExpandMoreIcon style={{ transform: expandedRows.has(c.id) ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                           </IconButton>
                         </Stack>
                         <Collapse in={expandedRows.has(c.id)} timeout={200}>
@@ -758,7 +758,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               onClick={() => window.open(competitor.url, '_blank')}
                               sx={{ minWidth: 36, minHeight: 36 }}
                             >
-                              <OpenInNewIcon fontSize="small" />
+                              <OpenInNewIcon size={16} />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Restore competitor">
@@ -770,7 +770,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               sx={{ minWidth: 36, minHeight: 36 }}
                               className="archived-restore-button"
                             >
-                              {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon fontSize="small" />}
+                              {restoring === competitor.id ? <CircularProgress size={16} /> : <RestoreIcon size={16} />}
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Permanently delete">
@@ -781,7 +781,7 @@ export const ArchivedCompetitorsPanel: React.FC<ArchivedCompetitorsPanelProps> =
                               sx={{ minWidth: 36, minHeight: 36 }}
                               className="archived-delete-button"
                             >
-                              <DeleteIcon fontSize="small" />
+                              <DeleteIcon size={16} />
                             </IconButton>
                           </Tooltip>
                         </Stack>

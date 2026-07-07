@@ -23,27 +23,27 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  HealthAndSafety as HealthIcon,
-  Storage as StorageIcon,
-  Emergency as EmergencyIcon,
-  People as PeopleIcon,
-  Timeline as TimelineIcon,
+  LayoutDashboard as DashboardIcon,
+  HeartPulse as HealthIcon,
+  Database as StorageIcon,
+  Siren as EmergencyIcon,
+  Users as PeopleIcon,
+  Activity as TimelineIcon,
   Store as StoreIcon,
-  Security as SecurityIcon,
-  Assessment as AssessmentIcon,
-  Speed as SpeedIcon,
+  ShieldCheck as SecurityIcon,
+  ClipboardList as AssessmentIcon,
+  Gauge as SpeedIcon,
   Monitor as MonitorIcon,
   Settings as SettingsIcon,
-  BugReport as DebugIcon,
-  AccountCircle as AccountIcon,
-  Logout as LogoutIcon,
-  Notifications as NotificationsIcon,
-  Refresh as RefreshIcon,
-  ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon,
-  AdminPanelSettings as AdminIcon,
-} from '@mui/icons-material';
+  Bug as DebugIcon,
+  CircleUserRound as AccountIcon,
+  LogOut as LogoutIcon,
+  Bell as NotificationsIcon,
+  RefreshCw as RefreshIcon,
+  ChevronUp as ExpandLessIcon,
+  ChevronDown as ExpandMoreIcon,
+  UserCog as AdminIcon,
+} from 'lucide-react';
 import { NotificationCenter } from './NotificationCenter';
 import '../../styles/admin-design-system.css';
 
@@ -299,7 +299,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
           </IconButton>
           
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
-            <AdminIcon sx={{ mr: 1, color: 'primary.main' }} />
+            <AdminIcon style={{ marginRight: 8, color: '#2f5bea' }} />
             <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
               Admin Panel
             </Typography>
@@ -427,7 +427,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
         <Divider />
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
-            <LogoutIcon fontSize="small" />
+            <LogoutIcon size={16} />
           </ListItemIcon>
           Logout
         </MenuItem>

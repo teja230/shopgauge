@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Home, Refresh, Build, Warning } from '@mui/icons-material';
+import { Home, RefreshCw, Wrench } from 'lucide-react';
 import { styled, keyframes } from '@mui/material/styles';
 import { useServiceStatus } from '../context/ServiceStatusContext';
 
@@ -325,7 +325,7 @@ const ServiceUnavailablePage: React.FC = () => {
         
         <StatusInfo>
           <StatusTitle>
-            <Build />
+            <Wrench />
             What's happening?
           </StatusTitle>
           <StatusText>
@@ -369,7 +369,7 @@ const ServiceUnavailablePage: React.FC = () => {
           <StyledButton
             variant="contained"
             color="error"
-            startIcon={<Refresh />}
+            startIcon={<RefreshCw />}
             onClick={handleRefresh}
             disabled={isChecking}
           >

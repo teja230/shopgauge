@@ -11,11 +11,11 @@ import {
   CardContent,
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  Storage as StorageIcon,
-  Security as SecurityIcon,
-} from '@mui/icons-material';
+  LayoutDashboard as DashboardIcon,
+  Users as PeopleIcon,
+  Database as StorageIcon,
+  ShieldCheck as SecurityIcon,
+} from 'lucide-react';
 import AdminLayout from './AdminLayout';
 import DashboardOverview from './DashboardOverview';
 import ModernDataTable, { type TableColumn } from './ModernDataTable';

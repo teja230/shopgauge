@@ -28,20 +28,20 @@ import {
 } from '@mui/material';
 import {
   TrendingUp,
-  BarChart as BarChartIcon,
-  ShowChart,
-  Timeline,
+  BarChart3 as BarChartIcon,
+  LineChart as ShowChart,
+  Activity as Timeline,
   CandlestickChart,
-  WaterfallChart,
-  StackedLineChart,
-  Analytics,
-  Share as ShareIcon,
+  BarChart3 as WaterfallChart,
+  LineChart as StackedLineChart,
+  BarChart3 as Analytics,
+  Share2 as ShareIcon,
   Download as DownloadIcon,
-} from '@mui/icons-material';
+} from 'lucide-react';
 import LoadingIndicator from './LoadingIndicator';
 import ShareModal from './ShareModal';
 import ExportModal from './ExportModal';
-import type { RevenuePoint, TooltipProps, ChartPayload } from '../../types/charts';
+import type { RevenuePoint, TooltipProps } from '../../types/charts';
 import { debugLog } from './DebugPanel';
 import { useAuth } from '../../context/AuthContext';
 
@@ -57,63 +57,77 @@ interface RevenueChartProps {
 type ChartType = 'line' | 'area' | 'bar' | 'candlestick' | 'waterfall' | 'stacked' | 'composed';
 
 // Enhanced tooltip for classic chart
-const EnhancedClassicTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
+const EnhancedClassicTooltip: React.FC<
+  TooltipProps<RevenuePoint> & { series?: Array<{ created_at: string; total_price: number }> }
+> = ({ active, payload, label, series }) => {
   if (!active || !payload || !payload.length) return null;
 
-  const data = payload[0];
-  const value = data.value as number;
+  const value = (payload[0].value as number) || 0;
+
+  // Compare against the previous point and the period total when the series is available
+  let deltaPercent: number | null = null;
+  let shareOfPeriod: number | null = null;
+  if (series && series.length > 1) {
+    const index = series.findIndex((point) => point.created_at === label);
+    if (index > 0) {
+      const previous = Number(series[index - 1]?.total_price) || 0;
+      if (previous > 0) deltaPercent = ((value - previous) / previous) * 100;
+    }
+    const total = series.reduce((sum, point) => sum + (Number(point.total_price) || 0), 0);
+    if (total > 0) shareOfPeriod = (value / total) * 100;
+  }
+
+  const deltaUp = (deltaPercent ?? 0) >= 0;
 
   return (
     <Paper
-      elevation={8}
+      elevation={0}
       sx={{
-        p: 2,
+        overflow: 'hidden',
         backgroundColor: 'rgba(255, 255, 255, 0.98)',
         backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e4e7eb',
         borderRadius: 2,
-        minWidth: 180,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+        minWidth: 200,
+        boxShadow: '0 20px 44px -24px rgba(16, 24, 32, 0.4)',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+      <Box sx={{ px: 1.75, py: 1, bgcolor: '#101820', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+        <Typography variant="caption" sx={{ color: '#c3ccd5', fontWeight: 700 }}>
           {new Date(label as string).toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
           })}
         </Typography>
-        <Chip
-          label="Revenue"
-          size="small"
-          sx={{
-            height: 16,
-            fontSize: '0.6rem',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            color: '#2563eb',
-            border: '1px solid rgba(37, 99, 235, 0.2)',
-          }}
-        />
+        {deltaPercent !== null && (
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 800, color: deltaUp ? '#6ee7b7' : '#fca5a5', fontFeatureSettings: '"tnum"' }}
+          >
+            {deltaUp ? '↑' : '↓'} {Math.abs(deltaPercent).toFixed(1)}%
+          </Typography>
+        )}
       </Box>
-      
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Box
-          sx={{
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            backgroundColor: data.color,
-            animation: 'pulse 2s ease-in-out infinite',
-            '@keyframes pulse': {
-              '0%, 100%': { opacity: 1 },
-              '50%': { opacity: 0.7 },
-            },
-          }}
-        />
-        <Typography variant="body2" fontWeight={600}>
-          📊 Revenue: ${value.toLocaleString()}
+      <Box sx={{ px: 1.75, py: 1.25 }}>
+        <Typography sx={{ fontWeight: 900, fontSize: '1.15rem', color: '#101820', fontFeatureSettings: '"tnum"', lineHeight: 1.2 }}>
+          ${value.toLocaleString()}
         </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: '#5f6b76', fontWeight: 700 }}>
+            Revenue
+          </Typography>
+          {deltaPercent !== null && (
+            <Typography variant="caption" sx={{ color: '#98a1ab' }}>
+              vs prev. day
+            </Typography>
+          )}
+          {shareOfPeriod !== null && (
+            <Typography variant="caption" sx={{ ml: 'auto', color: '#98a1ab', fontFeatureSettings: '"tnum"' }}>
+              {shareOfPeriod.toFixed(1)}% of period
+            </Typography>
+          )}
+        </Box>
       </Box>
     </Paper>
   );
@@ -131,12 +145,12 @@ const PerformanceIndicator: React.FC<{ current: number; previous: number }> = ({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          color: isPositive ? '#10b981' : '#ef4444',
+          color: isPositive ? '#059669' : '#dc2626',
           fontSize: '0.875rem',
           fontWeight: 600,
         }}
       >
-        {isPositive ? '↗️' : '↘️'}
+        {isPositive ? '↑' : '↓'}
         <Typography variant="caption" fontWeight={600} sx={{ ml: 0.5 }}>
           {Math.abs(changePercent).toFixed(1)}%
         </Typography>
@@ -159,22 +173,22 @@ const ClassicInsights: React.FC<{ data: RevenueData[] }> = ({ data }) => {
     {
       label: 'Total Revenue',
       value: `$${totalRevenue.toLocaleString()}`,
-      icon: '💰',
+      icon: '$',
     },
     {
       label: 'Average Daily',
       value: `$${averageRevenue.toLocaleString()}`,
-      icon: '📊',
+      icon: 'Ø',
     },
     {
       label: 'Peak Day',
       value: `$${maxRevenue.toLocaleString()}`,
-      icon: '🏆',
+      icon: '▲',
     },
     {
       label: 'Latest',
       value: `$${latestRevenue.toLocaleString()}`,
-      icon: '📈',
+      icon: '●',
       change: { current: latestRevenue, previous: previousRevenue },
     },
   ];
@@ -210,7 +224,25 @@ const ClassicInsights: React.FC<{ data: RevenueData[] }> = ({ data }) => {
             }
           }}
         >
-          <span style={{ fontSize: '1.2rem' }}>{insight.icon}</span>
+          <Box
+            component="span"
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'rgba(47, 91, 234, 0.08)',
+              color: '#2f5bea',
+              border: '1px solid rgba(47, 91, 234, 0.18)',
+              fontSize: '0.8rem',
+              fontWeight: 900,
+              fontFeatureSettings: '"tnum"',
+            }}
+          >
+            {insight.icon}
+          </Box>
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               {insight.label}
@@ -233,9 +265,7 @@ const ClassicInsights: React.FC<{ data: RevenueData[] }> = ({ data }) => {
   );
 };
 
-const CustomTooltip: React.FC<TooltipProps<RevenuePoint>> = ({ active, payload, label }) => {
-  return <EnhancedClassicTooltip active={active} payload={payload} label={label} />;
-};
+
 
 const formatXAxisTick = (tickItem: string) => {
   const date = new Date(tickItem);
@@ -269,7 +299,6 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   // Responsive helper
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
   // Mobile-optimized dimensions - SIGNIFICANTLY INCREASED for better visibility
   const mobileHeight = Math.min(height * 0.95, 480); // Increased cap from 450 to 480px, 95% scaling
@@ -279,25 +308,25 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     line: {
       icon: <ShowChart />,
       label: 'Line',
-      color: '#2563eb',
+      color: '#2f5bea',
       description: 'Simple trend line',
     },
     area: {
       icon: <Timeline />,
       label: 'Area',
-      color: '#2563eb',
+      color: '#2f5bea',
       description: 'Filled trend area',
     },
     bar: {
       icon: <BarChartIcon />,
       label: 'Bar',
-      color: '#2563eb',
+      color: '#2f5bea',
       description: 'Daily revenue bars',
     },
     candlestick: {
       icon: <CandlestickChart />,
       label: 'Candlestick',
-      color: '#10b981',
+      color: theme.palette.success.main,
       description: 'High/low patterns',
     },
     waterfall: {
@@ -309,13 +338,13 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
     stacked: {
       icon: <StackedLineChart />,
       label: 'Stacked',
-      color: '#8b5cf6',
+      color: '#0ea5a6',
       description: 'Multi-series view',
     },
     composed: {
       icon: <Analytics />,
       label: 'Composed',
-      color: '#ef4444',
+      color: '#1539a6',
       description: 'Combined metrics',
     },
   };
@@ -362,8 +391,6 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   // Replace all subsequent uses of `data` with `sanitizedData`
   const totalRevenue = sanitizedData.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
   const averageRevenue = sanitizedData.length && totalRevenue > 0 ? totalRevenue / sanitizedData.length : 0;
-  const maxRevenue = sanitizedData.length ? Math.max(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
-  const minRevenue = sanitizedData.length ? Math.min(...sanitizedData.map(item => Number(item.total_price) || 0)) : 0;
 
   const handleShareChart = () => {
     setShareModalOpen(true);
@@ -455,7 +482,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
         />
       );
 
-      const commonTooltip = <Tooltip content={<CustomTooltip />} />;
+      const commonTooltip = <Tooltip content={<EnhancedClassicTooltip series={processedData} />} />;
 
       switch (chartType) {
         case 'line':
@@ -490,8 +517,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             <AreaChart {...commonProps}>
               <defs>
                 <linearGradient id={`${gradientIdPrefix}-revenueGradient`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={chartTypeConfig.area.color} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={chartTypeConfig.area.color} stopOpacity={0.05} />
+                  <stop offset="0%" stopColor={chartTypeConfig.area.color} stopOpacity={0.32} />
+                  <stop offset="100%" stopColor={chartTypeConfig.area.color} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               {commonGrid}
@@ -544,7 +571,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               {commonTooltip}
               <Bar
                 dataKey="total_price"
-                fill="#10b981"
+                fill={theme.palette.success.main}
                 radius={[2, 2, 0, 0]}
                 opacity={0.8}
               />
@@ -567,7 +594,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               {commonTooltip}
               <Bar
                 dataKey="change"
-                fill="#10b981"
+                fill={theme.palette.success.main}
                 radius={[2, 2, 0, 0]}
                 opacity={0.8}
               />
@@ -594,8 +621,8 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
                   <stop offset="95%" stopColor={chartTypeConfig.stacked.color} stopOpacity={0.05} />
                 </linearGradient>
                 <linearGradient id={`${gradientIdPrefix}-changeGradient`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                  <stop offset="5%" stopColor={theme.palette.success.main} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={theme.palette.success.main} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               {commonGrid}
@@ -613,7 +640,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               <Area
                 type="monotone"
                 dataKey="change"
-                stroke="#10b981"
+                stroke={theme.palette.success.main}
                 strokeWidth={1}
                 fill={`url(#${gradientIdPrefix}-changeGradient)`}
                 stackId="2"
@@ -637,10 +664,10 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="total_price"
-                stroke="#2563eb"
+                stroke="#2f5bea"
                 strokeWidth={2}
                 dot={{
-                  fill: '#2563eb',
+                  fill: '#2f5bea',
                   strokeWidth: 2,
                   r: 3,
                 }}
@@ -703,7 +730,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
           borderRadius: 2,
         }}
       >
-        <TrendingUp sx={{ fontSize: 48, color: 'rgba(0, 0, 0, 0.2)' }} />
+        <TrendingUp size={48} color="rgba(0, 0, 0, 0.2)" />
         <Typography variant="body2" color="text.secondary">
           No revenue data available
         </Typography>
@@ -742,7 +769,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             gap: theme.spacing(1),
           }}
         >
-          <TrendingUp color="primary" sx={{ fontSize: isMobile ? 18 : 20 }} />
+          <TrendingUp size={isMobile ? 18 : 20} color="#2f5bea" />
           Revenue Chart
         </Typography>
         
@@ -757,7 +784,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               '&:hover': { backgroundColor: 'primary.dark' },
             }}
           >
-            <ShareIcon fontSize="small" />
+            <ShareIcon size={16} />
           </IconButton>
         </MuiTooltip>
           
@@ -771,7 +798,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
                 '&:hover': { backgroundColor: 'success.dark' },
               }}
             >
-              <DownloadIcon fontSize="small" />
+              <DownloadIcon size={16} />
             </IconButton>
           </MuiTooltip>
         </Box>
@@ -893,7 +920,7 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
               fontSize: '0.7rem',
             }}
           >
-            💡 Scroll horizontally to view full chart
+            Scroll horizontally to view full chart
           </Typography>
         )}
       </Box>
@@ -929,4 +956,4 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   );
 };
 
-export default RevenueChart; 
+export default RevenueChart;

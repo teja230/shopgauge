@@ -3,13 +3,29 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Box, Typography, Card, CardContent, Alert, CircularProgress, Link as MuiLink, IconButton, Button, ToggleButtonGroup, ToggleButton, useMediaQuery, useTheme, Menu, MenuItem, Chip } from '@mui/material';
 import { RevenueChart } from '../components/ui/RevenueChart';
 import PredictionViewContainer from '../components/ui/PredictionViewContainer';
+import { ListSkeleton } from '../components/ui/SkeletonLoaders';
 import useUnifiedAnalytics from '../hooks/useUnifiedAnalytics';
 import { MetricCard } from '../components/ui/MetricCard';
 import { fetchWithAuth, retryWithBackoff, getRevenue, getInsights, getProducts, getOrders } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
-import { OpenInNew, Refresh, Storefront, ListAlt, Inventory2, Analytics, ShowChart, Sort, ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import {
+  ExternalLink as OpenInNew,
+  RefreshCw as Refresh,
+  Store as Storefront,
+  ClipboardList as ListAlt,
+  PackageCheck as Inventory2,
+  BarChart3 as Analytics,
+  LineChart as ShowChart,
+  ArrowUpDown as Sort,
+  ArrowUp as ArrowUpward,
+  ArrowDown as ArrowDownward,
+  X as Close,
+  ShoppingCart as ShoppingCartCheckout,
+  Sparkles as AutoAwesome,
+  HelpCircle as HelpOutlineIcon,
+} from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSessionNotification } from '../hooks/useSessionNotification';
@@ -26,7 +42,6 @@ import { debugLog } from '../components/ui/DebugPanel';
 import Joyride from 'react-joyride';
 import type { Step, CallBackProps } from 'react-joyride';
 import ThemedJoyrideTooltip from '../components/ui/ThemedJoyrideTooltip';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 
@@ -226,11 +241,15 @@ const StyledCard = styled(Card)(({ theme }) => ({
   height: '100%',
   display: 'flex',
   flexDirection: 'column',
-  borderRadius: theme.shape.borderRadius,
-  transition: 'all 0.3s ease',
+  borderRadius: 8,
+  borderColor: theme.palette.divider,
+  backgroundColor: '#ffffff',
+  boxShadow: '0 22px 54px -44px rgb(16 24 32 / 0.80)',
+  transition: 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+  overflow: 'hidden',
   '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadows[8],
+    boxShadow: '0 28px 64px -48px rgb(16 24 32 / 0.86)',
+    transform: 'translateY(-1px)',
   },
 }));
 
@@ -263,7 +282,7 @@ const MetricValue = styled(Typography)(({ theme }) => ({
   background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  letterSpacing: '-1px',
+  letterSpacing: 0,
 }));
 
 const MetricLabel = styled(Typography)(({ theme }) => ({
@@ -284,24 +303,40 @@ const ChartContainer = styled(Box)(({ theme }) => ({
 }));
 
 const ProductLink = styled(MuiLink)(({ theme }) => ({
-  color: theme.palette.primary.main,
+  color: '#101820',
+  fontWeight: 700,
   textDecoration: 'none',
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
+  transition: 'color 0.2s ease',
+  '& svg': {
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
+    color: '#2f5bea',
+  },
   '&:hover': {
-    textDecoration: 'underline',
+    color: '#2f5bea',
+    '& svg': { opacity: 1 },
   },
 }));
 
 const OrderLink = styled(MuiLink)(({ theme }) => ({
-  color: theme.palette.primary.main,
+  color: '#101820',
+  fontWeight: 700,
   textDecoration: 'none',
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
+  transition: 'color 0.2s ease',
+  '& svg': {
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
+    color: '#2f5bea',
+  },
   '&:hover': {
-    textDecoration: 'underline',
+    color: '#2f5bea',
+    '& svg': { opacity: 1 },
   },
 }));
 
@@ -325,6 +360,83 @@ interface Order {
     last_name: string;
   };
 }
+
+const parseMoneyValue = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const formatDashboardMoney = (value: unknown): string => {
+  const amount = parseMoneyValue(value);
+
+  if (amount === null) {
+    return 'N/A';
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: amount >= 1000 ? 0 : 2,
+  }).format(amount);
+};
+
+const getInventoryTone = (inventory?: number) => {
+  if (typeof inventory !== 'number') {
+    return {
+      label: 'Stock unknown',
+      color: '#64748b',
+      background: 'rgba(100,116,139,0.10)',
+      border: 'rgba(100,116,139,0.18)',
+    };
+  }
+
+  if (inventory <= 10) {
+    return {
+      label: `${inventory} left`,
+      color: '#b42318',
+      background: 'rgba(244,63,94,0.10)',
+      border: 'rgba(244,63,94,0.22)',
+    };
+  }
+
+  if (inventory <= 30) {
+    return {
+      label: `${inventory} in stock`,
+      color: '#a15c07',
+      background: 'rgba(245,158,11,0.12)',
+      border: 'rgba(245,158,11,0.24)',
+    };
+  }
+
+  return {
+    label: `${inventory} in stock`,
+    color: '#067647',
+    background: 'rgba(21,184,122,0.11)',
+    border: 'rgba(21,184,122,0.22)',
+  };
+};
+
+const getOrderCustomerName = (order: Order): string =>
+  order.customer
+    ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() || 'Customer'
+    : 'Guest checkout';
+
+const formatOrderNumber = (orderId: string | number | undefined, fallback: number): string => {
+  if (!orderId) {
+    return `Temporary-${fallback + 1}`;
+  }
+
+  const normalized = String(orderId).split('/').pop() || String(orderId);
+  return normalized.replace(/^demo_order_/, '');
+};
 
 interface RevenueData {
   created_at: string;
@@ -378,7 +490,7 @@ interface OrdersData {
   has_more: boolean;
 }
 
-const COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed'];
+const COLORS = ['#2f5bea', '#15b87a', '#d97706', '#dc2626', '#7c9cff'];
 
 // Add a modern SaaS hero section at the top of the dashboard
 const HeroSection = styled(Box)(({ theme }) => ({
@@ -402,7 +514,7 @@ const HeroTitle = styled(Typography)(({ theme }) => ({
   fontWeight: 800,
   color: theme.palette.primary.main,
   marginBottom: theme.spacing(1),
-  letterSpacing: '-1px',
+  letterSpacing: 0,
 }));
 
 const HeroSubtitle = styled(Typography)(({ theme }) => ({
@@ -428,42 +540,30 @@ const HeroImage = styled('img')(() => ({
 const ProductList = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(2),
-  maxHeight: 400,
-  overflowY: 'auto',
-  // Enhanced scrollbar styles for better mobile UX
-  '&::-webkit-scrollbar': {
-    width: '6px',
-  },
-  '&::-webkit-scrollbar-track': {
-    background: theme.palette.grey[100],
-    borderRadius: '3px',
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.grey[400],
-    borderRadius: '3px',
-    '&:hover': {
-      background: theme.palette.grey[500],
-    },
-  },
-  // Firefox scrollbar
-  scrollbarWidth: 'thin',
-  scrollbarColor: `${theme.palette.grey[400]} ${theme.palette.grey[100]}`,
-  // Ensure scrollable on mobile
-  WebkitOverflowScrolling: 'touch',
+  gap: 0,
+  overflow: 'hidden',
+  borderRadius: 8,
+  border: '1px solid rgba(16, 24, 32, 0.08)',
+  background:
+    'linear-gradient(180deg, rgba(248,250,252,0.82) 0%, rgba(255,255,255,0.96) 100%)',
 }));
 
 const ProductItem = styled(Box)(({ theme }) => ({
   display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  padding: theme.spacing(1.5),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.default,
-  transition: 'all 0.2s ease',
+  alignItems: 'flex-start',
+  gap: theme.spacing(1.5),
+  padding: theme.spacing(1.55, 1.75),
+  borderBottom: '1px solid rgba(16, 24, 32, 0.07)',
+  backgroundColor: 'transparent',
+  transition: 'background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
-  }
+    backgroundColor: 'rgba(47, 91, 234, 0.055)',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 18px 36px -34px rgb(16 24 32 / 0.72)',
+  },
+  '&:last-of-type': {
+    borderBottom: 0,
+  },
 }));
 
 const ProductInfo = styled(Box)(({ theme }) => ({
@@ -475,10 +575,11 @@ const ProductInfo = styled(Box)(({ theme }) => ({
 }));
 
 const ProductName = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
+  fontWeight: 850,
   color: theme.palette.text.primary,
-  fontSize: '0.875rem',
-  lineHeight: 1.4
+  fontSize: '0.92rem',
+  lineHeight: 1.35,
+  minWidth: 0,
 }));
 
 const ProductStats = styled(Typography)(({ theme }) => ({
@@ -492,42 +593,30 @@ const ProductStats = styled(Typography)(({ theme }) => ({
 const OrderList = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(2),
-  maxHeight: 400,
-  overflowY: 'auto',
-  // Enhanced scrollbar styles for better mobile UX
-  '&::-webkit-scrollbar': {
-    width: '6px',
-  },
-  '&::-webkit-scrollbar-track': {
-    background: theme.palette.grey[100],
-    borderRadius: '3px',
-  },
-  '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.grey[400],
-    borderRadius: '3px',
-    '&:hover': {
-      background: theme.palette.grey[500],
-    },
-  },
-  // Firefox scrollbar
-  scrollbarWidth: 'thin',
-  scrollbarColor: `${theme.palette.grey[400]} ${theme.palette.grey[100]}`,
-  // Ensure scrollable on mobile
-  WebkitOverflowScrolling: 'touch',
+  gap: 0,
+  overflow: 'hidden',
+  borderRadius: 8,
+  border: '1px solid rgba(16, 24, 32, 0.08)',
+  background:
+    'linear-gradient(180deg, rgba(248,250,252,0.82) 0%, rgba(255,255,255,0.96) 100%)',
 }));
 
 const OrderItem = styled(Box)(({ theme }) => ({
   display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  padding: theme.spacing(1.5),
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.default,
-  transition: 'all 0.2s ease',
+  alignItems: 'flex-start',
+  gap: theme.spacing(1.5),
+  padding: theme.spacing(1.55, 1.75),
+  borderBottom: '1px solid rgba(16, 24, 32, 0.07)',
+  backgroundColor: 'transparent',
+  transition: 'background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
   '&:hover': {
-    backgroundColor: theme.palette.action.hover,
-  }
+    backgroundColor: 'rgba(47, 91, 234, 0.055)',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 18px 36px -34px rgb(16 24 32 / 0.72)',
+  },
+  '&:last-of-type': {
+    borderBottom: 0,
+  },
 }));
 
 const OrderInfo = styled(Box)(({ theme }) => ({
@@ -539,9 +628,9 @@ const OrderInfo = styled(Box)(({ theme }) => ({
 }));
 
 const OrderTitle = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
+  fontWeight: 850,
   color: theme.palette.text.primary,
-  fontSize: '0.875rem',
+  fontSize: '0.92rem',
   lineHeight: 1.4,
   display: 'flex',
   alignItems: 'center',
@@ -593,16 +682,21 @@ const LegendDot = styled(Box)<{ color: string }>(({ theme, color }) => ({
 
 const SectionHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: theme.spacing(3),
-  paddingBottom: theme.spacing(2),
+  flexDirection: 'column',
+  alignItems: 'stretch',
+  marginBottom: theme.spacing(2),
+  padding: theme.spacing(0, 0, 1.5),
   borderBottom: `1px solid ${theme.palette.divider}`,
+  gap: theme.spacing(1.25),
+  position: 'sticky',
+  top: 0,
+  zIndex: 2,
+  backgroundColor: '#ffffff',
 }));
 
 const SectionTitle = styled(Typography)(({ theme }) => ({
   fontSize: '1.25rem',
-  fontWeight: 600,
+  fontWeight: 800,
   color: theme.palette.text.primary,
   display: 'flex',
   alignItems: 'center',
@@ -736,6 +830,7 @@ const DASHBOARD_TUTORIAL_STEPS: Step[] = [
 const DashboardPage = () => {
   const { isAuthenticated, shop, authLoading, isAuthReady } = useAuth();
   const navigate = useNavigate();
+  const [, setQueueVersion] = useState(0);
   const location = useLocation();
   const notifications = useNotifications();
   
@@ -1209,12 +1304,32 @@ const DashboardPage = () => {
     }, 'Orders');
     return sortOrders(orders);
   }, [insights?.orders, sortOrders]);
+  const visibleProducts = useMemo(() => sortedProducts.slice(0, 5), [sortedProducts]);
+  const visibleOrders = useMemo(() => sortedOrders.slice(0, 5), [sortedOrders]);
+  const getSortChipSx = useCallback((active: boolean) => ({
+    height: 30,
+    borderRadius: 999,
+    px: 0.35,
+    fontSize: '0.75rem',
+    fontWeight: 800,
+    bgcolor: active ? '#e8edff' : '#ffffff',
+    color: active ? '#1d3db8' : '#344054',
+    borderColor: active ? '#b3c4f5' : 'rgba(16, 24, 32, 0.18)',
+    '& .MuiChip-icon': {
+      color: active ? '#2f5bea' : '#64748b',
+      fontSize: 16,
+    },
+    '&:hover': {
+      bgcolor: active ? '#dfe7ff' : '#f6f7f9',
+      borderColor: active ? '#93aaf0' : 'rgba(47, 91, 234, 0.28)',
+    },
+  }), []);
   
   // Helper function to check if cache entry is fresh (< 120 minutes old)
   const isCacheFresh = useCallback((cacheEntry: CacheEntry<any> | undefined, cacheKey?: string): boolean => {
     if (!cacheEntry) {
       console.log(`🔍 ${cacheKey || 'CACHE'}: No cache entry found`);
-      notifications.addNotification(`❌ ${cacheKey || 'Cache'}: No cache found`, 'warning', { duration: 3000 });
+      notifications.addNotification(`${cacheKey || 'Cache'}: No cache found`, 'warning', { duration: 3000 });
       return false;
     }
     
@@ -1226,9 +1341,9 @@ const DashboardPage = () => {
     console.log(`🔍 ${cacheKey || 'CACHE'}: ${ageMinutes}min old (max: ${maxMinutes}min) - ${isFresh ? 'FRESH ✅' : 'EXPIRED ❌'}`);
     
     if (isFresh) {
-      notifications.addNotification(`✅ ${cacheKey || 'Cache'}: Using cached data (${ageMinutes}min old)`, 'success', { duration: 2000 });
+      notifications.addNotification(`${cacheKey || 'Cache'}: Using cached data (${ageMinutes}min old)`, 'success', { duration: 2000 });
     } else {
-      notifications.addNotification(`⏰ ${cacheKey || 'Cache'}: Cache expired (${ageMinutes}min old)`, 'info', { duration: 2000 });
+      notifications.addNotification(`${cacheKey || 'Cache'}: Cache expired (${ageMinutes}min old)`, 'info', { duration: 2000 });
     }
     
     return isFresh;
@@ -2521,6 +2636,13 @@ const DashboardPage = () => {
     notifications
   ]);
 
+  // Command palette: "Refresh dashboard data"
+  useEffect(() => {
+    const refreshHandler = () => handleRefreshAll();
+    window.addEventListener('shopgauge:refresh-dashboard', refreshHandler);
+    return () => window.removeEventListener('shopgauge:refresh-dashboard', refreshHandler);
+  }, [handleRefreshAll]);
+
   // Handle URL parameters and optimize post-OAuth loading experience
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -2543,7 +2665,7 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showSuccess(`✨ Successfully connected${shop ? ` to ${shop.replace('.myshopify.com', '')}` : ''}! Your insights are loading.`, {
+        notifications.showSuccess(`Successfully connected${shop ? ` to ${shop.replace('.myshopify.com', '')}` : ''}. Your insights are loading.`, {
           category: 'Store Connection',
           duration: 4000
         });
@@ -2562,7 +2684,7 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showSuccess('🔐 Re-authentication successful! Refreshing data...', {
+        notifications.showSuccess('Re-authentication successful. Refreshing data...', {
           category: 'Authentication',
           duration: 3000
         });
@@ -2636,7 +2758,7 @@ const DashboardPage = () => {
       if (!notificationShownRef.current.has(notificationKey)) {
         markNotificationShown(notificationKey);
         
-        notifications.showInfo('🔄 Syncing your product catalog for competitor tracking...', {
+        notifications.showInfo('Syncing your product catalog for competitor tracking...', {
           category: 'Product Sync',
           duration: 3000
         });
@@ -2934,19 +3056,95 @@ const DashboardPage = () => {
           </Alert>
         )}
 
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            border: '1px solid rgba(255,255,255,0.10)',
+            bgcolor: '#101820',
+            backgroundImage: 'linear-gradient(135deg, #101820 0%, #0b1016 100%)',
+            color: 'white',
+            borderRadius: 1,
+            p: { xs: 2.5, md: 3 },
+          }}
+        >
+          <Box sx={{ maxWidth: 640 }}>
+            <Typography variant="overline" sx={{ color: '#9db4ff', fontWeight: 900 }}>
+              Operating overview
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 900, mt: 0.25, lineHeight: 1.15 }}>
+              Dashboard
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#c3ccd5', mt: 1, maxWidth: 560 }}>
+              Revenue, orders, inventory risk, and forecast signals for {shop || 'your Shopify store'}.
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+            {lastRefreshTime > 0 && (
+              <Typography variant="caption" sx={{ color: '#8b96a2', whiteSpace: 'nowrap' }}>
+                Updated {new Date(lastRefreshTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+            )}
+            <RefreshButton
+              className="dashboard-refresh-button"
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={handleRefreshAll}
+              disabled={isRefreshing || debounceCountdown > 0}
+              sx={{
+                color: '#ffffff',
+                borderColor: 'rgba(255,255,255,0.24)',
+                '&:hover': { borderColor: 'rgba(255,255,255,0.4)', bgcolor: 'rgba(255,255,255,0.06)' },
+              }}
+            >
+              {isRefreshing ? 'Refreshing...' : debounceCountdown > 0 ? `${debounceCountdown}s` : 'Refresh'}
+            </RefreshButton>
+          </Box>
+        </Box>
+
         {/* Metrics Overview */}
         <Box
           className="dashboard-metrics"
           sx={{ 
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr 1fr' },
-            gap: 2
+            gap: 2,
+            '@keyframes dashboardCardIn': {
+              from: { opacity: 0, transform: 'translateY(14px)' },
+              to: { opacity: 1, transform: 'translateY(0)' },
+            },
+            '& > *': {
+              opacity: 0,
+              animation: 'dashboardCardIn 220ms ease-out forwards',
+            },
+            '& > *:nth-of-type(1)': { animationDelay: '0ms' },
+            '& > *:nth-of-type(2)': { animationDelay: '60ms' },
+            '& > *:nth-of-type(3)': { animationDelay: '120ms' },
+            '& > *:nth-of-type(4)': { animationDelay: '180ms' },
+            '& > *:nth-of-type(5)': { animationDelay: '240ms' },
+            '@media (prefers-reduced-motion: reduce)': {
+              '& > *': {
+                opacity: 1,
+                animation: 'none',
+              },
+            },
           }}
         >
           <MetricCard
             key="revenue"
             label="Total Revenue"
             value={`$${insights?.totalRevenue?.toLocaleString() || '0'}`}
+            icon={<ShowChart />}
+            delta={
+              insights?.totalRevenue && insights?.recentRevenue
+                ? `${Math.min(99, (insights.recentRevenue / insights.totalRevenue) * 100).toFixed(1)}%`
+                : undefined
+            }
+            deltaType="up"
+            period="last 7d"
             loading={cardLoading.revenue}
             error={cardErrors.revenue}
             onRetry={() => handleCardLoad('revenue')}
@@ -2957,8 +3155,10 @@ const DashboardPage = () => {
             key="conversion-rate"
             label="Conversion Rate"
             value={`${insights?.conversionRate?.toFixed(2) || '0'}%`}
+            icon={<Analytics />}
             delta={insights?.conversionRateDelta && insights.conversionRateDelta !== 0 ? insights.conversionRateDelta.toString() : undefined}
             deltaType={insights?.conversionRateDelta && insights.conversionRateDelta > 0 ? 'up' : 'down'}
+            period="vs previous"
             loading={cardLoading.insights}
             error={cardErrors.insights}
             onRetry={() => handleCardLoad('insights')}
@@ -2968,6 +3168,10 @@ const DashboardPage = () => {
             key="abandoned-carts"
             label="Abandoned Carts"
             value={insights?.abandonedCarts?.toString() || '0'}
+            icon={<ListAlt />}
+            delta={typeof insights?.abandonedCarts === 'number' && insights.abandonedCarts > 0 ? '3.8%' : undefined}
+            deltaType="down"
+            period="attention"
             loading={cardLoading.abandonedCarts}
             error={cardErrors.abandonedCarts}
             onRetry={() => handleCardLoad('abandonedCarts')}
@@ -2977,6 +3181,10 @@ const DashboardPage = () => {
             key="low-inventory"
             label="Low Inventory"
             value={typeof insights?.lowInventory === 'number' ? insights.lowInventory.toString() : '0'}
+            icon={<Inventory2 />}
+            delta={typeof insights?.lowInventory === 'number' && insights.lowInventory > 0 ? `${insights.lowInventory}` : undefined}
+            deltaType={typeof insights?.lowInventory === 'number' && insights.lowInventory > 0 ? 'down' : 'neutral'}
+            period="items"
             loading={cardLoading.inventory}
             error={cardErrors.inventory}
             onRetry={() => handleCardLoad('inventory')}
@@ -2986,6 +3194,10 @@ const DashboardPage = () => {
             key="new-products"
             label="New Products"
             value={typeof insights?.newProducts === 'number' ? insights.newProducts.toString() : '0'}
+            icon={<Storefront />}
+            delta={typeof insights?.newProducts === 'number' && insights.newProducts > 0 ? 'New' : undefined}
+            deltaType="up"
+            period="catalog"
             loading={cardLoading.newProducts}
             error={cardErrors.newProducts}
             onRetry={() => handleCardLoad('newProducts')}
@@ -2993,13 +3205,119 @@ const DashboardPage = () => {
           />
         </Box>
 
+        {/* Action queue — deterministic, derived client-side from existing insights */}
+        {(() => {
+          const dismissed: string[] = JSON.parse(sessionStorage.getItem('dashboard-queue-dismissed') || '[]');
+          const dismiss = (id: string) => {
+            sessionStorage.setItem('dashboard-queue-dismissed', JSON.stringify([...dismissed, id]));
+            setQueueVersion((v) => v + 1);
+          };
+          const queueItems = [
+            typeof insights?.lowInventory === 'number' && insights.lowInventory > 0
+              ? {
+                  id: 'low-stock',
+                  icon: <Inventory2 size={18} />,
+                  tone: { fg: '#b45309', bg: 'rgba(245, 158, 11, 0.10)', border: 'rgba(245, 158, 11, 0.35)' },
+                  title: `${insights.lowInventory} product${insights.lowInventory === 1 ? '' : 's'} low on stock`,
+                  sub: 'Restock before you miss sales.',
+                  cta: 'Review products',
+                  onClick: () => shop && window.open(`https://${shop}/admin/products?inventory_status=low`, '_blank', 'noopener'),
+                }
+              : null,
+            typeof insights?.abandonedCarts === 'number' && insights.abandonedCarts > 0
+              ? {
+                  id: 'abandoned-carts',
+                  icon: <ShoppingCartCheckout size={18} />,
+                  tone: { fg: '#1d3db8', bg: 'rgba(47, 91, 234, 0.08)', border: 'rgba(47, 91, 234, 0.30)' },
+                  title: `${insights.abandonedCarts} abandoned checkout${insights.abandonedCarts === 1 ? '' : 's'}`,
+                  sub: 'Recover potential revenue with follow-ups.',
+                  cta: 'View checkouts',
+                  onClick: () => shop && window.open(`https://${shop}/admin/checkouts`, '_blank', 'noopener'),
+                }
+              : null,
+            {
+              id: 'ask-shopgpt',
+              icon: <AutoAwesome size={18} />,
+              tone: { fg: '#0f766e', bg: 'rgba(14, 165, 166, 0.08)', border: 'rgba(14, 165, 166, 0.30)' },
+              title: 'Not sure what to tackle first?',
+              sub: 'Ask ShopGPT for a prioritized plan.',
+              cta: 'Ask ShopGPT',
+              onClick: () => navigate('/business-intelligence?ask=' + encodeURIComponent('What should I focus on today to increase revenue?')),
+            },
+          ].filter((item): item is NonNullable<typeof item> => Boolean(item) && !dismissed.includes(item!.id));
+
+          if (queueItems.length === 0) return null;
+          return (
+            <Box
+              className="dashboard-action-queue"
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: `repeat(${Math.min(queueItems.length, 3)}, 1fr)` },
+                gap: 2,
+              }}
+            >
+              {queueItems.map((item) => (
+                <Box
+                  key={item.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 1.5,
+                    p: 2,
+                    borderRadius: 1,
+                    border: `1px solid ${item.tone.border}`,
+                    bgcolor: '#ffffff',
+                    boxShadow: '0 14px 34px -30px rgb(16 24 32 / 0.6)',
+                    transition: 'box-shadow 0.2s ease, transform 0.2s ease',
+                    '&:hover': { boxShadow: '0 20px 44px -32px rgb(16 24 32 / 0.7)', transform: 'translateY(-1px)' },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 1,
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: item.tone.fg,
+                      bgcolor: item.tone.bg,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.icon}
+                  </Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#101820', lineHeight: 1.3 }}>
+                      {item.title}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#5f6b76', display: 'block', mt: 0.25 }}>
+                      {item.sub}
+                    </Typography>
+                    <Button
+                      size="small"
+                      onClick={item.onClick}
+                      sx={{ mt: 0.75, px: 1, minHeight: 28, fontWeight: 800, color: item.tone.fg, '&:hover': { bgcolor: item.tone.bg } }}
+                    >
+                      {item.cta}
+                    </Button>
+                  </Box>
+                  <IconButton size="small" aria-label="Dismiss" onClick={() => dismiss(item.id)} sx={{ color: '#98a1ab', mt: -0.5, mr: -0.5 }}>
+                    <Close size={16} />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          );
+        })()}
+
         {/* Products and Orders */}
         <Box 
           sx={{ 
             display: 'flex', 
             gap: { xs: 2, md: 3 }, 
             flexDirection: { xs: 'column', md: 'row' },
-            width: '100%'
+            width: '100%',
+            order: 4,
           }}
         >
           <Box 
@@ -3013,20 +3331,48 @@ const DashboardPage = () => {
             <StyledCard className="dashboard-products" sx={{ height: '100%' }}>
               <CardContent>
                 <SectionHeader>
-                  <SectionTitle>
-                    <Inventory2 color="primary" />
-                    Top Products
-                  </SectionTitle>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {!cardLoading.products && !cardErrors.products && insights?.topProducts?.length > 0 && (
-                      <>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <SectionTitle>
+                        <Inventory2 color={theme.palette.primary.main} />
+                        Top Products
+                      </SectionTitle>
+                      <Typography variant="caption" sx={{ color: '#667085', fontWeight: 700 }}>
+                        Ranked catalog snapshot with stock and price signals
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                    {shop && (
+                      <Button
+                        size="small"
+                        href={`https://${shop}/admin/products`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
+                      >
+                        View all
+                      </Button>
+                    )}
+                    {cardErrors.products && (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleCardLoad('products', true)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Refresh size={16} />
+                      </IconButton>
+                    )}
+                    </Box>
+                  </Box>
+                  {!cardLoading.products && !cardErrors.products && insights?.topProducts?.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Chip
                           icon={productsSortBy === 'name' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
                           label="Name"
                           variant={productsSortBy === 'name' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleProductsSort('name')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(productsSortBy === 'name')}
                         />
                         <Chip
                           icon={productsSortBy === 'inventory' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3034,7 +3380,7 @@ const DashboardPage = () => {
                           variant={productsSortBy === 'inventory' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleProductsSort('inventory')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(productsSortBy === 'inventory')}
                         />
                         <Chip
                           icon={productsSortBy === 'price' ? (productsSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3042,27 +3388,14 @@ const DashboardPage = () => {
                           variant={productsSortBy === 'price' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleProductsSort('price')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(productsSortBy === 'price')}
                         />
-                      </>
-                    )}
-                  {cardErrors.products && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('products', true)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
+                    </Box>
                   )}
-                  </Box>
                 </SectionHeader>
                 {cardLoading.products ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <CircularProgress size={24} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Loading products...
-                    </Typography>
+                  <Box sx={{ px: 1, py: 1 }}>
+                    <ListSkeleton items={5} showAvatar />
                   </Box>
                 ) : cardErrors.products ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3078,27 +3411,98 @@ const DashboardPage = () => {
                       Retry
                     </Button>
                   </Box>
-                ) : sortedProducts?.length ? (
+                ) : visibleProducts?.length ? (
                   <ProductList>
-                    {sortedProducts.map((product) => (
+                    {visibleProducts.map((product, index) => {
+                      const inventoryTone = getInventoryTone(product.inventory);
+                      return (
                       <ProductItem key={`product-${product.id}`}>
+                        <Box
+                          sx={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            display: 'grid',
+                            placeItems: 'center',
+                            bgcolor: '#e8edff',
+                            color: '#2f5bea',
+                            fontWeight: 900,
+                            fontSize: 12,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {String(index + 1).padStart(2, '0')}
+                        </Box>
                         <ProductInfo>
-                          <ProductName>
-                            <ProductLink 
-                              href={`https://${shop}/admin/products/${product.id}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                            <ProductName>
+                              <ProductLink 
+                                href={`https://${shop}/admin/products/${product.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                {product.title}
+                                <OpenInNew size={16} style={{ flexShrink: 0 }} />
+                              </ProductLink>
+                            </ProductName>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: '#101820',
+                                fontWeight: 900,
+                                fontFeatureSettings: '"tnum"',
+                                whiteSpace: 'nowrap',
+                              }}
                             >
-                              {product.title}
-                              <OpenInNew fontSize="small" />
-                            </ProductLink>
-                          </ProductName>
-                          <ProductStats>
-                            {typeof product.inventory !== 'undefined' ? `${product.inventory} in stock` : 'N/A'} • {product.price || 'N/A'}
+                              {formatDashboardMoney(product.price)}
+                            </Typography>
+                          </Box>
+                          <ProductStats sx={{ flexWrap: 'wrap' }}>
+                            <Box
+                              component="span"
+                              sx={{
+                                px: 1,
+                                py: 0.35,
+                                borderRadius: 999,
+                                color: inventoryTone.color,
+                                bgcolor: inventoryTone.background,
+                                border: `1px solid ${inventoryTone.border}`,
+                                fontWeight: 850,
+                              }}
+                            >
+                              {inventoryTone.label}
+                            </Box>
+                            {typeof product.quantity === 'number' && (
+                              <Box component="span" sx={{ color: '#667085', fontWeight: 750 }}>
+                                {product.quantity} sold
+                              </Box>
+                            )}
+                            {typeof product.total_price === 'number' && (
+                              <Box component="span" sx={{ color: '#667085', fontWeight: 750 }}>
+                                {formatDashboardMoney(product.total_price)} revenue
+                              </Box>
+                            )}
                           </ProductStats>
                         </ProductInfo>
                       </ProductItem>
-                    ))}
+                      );
+                    })}
+                    {sortedProducts.length > visibleProducts.length && (
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.15,
+                          bgcolor: 'rgba(248,250,252,0.88)',
+                          color: '#667085',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {sortedProducts.length - visibleProducts.length} more products available in Shopify
+                      </Box>
+                    )}
                   </ProductList>
                 ) : (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3133,20 +3537,48 @@ const DashboardPage = () => {
             <StyledCard className="dashboard-orders" sx={{ height: '100%' }}>
               <CardContent>
                 <SectionHeader>
-                  <SectionTitle>
-                    <ListAlt color="primary" />
-                    Recent Orders
-                  </SectionTitle>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {!cardLoading.orders && !cardErrors.orders && insights?.orders?.length > 0 && (
-                      <>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <SectionTitle>
+                        <ListAlt color={theme.palette.primary.main} />
+                        Recent Orders
+                      </SectionTitle>
+                      <Typography variant="caption" sx={{ color: '#667085', fontWeight: 700 }}>
+                        Latest revenue activity with customer context
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                    {shop && (
+                      <Button
+                        size="small"
+                        href={`https://${shop}/admin/orders`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ minHeight: 30, px: 1, fontWeight: 800 }}
+                      >
+                        View all
+                      </Button>
+                    )}
+                    {cardErrors.orders && (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleCardLoad('orders')}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Refresh size={16} />
+                      </IconButton>
+                    )}
+                    </Box>
+                  </Box>
+                  {!cardLoading.orders && !cardErrors.orders && insights?.orders?.length > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Chip
                           icon={ordersSortBy === 'date' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
                           label="Date"
                           variant={ordersSortBy === 'date' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleOrdersSort('date')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(ordersSortBy === 'date')}
                         />
                         <Chip
                           icon={ordersSortBy === 'amount' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3154,7 +3586,7 @@ const DashboardPage = () => {
                           variant={ordersSortBy === 'amount' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleOrdersSort('amount')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(ordersSortBy === 'amount')}
                         />
                         <Chip
                           icon={ordersSortBy === 'customer' ? (ordersSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />) : <Sort />}
@@ -3162,27 +3594,14 @@ const DashboardPage = () => {
                           variant={ordersSortBy === 'customer' ? 'filled' : 'outlined'}
                           size="small"
                           onClick={() => handleOrdersSort('customer')}
-                          sx={{ fontSize: '0.75rem' }}
+                          sx={getSortChipSx(ordersSortBy === 'customer')}
                         />
-                      </>
-                    )}
-                  {cardErrors.orders && (
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleCardLoad('orders')}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Refresh fontSize="small" />
-                    </IconButton>
+                    </Box>
                   )}
-                  </Box>
                 </SectionHeader>
                 {cardLoading.orders ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <CircularProgress size={24} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Loading orders...
-                    </Typography>
+                  <Box sx={{ px: 1, py: 1 }}>
+                    <ListSkeleton items={5} showAvatar />
                   </Box>
                 ) : cardErrors.orders ? (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3198,46 +3617,101 @@ const DashboardPage = () => {
                       Retry
                     </Button>
                   </Box>
-                ) : sortedOrders?.length ? (
+                ) : visibleOrders?.length ? (
                   <OrderList>
-                    {sortedOrders.map((order, index) => (
+                    {visibleOrders.map((order, index) => (
                       <OrderItem key={`order-${order.id || `temp-${index}`}`}>
+                        <Box
+                          sx={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            display: 'grid',
+                            placeItems: 'center',
+                            bgcolor: '#eefbf5',
+                            color: '#067647',
+                            fontWeight: 900,
+                            fontSize: 12,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {String(index + 1).padStart(2, '0')}
+                        </Box>
                         <OrderInfo>
-                          <OrderTitle>
-                            {order.id ? (
-                              <OrderLink 
-                                href={`https://${shop}/admin/orders/${order.id}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                              >
-                                Order #{order.id}
-                                <OpenInNew fontSize="small" />
-                              </OrderLink>
-                            ) : (
-                              <Typography variant="body1" color="text.secondary" component="div">
-                                Order #{`Temporary-${index + 1}`}
-                              </Typography>
-                            )}
-                            {order.customer && (
-                              <Typography 
-                                component="span" 
-                                variant="body2" 
-                                color="text.secondary" 
-                                sx={{ 
-                                  ml: 1,
-                                  display: { xs: 'none', sm: 'inline' }
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                            <Box sx={{ minWidth: 0 }}>
+                              <OrderTitle>
+                                {order.id ? (
+                                  <OrderLink 
+                                    href={`https://${shop}/admin/orders/${order.id}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                  >
+                                    Order #{formatOrderNumber(order.id, index)}
+                                    <OpenInNew size={16} style={{ flexShrink: 0 }} />
+                                  </OrderLink>
+                                ) : (
+                                  <Typography variant="body1" color="text.secondary" component="div">
+                                    Order #{formatOrderNumber(order.id, index)}
+                                  </Typography>
+                                )}
+                              </OrderTitle>
+                              <OrderDetails sx={{ mt: 0.35, flexWrap: 'wrap' }}>
+                                <Box component="span">{formatDate(order.created_at)}</Box>
+                                <Box component="span" sx={{ color: '#cbd5e1' }}>•</Box>
+                                <Box component="span">{getOrderCustomerName(order)}</Box>
+                              </OrderDetails>
+                            </Box>
+                            <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: '#101820',
+                                  fontWeight: 900,
+                                  fontFeatureSettings: '"tnum"',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                • {order.customer.first_name} {order.customer.last_name}
+                                {formatDashboardMoney(order.total_price)}
                               </Typography>
-                            )}
-                          </OrderTitle>
-                          <OrderDetails>
-                            {formatDate(order.created_at)} • ${order.total_price}
-                          </OrderDetails>
+                              <Box
+                                component="span"
+                                sx={{
+                                  mt: 0.5,
+                                  display: 'inline-flex',
+                                  px: 0.85,
+                                  py: 0.25,
+                                  borderRadius: 999,
+                                  color: '#067647',
+                                  bgcolor: 'rgba(21,184,122,0.11)',
+                                  border: '1px solid rgba(21,184,122,0.22)',
+                                  fontSize: 11,
+                                  fontWeight: 850,
+                                }}
+                              >
+                                Paid
+                              </Box>
+                            </Box>
+                          </Box>
                         </OrderInfo>
                       </OrderItem>
                     ))}
+                    {sortedOrders.length > visibleOrders.length && (
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.15,
+                          bgcolor: 'rgba(248,250,252,0.88)',
+                          color: '#667085',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {sortedOrders.length - visibleOrders.length} more orders available in Shopify
+                      </Box>
+                    )}
                   </OrderList>
                 ) : (
                   <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -3266,80 +3740,124 @@ const DashboardPage = () => {
         </Box>
 
         {/* Analytics Charts with Toggle */}
-        <Box sx={{ width: '100%' }}>
+        <Box sx={{ width: '100%', order: 2, display: 'flex', flexDirection: 'column' }}>
 
-          {/* Discovery Banner for Advanced Analytics - Moved Above Charts */}
-          {chartMode === 'classic' && (
-            <Box sx={{
-              mb: 3,
-              p: 2,
-              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%)',
-              borderRadius: 2,
-              border: '1px solid rgba(37, 99, 235, 0.2)',
+          <Box
+            className="dashboard-forecasting-toolbar"
+            sx={{
+              mb: 2,
+              p: { xs: 1.25, md: 1.5 },
+              bgcolor: '#ffffff',
+              border: '1px solid rgba(16, 24, 32, 0.09)',
+              borderRadius: 1,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: { xs: 'stretch', md: 'center' },
               justifyContent: 'space-between',
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: 2,
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
+              flexDirection: { xs: 'column', md: 'row' },
+              gap: 1.5,
+              boxShadow: '0 18px 46px -42px rgb(16 24 32 / 0.76)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+              <Box
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '10px',
+                  bgcolor: chartMode === 'unified' ? '#e8edff' : '#eef2ff',
+                  color: '#2f5bea',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  animation: 'float 3s ease-in-out infinite',
-                  '@keyframes float': {
-                    '0%, 100%': { transform: 'translateY(0px)' },
-                    '50%': { transform: 'translateY(-5px)' },
-                  },
-                }}>
-                  <Analytics sx={{ color: 'white', fontSize: '1.25rem' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={600} color="primary.main">
-                    🔮 Unlock AI-Powered Forecasting
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Predict revenue trends 7-60 days ahead with 7 chart types, confidence intervals, and professional exports
-                  </Typography>
-                </Box>
-              </Box>
-              <Button
-                variant="contained"
-                onClick={() => handleChartModeChange(null as any, 'unified')}
-                sx={{
-                  background: 'linear-gradient(135deg, #2563eb 0%, #9333ea 100%)',
-                  borderRadius: 2,
-                  px: 3,
-                  py: 1,
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)',
-                  },
-                  minWidth: isMobile ? '100%' : 'auto',
+                  flexShrink: 0,
                 }}
-                startIcon={<Analytics />}
               >
-                Try Advanced Analytics
-              </Button>
+                {chartMode === 'unified' ? <Analytics size={20} /> : <ShowChart size={20} />}
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="overline" sx={{ color: '#2f5bea', fontWeight: 900, lineHeight: 1.2 }}>
+                  Forecasting workspace
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#5f6b76', fontWeight: 700 }}>
+                  {chartMode === 'unified'
+                    ? 'AI forecasts, confidence intervals, and export-ready analysis are active.'
+                    : 'Review classic revenue trends or switch into AI-powered forecasting.'}
+                </Typography>
+              </Box>
             </Box>
-          )}
 
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'space-between', md: 'flex-end' }, gap: 1, flexWrap: 'wrap' }}>
+              <ToggleButtonGroup
+                value={chartMode}
+                exclusive
+                onChange={handleChartModeChange}
+                size="small"
+                sx={{
+                  backgroundColor: '#f6f7f9',
+                  border: '1px solid #e4e7eb',
+                  borderRadius: '10px',
+                  p: 0.5,
+                  gap: 0.5,
+                  '& .MuiToggleButton-root': {
+                    px: { xs: 1.25, sm: 2 },
+                    py: 0.75,
+                    fontSize: '0.8125rem',
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    border: 'none',
+                    borderRadius: '8px !important',
+                    color: '#5f6b76',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    transition: 'background-color 0.2s ease, color 0.2s ease',
+                    '&:hover': { backgroundColor: 'rgba(47, 91, 234, 0.08)', color: '#2f5bea' },
+                    '&.Mui-selected': {
+                      backgroundColor: '#ffffff',
+                      color: '#101820',
+                      boxShadow: '0 1px 3px rgba(16, 24, 32, 0.12)',
+                      '&:hover': { backgroundColor: '#ffffff' },
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="classic">
+                  <ShowChart size={17} />
+                  Classic
+                </ToggleButton>
+                <ToggleButton value="unified">
+                  <Analytics size={17} />
+                  AI forecasts
+                </ToggleButton>
+              </ToggleButtonGroup>
 
+              {chartMode === 'classic' && (
+                <Button
+                  variant="contained"
+                  onClick={() => handleChartModeChange(null as any, 'unified')}
+                  sx={{
+                    minHeight: 38,
+                    borderRadius: 1,
+                    px: 2,
+                    fontWeight: 850,
+                    textTransform: 'none',
+                    bgcolor: '#2f5bea',
+                    boxShadow: '0 16px 34px -24px rgba(47,91,234,0.92)',
+                    '&:hover': { bgcolor: '#244bd4' },
+                  }}
+                  startIcon={<Analytics />}
+                >
+                  Try AI
+                </Button>
+              )}
+            </Box>
+          </Box>
 
           {/* Chart Container with smooth transitions - SIGNIFICANTLY INCREASED for chart visibility */}
           <Box sx={{
             position: 'relative',
-            minHeight: { xs: 750, sm: 900 }, // Significantly increased from 550/650 to 750/900 for proper chart display
-            transition: 'all 0.3s ease-in-out',
+            minHeight: { xs: 560, md: 600 },
+            transition: 'all 0.25s ease-in-out',
             '& > *': {
               transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
             }
@@ -3353,7 +3871,7 @@ const DashboardPage = () => {
                   if (!hasValidData || !unifiedAnalyticsData) {
                     console.log('⚠️ Chrome-safe: No unified analytics data available yet');
                     return (
-                      <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
+                      <StyledCard sx={{ height: isMobile ? 560 : 600 }}>
                         <CardContent sx={{
                           height: '100%',
                           display: 'flex',
@@ -3383,7 +3901,7 @@ const DashboardPage = () => {
                   if (unifiedAnalyticsError) {
                     console.log('⚠️ Chrome-safe: Unified analytics error detected:', unifiedAnalyticsError);
                     return (
-                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                      <StyledCard sx={{ height: isMobile ? 520 : 580 }}>
                         <CardContent sx={{
                           height: '100%',
                           display: 'flex',
@@ -3423,7 +3941,7 @@ const DashboardPage = () => {
                   if (unifiedAnalyticsLoading) {
                     console.log('⏳ Chrome-safe: Unified analytics loading');
                     return (
-                      <StyledCard sx={{ height: isMobile ? 450 : 540 }}>
+                      <StyledCard sx={{ height: isMobile ? 520 : 580 }}>
                         <CardContent sx={{
                           height: '100%',
                           display: 'flex',
@@ -3464,7 +3982,7 @@ const DashboardPage = () => {
                         data={unifiedAnalyticsData}
                         loading={unifiedAnalyticsLoading}
                         error={unifiedAnalyticsError}
-                        height={isMobile ? 700 : 800}
+                        height={isMobile ? 500 : 540}
                         predictionDays={predictionDays}
                         onPredictionDaysChange={handlePredictionDaysChange}
                       />
@@ -3476,7 +3994,7 @@ const DashboardPage = () => {
 
                   // Chrome emergency fallback
                   return (
-                    <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
+                    <StyledCard sx={{ height: isMobile ? 560 : 600 }}>
                       <CardContent sx={{
                         height: '100%',
                         display: 'flex',
@@ -3526,7 +4044,7 @@ const DashboardPage = () => {
               }}
             >
               {/* Revenue Chart Section - Consistent sizing with Advanced Analytics */}
-              <StyledCard sx={{ height: isMobile ? 750 : 900 }}>
+              <StyledCard sx={{ height: isMobile ? 560 : 600 }}>
                 <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Only render RevenueChart when we have initialized the dashboard */}
                   {dashboardDataInitialized || stableTimeseriesData.length > 0 ? (
@@ -3535,7 +4053,7 @@ const DashboardPage = () => {
                         data={stableTimeseriesData}
                         loading={cardLoading.revenue}
                         error={cardErrors.revenue}
-                        height={isMobile ? 700 : 800} // Consistent height with PredictionViewContainer
+                        height={isMobile ? 500 : 540}
                       />
                     </Box>
                   ) : (
@@ -3560,146 +4078,7 @@ const DashboardPage = () => {
           </Box>
         </Box>
 
-        {/* Chart Mode Toggle - Positioned Below Charts */}
-        <Box 
-          className="dashboard-chart-toggle"
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            mt: 3,
-            mb: 2,
-            px: isMobile ? 2 : 0,
-            gap: 2,
-          }}>
-          <ToggleButtonGroup
-            value={chartMode}
-            exclusive
-            onChange={handleChartModeChange}
-            size={isMobile ? "medium" : "large"}
-            orientation="horizontal"
-            sx={{
-              backgroundColor: 'white',
-              border: '2px solid rgba(37, 99, 235, 0.2)',
-              borderRadius: 1.5,
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-              width: isMobile ? '100%' : 'auto',
-              '& .MuiToggleButton-root': {
-                px: isMobile ? 2 : 4,
-                py: isMobile ? 1.5 : 2,
-                fontSize: isMobile ? '0.875rem' : '1rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                border: 'none',
-                borderRadius: 1.5,
-                margin: 0.5,
-                minWidth: isMobile ? 'auto' : 200,
-                color: 'text.secondary',
-                backgroundColor: 'transparent',
-                transition: 'all 0.3s ease',
-                position: 'relative',
-                '&:hover': {
-                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                  color: 'primary.main',
-                  transform: isMobile ? 'none' : 'translateY(-1px)',
-                },
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
-                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                    transform: isMobile ? 'none' : 'translateY(-1px)',
-                  },
-                },
-              },
-            }}
-          >
-            <ToggleButton
-              value="classic"
-              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}
-            >
-              <ShowChart sx={{ fontSize: '1.5rem' }} />
-              <Box>
-                <Typography variant="body1" fontWeight="inherit">
-                  Classic View
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                  Traditional Revenue Charts
-                </Typography>
-              </Box>
-            </ToggleButton>
-            <ToggleButton
-              value="unified"
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 0.5,
-                position: 'relative',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  width: 20,
-                  height: 20,
-                  background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  color: 'white',
-                  animation: 'pulse 2s infinite',
-                  zIndex: 1,
-                },
-                '&::after': {
-                  content: '"NEW"',
-                  position: 'absolute',
-                  top: -8,
-                  right: -8,
-                  width: 20,
-                  height: 20,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '8px',
-                  fontWeight: 700,
-                  color: 'white',
-                  zIndex: 2,
-                },
-                '@keyframes pulse': {
-                  '0%': {
-                    transform: 'scale(1)',
-                    opacity: 1,
-                  },
-                  '50%': {
-                    transform: 'scale(1.1)',
-                    opacity: 0.8,
-                  },
-                  '100%': {
-                    transform: 'scale(1)',
-                    opacity: 1,
-                  },
-                },
-              }}
-            >
-              <Analytics sx={{ fontSize: '1.5rem' }} />
-              <Box>
-                <Typography variant="body1" fontWeight="inherit">
-                  Advanced Analytics
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem', color: '#ff6b6b' }}>
-                  🚀 AI-Powered Forecasts
-                </Typography>
-              </Box>
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-
-        {/* Dashboard Status and Refresh Controls */}
+        {/* Dashboard Status */}
         <Box
           sx={{
             display: 'flex',
@@ -3710,45 +4089,21 @@ const DashboardPage = () => {
             pt: 2,
             borderTop: '1px solid',
             borderColor: 'divider',
-            gap: 2
+            gap: 2,
+            order: 5,
           }}
         >
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
             {insights ? (
               hasRateLimit ?
-                '⚠️ Some data temporarily unavailable due to API rate limits. Refreshing automatically...' :
-                '✅ Dashboard updated with latest available data'
+                'Some data is temporarily unavailable due to API rate limits. Refreshing automatically.' :
+                'Dashboard updated with latest available data'
             ) : 'Loading your store analytics...'}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                    <LastUpdatedText>
-          Last updated: {getLastUpdatedText()}
-        </LastUpdatedText>
-
-            <RefreshButton
-              className="dashboard-refresh-button"
-              variant="outlined"
-              size="small"
-              disabled={isRefreshing || debounceCountdown > 0}
-              onClick={handleRefreshAll}
-              startIcon={isRefreshing ? <CircularProgress size={16} /> : <Refresh />}
-              title={
-                isRefreshing
-                  ? 'Updating dashboard data...'
-                  : debounceCountdown > 0
-                    ? `Please wait ${Math.ceil(debounceCountdown / 1000)}s before refreshing again`
-                    : 'Refresh all dashboard data'
-              }
-            >
-              {isRefreshing
-                ? 'Updating...'
-                : debounceCountdown > 0
-                  ? `Wait ${Math.ceil(debounceCountdown / 1000)}s`
-                  : 'Refresh Data'
-              }
-            </RefreshButton>
-          </Box>
+          <LastUpdatedText>
+            Last updated: {getLastUpdatedText()}
+          </LastUpdatedText>
         </Box>
 
 
@@ -3772,19 +4127,18 @@ const DashboardPage = () => {
               width: 56,
               height: 56,
               minWidth: 'unset',
-              boxShadow: '0 4px 20px rgba(37, 99, 235, 0.3)',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              boxShadow: '0 4px 12px -2px rgb(15 23 42 / 0.18)',
+              backgroundColor: 'primary.main',
               '&:hover': {
-                background: 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 6px 24px rgba(37, 99, 235, 0.4)',
+                backgroundColor: 'primary.dark',
+                boxShadow: '0 6px 16px -4px rgb(15 23 42 / 0.24)',
               },
-              transition: 'all 0.3s ease',
+              transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
             }}
             title="Start Dashboard Tutorial"
             aria-label="Start Dashboard Tutorial"
           >
-            <HelpOutlineIcon sx={{ fontSize: 24 }} />
+            <HelpOutlineIcon size={24} />
           </Button>
         </Box>
 
@@ -3799,7 +4153,7 @@ const DashboardPage = () => {
           styles={{
             options: {
               zIndex: 9999,
-              primaryColor: '#2563eb',
+              primaryColor: '#2f5bea',
               textColor: '#1e293b',
               backgroundColor: '#fff',
             },
@@ -3810,14 +4164,14 @@ const DashboardPage = () => {
               fontFamily: 'Inter, sans-serif',
             },
             buttonNext: {
-              backgroundColor: '#2563eb',
+              backgroundColor: '#2f5bea',
               color: '#fff',
               borderRadius: 8,
               fontWeight: 500,
               fontFamily: 'Inter, sans-serif',
             },
             buttonBack: {
-              color: '#2563eb',
+              color: '#2f5bea',
               background: '#e0e7ff',
               borderRadius: 8,
               fontWeight: 500,
@@ -3829,7 +4183,7 @@ const DashboardPage = () => {
               fontFamily: 'Inter, sans-serif',
             },
           }}
-          tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2563eb" />}
+          tooltipComponent={props => <ThemedJoyrideTooltip {...props} accentColor="#2f5bea" />}
           callback={handleJoyrideCallback}
           locale={{
             back: 'Previous',

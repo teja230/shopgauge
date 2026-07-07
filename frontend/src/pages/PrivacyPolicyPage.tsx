@@ -6,7 +6,7 @@ export default function PrivacyPolicyPage() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="bg-white shadow-lg rounded-lg p-8">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">StoreSignt Privacy Policy</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">ShopGauge Privacy Policy</h1>
           <p className="text-lg text-gray-600">Data Protection & Privacy Compliance</p>
           <div className="mt-4 text-sm text-gray-500">
             <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
               <span className="mr-2">📋</span> Overview
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              StoreSignt is committed to protecting merchant and customer privacy while providing valuable business analytics. 
+              ShopGauge is committed to protecting merchant and customer privacy while providing valuable business analytics. 
               This document outlines our data handling practices in compliance with Shopify's Protected Customer Data requirements.
             </p>
           </section>

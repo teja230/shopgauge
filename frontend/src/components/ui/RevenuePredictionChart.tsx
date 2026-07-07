@@ -27,16 +27,16 @@ import {
   Paper,
   Tooltip,
 } from '@mui/material';
-import { 
-  AutoAwesome,
-  ShowChart,
-  Timeline,
-  BarChart as BarChartIcon,
+import {
+  Sparkles as AutoAwesome,
+  LineChart as ShowChart,
+  Activity as Timeline,
+  BarChart3 as BarChartIcon,
   CandlestickChart,
-  WaterfallChart,
-  StackedLineChart,
-  Analytics,
-} from '@mui/icons-material';
+  BarChart3 as WaterfallChart,
+  LineChart as StackedLineChart,
+  BarChart3 as Analytics,
+} from 'lucide-react';
 import {
   chartContainerStyles,
   chartHeaderStyles,
@@ -313,7 +313,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
               pt: 1, 
               borderTop: `1px solid ${theme.palette.divider}` 
             }}>
-              <AutoAwesome sx={{ fontSize: 14, color: theme.palette.primary.main }} />
+              <AutoAwesome size={14} color={theme.palette.primary.main} />
               <Typography variant="caption" color="primary" fontWeight={600}>
                 AI Forecast
               </Typography>
@@ -697,7 +697,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
             <Line
               type="monotone"
               dataKey="revenue"
-              stroke="#2563eb"
+              stroke="#2f5bea"
               strokeWidth={2}
               strokeDasharray=""
               dot={(props: any) => {
@@ -708,8 +708,8 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
                     cx={props.cx}
                     cy={props.cy}
                     r={isPrediction ? 2 : 3}
-                    fill={isPrediction ? "#93c5fd" : "#2563eb"}
-                    stroke={isPrediction ? "#93c5fd" : "#2563eb"}
+                    fill={isPrediction ? "#93c5fd" : "#2f5bea"}
+                    stroke={isPrediction ? "#93c5fd" : "#2f5bea"}
                     strokeWidth={2}
                   />
                 );
@@ -861,7 +861,7 @@ const RevenuePredictionChart: React.FC<RevenuePredictionChartProps> = ({
       {/* Header with Chart Type Toggle */}
       <Box sx={chartHeaderStyles(theme)}>
         <Typography variant="subtitle1" fontWeight={600} sx={chartTitleStyles(theme)}>
-          <AutoAwesome color="secondary" fontSize="small" />
+          <AutoAwesome color="#15b87a" size={16} />
           {showPredictions ? 'Revenue Forecast' : 'Revenue'}
         </Typography>
         

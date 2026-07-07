@@ -7,8 +7,7 @@ import {
   Typography,
   Alert
 } from '@mui/material';
-import { CheckCircleIcon } from '@heroicons/react/24/outline';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import { CheckCircle2 as CheckCircleIcon, DollarSign as AttachMoneyIcon } from 'lucide-react';
 import { fetchWithAuth } from '../../api';
 
 interface Product {
@@ -175,14 +174,14 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                     {option.handle ? `/${option.handle}` : 'No handle set'}
                   </Typography>
                   <Box display="flex" alignItems="center" gap={0.5}>
-                    <AttachMoneyIcon style={{ fontSize: '0.875rem' }} color="primary" />
+                    <AttachMoneyIcon size={14} color="#2f5bea" />
                     <Typography variant="body2" color="primary" sx={{ fontSize: '14px' }}>
                       ${option.price}
                     </Typography>
                   </Box>
                 </Box>
                 {value === option.id && (
-                  <CheckCircleIcon style={{ fontSize: '1rem' }} color="primary" />
+                  <CheckCircleIcon size={16} color="#2f5bea" />
                 )}
               </Box>
             </Box>

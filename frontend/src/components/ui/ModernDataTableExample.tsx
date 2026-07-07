@@ -3,11 +3,11 @@ import { Box, Typography, Chip, Avatar, Stack } from '@mui/material';
 import { ModernDataTable } from './ModernDataTable';
 import type { TableColumn, PaginationConfig, FilterState, SortState } from './ModernDataTable';
 import {
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  Person as PersonIcon,
-  AdminPanelSettings as AdminIcon,
-} from '@mui/icons-material';
+  CheckCircle2 as CheckCircleIcon,
+  XCircle as CancelIcon,
+  User as PersonIcon,
+  ShieldCheck as AdminIcon,
+} from 'lucide-react';
 
 // Example data types
 interface User {

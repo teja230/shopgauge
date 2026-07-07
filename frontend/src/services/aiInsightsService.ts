@@ -371,7 +371,7 @@ class AIInsightsService {
 
   private generateMockAIInsight(prompt: string, request?: InsightRequest): string {
     const data = request?.data;
-    const userQuestion = request?.context?.userQuestion;
+    const userQuestion = request?.userQuestion || request?.context?.userQuestion;
     const timeframe = request?.context?.timeframe || '7d';
     
     // Extract actual data values with fallbacks
@@ -441,8 +441,8 @@ class AIInsightsService {
       // Product questions
       if (lowerQuestion.includes('product')) {
         const inventoryStatus = lowStock > 0 
-          ? `⚠️ **Alert**: ${lowStock} product${lowStock > 1 ? 's are' : ' is'} running low on inventory and need${lowStock === 1 ? 's' : ''} immediate restocking to avoid stockouts and lost sales.`
-          : '✅ All products have healthy inventory levels.';
+          ? `**Alert**: ${lowStock} product${lowStock > 1 ? 's are' : ' is'} running low on inventory and need${lowStock === 1 ? 's' : ''} immediate restocking to avoid stockouts and lost sales.`
+          : 'All products have healthy inventory levels.';
         const productPerformance = hasTopProducts 
           ? ` Your top performers include **${topProducts.slice(0, 2).map((p: any) => p.name || p.title).join('** and **')}**, which are driving significant revenue.`
           : ' Your top-performing products are driving the majority of revenue.';
@@ -450,16 +450,49 @@ class AIInsightsService {
         return `${timeframeLabel.charAt(0).toUpperCase() + timeframeLabel.slice(1)}, you have **${productCount} active products** in your catalog generating **$${revenue.toLocaleString()}** in total revenue. ${inventoryStatus}${productPerformance} Consider expanding successful product lines while optimizing or discontinuing underperformers to maximize profitability.`;
       }
       
-      // Competitor questions
-      if (lowerQuestion.includes('competitor') || lowerQuestion.includes('competition')) {
-        if (competitorCount > 0) {
-          const performanceVsMarket = growth > 5 ? '**outperforming** market averages' : growth > 0 ? 'performing well and aligned with market trends' : 'below market averages';
-          const budgetStatus = budgetUsage > 80 ? 'Consider optimizing monitoring frequency.' : budgetUsage < 30 ? 'You have room to expand monitoring.' : 'Budget utilization is well-balanced.';
-          
-          return `📊 You're actively monitoring **${competitorCount} competitors** ${timeframeLabel}, investing **$${dailyCost.toFixed(2)}/day** (${budgetUsage.toFixed(1)}% of your monitoring budget). This investment provides valuable pricing insights, inventory tracking, and competitive positioning data. Your ${growth.toFixed(1)}% growth rate is ${performanceVsMarket}. The estimated ROI on competitive monitoring is approximately **$${monthlyROI}/month** through strategic pricing advantages and market opportunities. ${budgetStatus}`;
-        } else {
-          return `🔍 You're not currently monitoring any competitors. Setting up market intelligence would provide **pricing insights**, **competitor inventory tracking**, and help identify **market opportunities**. This typically delivers 3-10x ROI through better strategic decisions and optimal pricing. Consider adding 3-5 key competitors to start gaining competitive advantages.`;
+      // Competitor / pricing / market questions
+      if (
+        lowerQuestion.includes('competitor') || lowerQuestion.includes('competition') ||
+        lowerQuestion.includes('compare') || lowerQuestion.includes('overpriced') ||
+        lowerQuestion.includes('underpriced') || lowerQuestion.includes('pricing') ||
+        lowerQuestion.includes('market') || lowerQuestion.includes('out of stock')
+      ) {
+        const competitors = data?.marketIntelligence?.competitors || [];
+        if (competitors.length > 0) {
+          const byGap = [...competitors].sort(
+            (a, b) => Math.abs(b.percentDiff || 0) - Math.abs(a.percentDiff || 0)
+          );
+          const lines = byGap.slice(0, 3).map((c) => {
+            const gap = c.percentDiff || 0;
+            const gapText = gap === 0
+              ? 'matches your price'
+              : `${Math.abs(gap).toFixed(1)}% ${gap > 0 ? 'above' : 'below'} your price`;
+            return `- **${c.name}** at $${(c.price || 0).toFixed(2)} (${gapText}, ${c.inStock ? 'in stock' : 'out of stock'})`;
+          });
+          const outOfStock = competitors.filter((c) => !c.inStock);
+          const cheaper = competitors.filter((c) => (c.percentDiff || 0) < 0);
+          const actions: string[] = [];
+          if (outOfStock.length > 0) {
+            actions.push(
+              `${outOfStock.map((c) => `**${c.name}**`).join(' and ')} ${outOfStock.length > 1 ? 'are' : 'is'} out of stock — promote your in-stock alternatives now to capture that demand`
+            );
+          }
+          if (cheaper.length > 0) {
+            const cheapest = cheaper.reduce((min, c) => ((c.percentDiff || 0) < (min.percentDiff || 0) ? c : min));
+            actions.push(
+              `**${cheapest.name}** undercuts you by ${Math.abs(cheapest.percentDiff || 0).toFixed(1)}% — review whether that product justifies your premium or needs a price adjustment`
+            );
+          } else {
+            actions.push('every monitored competitor is priced at or above you — you have room to test a modest price increase');
+          }
+          const avgGap = competitors.reduce((sum, c) => sum + (c.percentDiff || 0), 0) / competitors.length;
+          const suggestionNote = (data?.marketIntelligence?.suggestions || 0) > 0
+            ? ` You also have ${data?.marketIntelligence?.suggestions} pending competitor suggestion${(data?.marketIntelligence?.suggestions || 0) > 1 ? 's' : ''} to review.`
+            : '';
+
+          return `You're monitoring **${competitors.length} competitor${competitors.length > 1 ? 's' : ''}**, averaging ${avgGap > 0 ? '+' : ''}${avgGap.toFixed(1)}% versus your prices:\n\n${lines.join('\n')}\n\nWhat to do next: ${actions.join('; ')}.${dailyCost > 0 ? ` Monitoring costs $${dailyCost.toFixed(2)}/day (${budgetUsage.toFixed(1)}% of budget).` : ''}${suggestionNote}`;
         }
+        return `You're not monitoring any competitors yet, so I can't compare your prices to the market. Add 3-5 direct competitors on the Competitors page to unlock pricing gaps, stock alerts, and market positioning — merchants typically recoup monitoring costs several times over through better pricing decisions.`;
       }
       
       // Cost/budget questions
@@ -501,9 +534,9 @@ class AIInsightsService {
         }
         
         if (recommendations.length > 0) {
-          return `🎯 **${timeframeLabel.charAt(0).toUpperCase() + timeframeLabel.slice(1)} Optimization Priorities** for ${shopName}:\n\n${recommendations.slice(0, 4).map((rec, i) => `${i + 1}. ${rec} (${impactRatings[i]})`).join('\n\n')}\n\nImplementing these could increase revenue by **10-25%** while improving operational efficiency and customer satisfaction.`;
+          return `**${timeframeLabel.charAt(0).toUpperCase() + timeframeLabel.slice(1)} Optimization Priorities** for ${shopName}:\n\n${recommendations.slice(0, 4).map((rec, i) => `${i + 1}. ${rec} (${impactRatings[i]})`).join('\n\n')}\n\nImplementing these could increase revenue by **10-25%** while improving operational efficiency and customer satisfaction.`;
         } else {
-          return `🎉 **Excellent performance** ${timeframeLabel}! Your business is operating well with a ${growth.toFixed(1)}% growth rate and strong metrics. To maintain momentum:\n\n1. **Continue monitoring** key performance indicators\n2. **Scale successful strategies** that are working\n3. **Explore new markets** or product categories\n4. **Maintain inventory levels** to support growth\n5. **Consider increasing** marketing investment to capitalize on momentum`;
+          return `**Excellent performance** ${timeframeLabel}! Your business is operating well with a ${growth.toFixed(1)}% growth rate and strong metrics. To maintain momentum:\n\n1. **Continue monitoring** key performance indicators\n2. **Scale successful strategies** that are working\n3. **Explore new markets** or product categories\n4. **Maintain inventory levels** to support growth\n5. **Consider increasing** marketing investment to capitalize on momentum`;
         }
       }
     }

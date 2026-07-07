@@ -55,25 +55,32 @@ module.exports = {
       },
       // Enhanced colors matching MUI theme with full palette and opacity variants
       colors: {
+        // Align Tailwind's default blue interactive shades with the MUI brand blue
+        blue: {
+          500: '#2f5bea',
+          600: '#2f5bea',
+          700: '#244bd4',
+          800: '#1539a6',
+        },
         primary: {
           50: '#eff6ff',
           100: '#dbeafe',
           200: '#bfdbfe',
           300: '#93c5fd',
           400: '#60a5fa',
-          500: '#2563eb', // Main primary color
-          600: '#1d4ed8',
+          500: '#2f5bea', // Main primary color (matches MUI theme)
+          600: '#244bd4',
           700: '#1e40af',
           800: '#1e3a8a',
           900: '#1e293b',
           950: '#0f172a',
         },
         secondary: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          200: '#a7f3d0',
-          300: '#6ee7b7',
-          400: '#34d399',
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
           500: '#16a34a', // Main secondary color
           600: '#15803d',
           700: '#166534',

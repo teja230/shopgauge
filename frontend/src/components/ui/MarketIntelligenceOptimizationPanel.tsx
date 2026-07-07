@@ -35,24 +35,24 @@ import {
   Tooltip,
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  Storage as StorageIcon,
-  Speed as SpeedIcon,
+  RefreshCw as RefreshIcon,
+  Database as StorageIcon,
+  Gauge as SpeedIcon,
   TrendingUp as TrendingUpIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
+  AlertTriangle as WarningIcon,
   Info as InfoIcon,
-  ExpandMore as ExpandMoreIcon,
-  PlayArrow as PlayArrowIcon,
-  Stop as StopIcon,
-  Clear as ClearIcon,
+  ChevronDown as ExpandMoreIcon,
+  Play as PlayArrowIcon,
+  Square as StopIcon,
+  X as ClearIcon,
   Settings as SettingsIcon,
-  Memory as MemoryIcon,
-  Queue as QueueIcon,
-  Cached as CacheIcon,
+  MemoryStick as MemoryIcon,
+  ListOrdered as QueueIcon,
+  RefreshCw as CacheIcon,
   TrendingUp as WarmUpIcon,
-} from '@mui/icons-material';
+} from 'lucide-react';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import { useNotifications } from '../../hooks/useNotifications';
 
@@ -240,15 +240,15 @@ const MarketIntelligenceOptimizationPanel: React.FC = () => {
     switch (status?.toLowerCase()) {
       case 'healthy':
       case 'success':
-        return <CheckCircleIcon color="success" />;
+        return <CheckCircleIcon color="#059669" />;
       case 'warning':
       case 'degraded':
-        return <WarningIcon color="warning" />;
+        return <WarningIcon color="#f59e0b" />;
       case 'error':
       case 'failed':
-        return <ErrorIcon color="error" />;
+        return <ErrorIcon color="#dc2626" />;
       default:
-        return <InfoIcon color="info" />;
+        return <InfoIcon color="#0ea5a6" />;
     }
   };
 
@@ -357,7 +357,7 @@ const MarketIntelligenceOptimizationPanel: React.FC = () => {
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                <CacheIcon sx={{ mr: 1 }} />
+                <CacheIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">Cache Management</Typography>
                 {stats?.cache && (
                   <Chip
@@ -420,7 +420,7 @@ const MarketIntelligenceOptimizationPanel: React.FC = () => {
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                <QueueIcon sx={{ mr: 1 }} />
+                <QueueIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">Batch Processing</Typography>
                 {stats?.batch && (
                   <Chip
@@ -480,7 +480,7 @@ const MarketIntelligenceOptimizationPanel: React.FC = () => {
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                <SpeedIcon sx={{ mr: 1 }} />
+                <SpeedIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">Write Operations</Typography>
                 {stats?.write && (
                   <Chip
@@ -532,7 +532,7 @@ const MarketIntelligenceOptimizationPanel: React.FC = () => {
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                <WarmUpIcon sx={{ mr: 1 }} />
+                <WarmUpIcon style={{ marginRight: 8 }} />
                 <Typography variant="h6">Cache Warming</Typography>
                 {stats?.warming && (
                   <Chip

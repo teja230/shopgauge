@@ -16,14 +16,14 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  Close as CloseIcon,
-  Warning as WarningIcon,
+  X as CloseIcon,
+  AlertTriangle as WarningIcon,
   Timer as TimerIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Logout as LogoutIcon,
-  Refresh as RefreshIcon,
-} from '@mui/icons-material';
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
+  LogOut as LogoutIcon,
+  RefreshCw as RefreshIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../../hooks/useNotifications';
 

@@ -33,20 +33,20 @@ import {
   AccordionDetails,
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  PlayArrow as PlayArrowIcon,
-  BugReport as DebugIcon,
-  Storage as StorageIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
+  RefreshCw as RefreshIcon,
+  Play as PlayArrowIcon,
+  Bug as DebugIcon,
+  Database as StorageIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
+  AlertTriangle as WarningIcon,
   Info as InfoIcon,
-  ExpandMore as ExpandMoreIcon,
-  Visibility as VisibilityIcon,
-  Speed as SpeedIcon,
-  Timeline as TimelineIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+  ChevronDown as ExpandMoreIcon,
+  Eye as VisibilityIcon,
+  Gauge as SpeedIcon,
+  Activity as TimelineIcon,
+  Trash2 as DeleteIcon,
+} from 'lucide-react';
 import marketIntelligenceAdminAPI from '../../api/marketIntelligenceAdmin';
 import type { 
   CompetitorScrapingStatus, 
@@ -346,12 +346,12 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
           alignItems: 'center', 
           gap: 2, 
           mb: 1,
-          background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+          background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
           backgroundClip: 'text',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          <DebugIcon sx={{ fontSize: 40 }} />
+          <DebugIcon size={40} />
         Competitor Admin Panel
       </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -695,7 +695,7 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
         }}
       >
         <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+          background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
           color: 'white',
           fontWeight: 600
         }}>
@@ -1039,4 +1039,4 @@ const CompetitorAdminPanel: React.FC<CompetitorAdminPanelProps> = ({
   );
 };
 
-export default CompetitorAdminPanel; 
+export default CompetitorAdminPanel;

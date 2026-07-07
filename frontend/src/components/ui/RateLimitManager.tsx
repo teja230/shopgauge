@@ -30,18 +30,18 @@ import {
   Divider
 } from '@mui/material';
 import {
-  Speed as SpeedIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as CheckCircleIcon,
-  Refresh as RefreshIcon,
-  Block as BlockIcon,
-  Clear as ClearIcon,
-  Computer as ComputerIcon,
-  Schedule as ScheduleIcon,
-  Security as SecurityIcon,
-  AdminPanelSettings as AdminIcon
-} from '@mui/icons-material';
+  Gauge as SpeedIcon,
+  AlertTriangle as WarningIcon,
+  AlertCircle as ErrorIcon,
+  CheckCircle2 as CheckCircleIcon,
+  RefreshCw as RefreshIcon,
+  Ban as BlockIcon,
+  X as ClearIcon,
+  Monitor as ComputerIcon,
+  Clock as ScheduleIcon,
+  ShieldCheck as SecurityIcon,
+  ShieldCheck as AdminIcon
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import RefreshHeader from './RefreshHeader';
 
@@ -191,7 +191,7 @@ const RateLimitManager: React.FC = () => {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center">
-          <SpeedIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+          <SpeedIcon size={32} color="#2f5bea" style={{ marginRight: 16 }} />
           <Typography variant="h4" component="h1">
             Rate Limit Manager
           </Typography>
@@ -221,7 +221,7 @@ const RateLimitManager: React.FC = () => {
           <Box flex="1" minWidth="300px">
             <MetricCard>
               <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
-                <AdminIcon color="primary" />
+                <AdminIcon color="#2f5bea" />
                 <Typography variant="h6" sx={{ ml: 1 }}>
                   Admin Requests
                 </Typography>
@@ -244,7 +244,7 @@ const RateLimitManager: React.FC = () => {
           <Box flex="1" minWidth="300px">
             <MetricCard>
               <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
-                <SecurityIcon color="primary" />
+                <SecurityIcon color="#2f5bea" />
                 <Typography variant="h6" sx={{ ml: 1 }}>
                   Login Attempts
                 </Typography>
@@ -267,7 +267,7 @@ const RateLimitManager: React.FC = () => {
           <Box flex="1" minWidth="300px">
             <MetricCard>
               <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
-                <CheckCircleIcon color={currentIpStats.rate_limit_enabled ? 'success' : 'error'} />
+                <CheckCircleIcon color={currentIpStats.rate_limit_enabled ? '#059669' : '#dc2626'} />
                 <Typography variant="h6" sx={{ ml: 1 }}>
                   Rate Limiting
                 </Typography>
@@ -293,7 +293,7 @@ const RateLimitManager: React.FC = () => {
       <SecurityCard sx={{ mb: 3 }}>
         <CardHeader 
           title="Rate Limit Management" 
-          avatar={<SpeedIcon color="primary" />}
+          avatar={<SpeedIcon color="#2f5bea" />}
         />
         <CardContent>
           <Alert severity="warning" sx={{ mb: 3 }}>
@@ -335,7 +335,7 @@ const RateLimitManager: React.FC = () => {
       <SecurityCard>
         <CardHeader 
           title="Rate Limit Configuration" 
-          avatar={<SecurityIcon color="primary" />}
+          avatar={<SecurityIcon color="#2f5bea" />}
         />
         <CardContent>
           <Box display="flex" flexWrap="wrap" gap={3}>

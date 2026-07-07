@@ -12,13 +12,13 @@ import {
   Collapse,
   IconButton
 } from '@mui/material';
-import { 
-  Replay as ReplayIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  BugReport as BugReportIcon,
-  Warning as WarningIcon
-} from '@mui/icons-material';
+import {
+  RotateCcw as ReplayIcon,
+  ChevronDown as ExpandMoreIcon,
+  ChevronUp as ExpandLessIcon,
+  Bug as BugReportIcon,
+  AlertTriangle as WarningIcon
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
 // Types
@@ -300,7 +300,7 @@ class SectionErrorBoundary extends Component<Props, State> {
         <ErrorContainer>
           <ErrorHeader>
             <Stack direction="row" alignItems="center" spacing={2}>
-              <WarningIcon color="error" />
+              <WarningIcon color="#dc2626" />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h6" color="error.main" sx={{ fontWeight: 600 }}>
                   {level === 'page' ? 'Page Error' : `${sectionName} Section Error`}

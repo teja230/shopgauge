@@ -28,24 +28,24 @@ import {
   Paper
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
-  Memory as MemoryIcon,
-  Speed as SpeedIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
+  RefreshCw as RefreshIcon,
+  MemoryStick as MemoryIcon,
+  Gauge as SpeedIcon,
+  AlertTriangle as WarningIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
   Info as InfoIcon,
   Settings as SettingsIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  Storage as StorageIcon,
-  NetworkCheck as NetworkCheckIcon,
-  Schedule as ScheduleIcon,
-  Notifications as NotificationsIcon,
-  CleanHands as CleanHandsIcon,
-  People as PeopleIcon,
+  Database as StorageIcon,
+  Activity as NetworkCheckIcon,
+  Clock as ScheduleIcon,
+  Bell as NotificationsIcon,
+  ShieldCheck as CleanHandsIcon,
+  Users as PeopleIcon,
   Wifi as WifiIcon
-} from '@mui/icons-material';
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../../hooks/useNotifications';
 import { fetchWithAdminAuth } from '../../api';
@@ -328,7 +328,7 @@ const MemoryOptimizationManager: React.FC = () => {
             <OptimizationCard>
               <CardHeader
                 title="System Status"
-                avatar={<MemoryIcon color="primary" />}
+                avatar={<MemoryIcon color="#2f5bea" />}
                 action={
                   <Chip
                     label={recommendations.plan}
@@ -397,7 +397,7 @@ const MemoryOptimizationManager: React.FC = () => {
             <OptimizationCard>
               <CardHeader
                 title="Memory Impact"
-                avatar={<TrendingDownIcon color="success" />}
+                avatar={<TrendingDownIcon color="#059669" />}
               />
               <CardContent>
                 <Stack spacing={2}>
@@ -438,7 +438,7 @@ const MemoryOptimizationManager: React.FC = () => {
             <CardHeader
               title="Memory Optimization Features"
               subtitle="Toggle memory-intensive features on/off"
-              avatar={<SettingsIcon color="primary" />}
+              avatar={<SettingsIcon color="#2f5bea" />}
             />
             <CardContent>
               <Box display="flex" flexWrap="wrap" gap={2}>
@@ -500,14 +500,14 @@ const MemoryOptimizationManager: React.FC = () => {
           <OptimizationCard>
             <CardHeader
               title="System Recommendations"
-              avatar={<InfoIcon color="info" />}
+              avatar={<InfoIcon color="#0ea5a6" />}
             />
             <CardContent>
               <List>
                 {recommendations.recommendations.map((recommendation, index) => (
                   <ListItem key={index} sx={{ px: 0 }}>
                     <ListItemIcon>
-                      <InfoIcon color="info" />
+                      <InfoIcon color="#0ea5a6" />
                     </ListItemIcon>
                     <ListItemText primary={recommendation} />
                   </ListItem>
@@ -529,7 +529,7 @@ const MemoryOptimizationManager: React.FC = () => {
             {Object.entries(pendingChanges).map(([feature, enabled]) => (
               <ListItem key={feature} sx={{ px: 0 }}>
                 <ListItemIcon>
-                  {enabled ? <CheckCircleIcon color="success" /> : <ErrorIcon color="error" />}
+                  {enabled ? <CheckCircleIcon color="#059669" /> : <ErrorIcon color="#dc2626" />}
                 </ListItemIcon>
                 <ListItemText
                   primary={feature.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}

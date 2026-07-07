@@ -15,12 +15,12 @@ import {
 import {
   WifiOff as OfflineIcon,
   Wifi as OnlineIcon,
-  SignalWifiOff as PoorConnectionIcon,
-  Refresh as RefreshIcon,
-  Close as CloseIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-} from '@mui/icons-material';
+  WifiLow as PoorConnectionIcon,
+  RefreshCw as RefreshIcon,
+  X as CloseIcon,
+  ChevronDown as ExpandMoreIcon,
+  ChevronUp as ExpandLessIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
 // Types
@@ -373,7 +373,7 @@ const NetworkStatusHandler: React.FC<NetworkStatusHandlerProps> = ({
                 color="inherit"
                 onClick={handleDismissOffline}
               >
-                <CloseIcon fontSize="small" />
+                <CloseIcon size={16} />
               </IconButton>
             </Stack>
           }

@@ -22,17 +22,17 @@ import {
   LinearProgress,
 } from '@mui/material';
 import {
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
-  Refresh as RefreshIcon,
-  Security as SecurityIcon,
-  Speed as SpeedIcon,
-  Assessment as AssessmentIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
+  AlertTriangle as WarningIcon,
+  RefreshCw as RefreshIcon,
+  Shield as SecurityIcon,
+  Gauge as SpeedIcon,
+  ClipboardList as AssessmentIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  RestartAlt as RestartAltIcon,
-} from '@mui/icons-material';
+  RotateCcw as RestartAltIcon,
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import RefreshHeader from './RefreshHeader';
 
@@ -326,7 +326,7 @@ const TransactionMonitoring: React.FC = () => {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h5" fontWeight="600" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <SecurityIcon sx={{ color: 'primary.main' }} />
+            <SecurityIcon color="#2f5bea" />
             Transaction Monitoring
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -422,12 +422,12 @@ const TransactionMonitoring: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
                   {health.totalTransactions > 0 ? (
                     health.successRate > 95 ? (
-                      <TrendingUpIcon color="success" fontSize="small" />
+                      <TrendingUpIcon color="#059669" size={16} />
                     ) : (
-                      <TrendingDownIcon color="error" fontSize="small" />
+                      <TrendingDownIcon color="#dc2626" size={16} />
                     )
                   ) : (
-                    <CheckCircleIcon color="success" fontSize="small" />
+                    <CheckCircleIcon color="#059669" size={16} />
                   )}
                 </Box>
               </MetricCard>
@@ -440,7 +440,7 @@ const TransactionMonitoring: React.FC = () => {
                   Avg Response Time
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                  <SpeedIcon color="info" fontSize="small" />
+                  <SpeedIcon color="#0ea5a6" size={16} />
                 </Box>
               </MetricCard>
             </Box>

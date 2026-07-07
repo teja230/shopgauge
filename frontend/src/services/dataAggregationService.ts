@@ -4,7 +4,7 @@ import marketIntelligenceAdminAPI from '../api/marketIntelligenceAdmin';
 import type { AggregatedDashboardData, InsightContext } from '../types/businessIntelligence';
 import { DEMO_DATA_BUNDLE } from '../data/demoDataBundle';
 
-class DataAggregationService {
+export class DataAggregationService {
   private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
   private readonly CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -44,6 +44,7 @@ class DataAggregationService {
       ordersData,
       competitorsData,
       costAnalytics,
+      suggestionCount,
       insightsData
     ] = await Promise.allSettled([
       this.fetchRevenueData(shop),
@@ -52,6 +53,7 @@ class DataAggregationService {
       this.fetchOrdersData(shop),
       this.fetchCompetitorsData(),
       this.fetchCostAnalytics(),
+      this.fetchSuggestionCount(),
       this.fetchInsightsData(shop)
     ]);
 
@@ -59,7 +61,12 @@ class DataAggregationService {
     const processedRevenue = this.processRevenueData(revenueData, freshness);
     const processedProducts = this.processProductsData(productsData, inventoryData, freshness);
     const processedOrders = this.processOrdersData(ordersData, insightsData, freshness);
-    const processedMarketIntelligence = this.processMarketIntelligenceData(competitorsData, costAnalytics, freshness);
+    const processedMarketIntelligence = this.processMarketIntelligenceData(
+      competitorsData,
+      costAnalytics,
+      suggestionCount,
+      freshness
+    );
     
     const aggregatedData: AggregatedDashboardData = {
       revenue: processedRevenue,
@@ -194,6 +201,16 @@ class DataAggregationService {
     } catch (error) {
       console.warn('Cost analytics fetch failed:', error);
       return null;
+    }
+  }
+
+  private async fetchSuggestionCount(): Promise<number> {
+    try {
+      const result = await marketIntelligenceAPI.getSuggestionCount();
+      return result?.count || 0;
+    } catch (error) {
+      console.warn('Suggestion count fetch failed:', error);
+      return 0;
     }
   }
 
@@ -465,62 +482,52 @@ class DataAggregationService {
     };
   }
 
-  private processMarketIntelligenceData(
+  processMarketIntelligenceData(
     competitorsResult: PromiseSettledResult<any>,
     costResult: PromiseSettledResult<any>,
+    suggestionResult: PromiseSettledResult<number>,
     freshness: Record<string, number>
   ) {
     const competitors = competitorsResult.status === 'fulfilled' ? competitorsResult.value : null;
     const costs = costResult.status === 'fulfilled' ? costResult.value : null;
-    
+    const suggestions = suggestionResult.status === 'fulfilled' ? suggestionResult.value || 0 : 0;
+
     freshness.competitors = competitorsResult.status === 'fulfilled' ? 0 : 999;
     freshness.costs = costResult.status === 'fulfilled' ? 0 : 999;
-    
-    if (competitors && costs) {
-      return {
-        competitors: competitors.map((c: any) => ({
-          url: c.url,
-          price: c.price || 0,
-          percentDiff: c.percentDiff || 0,
-          inStock: c.inStock || false,
-          lastChecked: c.lastChecked || new Date().toISOString()
-        })),
-        suggestions: 0, // Would need to fetch separately
-        costs: {
-          daily: costs?.totalDailyCost || 0,
-          monthly: costs?.totalMonthlyCost || 0,
-          requests: costs?.totalDailyRequests || 0,
-          budgetUsage: costs?.dailyUsagePercentage || 0
-        }
-      };
-    }
-    
-    // Generate realistic demo data when APIs fail
-    return this.generateDemoMarketIntelligenceData();
-  }
 
-  private generateDemoMarketIntelligenceData() {
-    // Use unified DEMO_DATA_BUNDLE for consistency
-    const competitors = DEMO_DATA_BUNDLE.competitors;
-    
-    const competitorData = competitors.map(c => ({
-      url: c.url,
-      price: c.current_price,
-      percentDiff: Math.round((c.price_difference / c.our_price) * 100),
-      inStock: c.status === 'active',
-      lastChecked: c.last_checked
-    }));
-    
+    // Live competitors are the source of truth: keep them even when cost
+    // analytics (an admin-only endpoint) fails, and never substitute demo
+    // competitors in live mode — an empty list is an honest answer.
     return {
-      competitors: competitorData,
-      suggestions: competitors.length,
+      competitors: this.normalizeCompetitors(Array.isArray(competitors) ? competitors : []),
+      suggestions,
       costs: {
-        daily: 15.75,
-        monthly: 15.75 * 30,
-        requests: 124, // Estimate requests based on cost
-        budgetUsage: 68.5
+        daily: costs?.totalDailyCost || 0,
+        monthly: costs?.totalMonthlyCost || 0,
+        requests: costs?.totalDailyRequests || 0,
+        budgetUsage: costs?.dailyUsagePercentage || 0
       }
     };
+  }
+
+  normalizeCompetitors(competitors: any[]) {
+    return competitors.map((c: any) => ({
+      name: c.label || c.name || this.hostnameFromUrl(c.url) || 'Unnamed competitor',
+      url: c.url || '',
+      price: typeof c.price === 'number' ? c.price : 0,
+      percentDiff: typeof c.percentDiff === 'number' ? c.percentDiff : 0,
+      inStock: Boolean(c.inStock),
+      lastChecked: c.lastChecked || new Date().toISOString()
+    }));
+  }
+
+  private hostnameFromUrl(url?: string): string | null {
+    if (!url) return null;
+    try {
+      return new URL(url.includes('://') ? url : `https://${url}`).hostname.replace(/^www\./, '');
+    } catch {
+      return null;
+    }
   }
 
   private calculateGrowth(timeseries: Array<{ date: string; revenue: number }>): number {

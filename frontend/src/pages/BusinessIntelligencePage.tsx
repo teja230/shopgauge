@@ -1,60 +1,70 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
-  CircularProgress,
   Alert,
-  TextField,
   Stack,
   IconButton,
   LinearProgress,
   Container,
   Paper,
   Chip,
-  Fade,
   useTheme,
   useMediaQuery,
-  InputAdornment,
   Avatar,
   Skeleton,
-  Divider,
+  Tooltip,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
 import {
-  Analytics as AnalyticsIcon,
+  BarChart3 as AnalyticsIcon,
   TrendingUp as TrendingUpIcon,
-  MonetizationOn as CostIcon,
+  CircleDollarSign as CostIcon,
   Lightbulb as RecommendationIcon,
-  Refresh as RefreshIcon,
-  AutoAwesome as AIIcon,
+  RefreshCw as RefreshIcon,
+  Sparkles as AIIcon,
   Send as SendIcon,
-  Person as PersonIcon,
-  SmartToy as BotIcon,
-} from '@mui/icons-material';
+  User as PersonIcon,
+  Bot as BotIcon,
+  Copy as CopyIcon,
+  Check as CheckIcon,
+  ThumbsUp as ThumbsUpIcon,
+  ThumbsDown as ThumbsDownIcon,
+  RotateCcw as RegenerateIcon,
+  Paperclip as AttachIcon,
+  X as RemoveIcon,
+  FileText as FileIcon,
+  Store as StorefrontIcon,
+  PackageCheck as InventoryIcon,
+  ShoppingCart as OrdersIcon,
+  ArrowRight as ArrowForwardIcon,
+  type LucideIcon,
+} from 'lucide-react';
+import ChatMarkdown from '../components/ui/ChatMarkdown';
 import { useAuth } from '../context/AuthContext';
 import dataAggregationService from '../services/dataAggregationService';
 import aiInsightsService from '../services/aiInsightsService';
+import detectQuestionIntent from '../services/questionIntent';
+import type { InsightDataType } from '../services/questionIntent';
 import type { AggregatedDashboardData } from '../types/businessIntelligence';
 import type { GeneratedInsight } from '../services/aiInsightsService';
 import type { InsightRequest } from '../services/insightPromptTemplates';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { debugLog } from '../components/ui/DebugPanel';
 
-interface InsightCard {
-  id: string;
-  type: 'summary' | 'trends' | 'costs' | 'recommendations';
-  title: string;
-  description: string;
-  icon: React.ComponentType;
-  color: string;
-  insight: GeneratedInsight | null;
-  loading: boolean;
-  error: string | null;
+interface QuickAction {
+  label: string;
+  kind: 'ask' | 'navigate';
+  payload: string;
+}
+
+interface ChatAttachment {
+  name: string;
+  rowCount: number;
+  digest: string;
 }
 
 interface ChatMessage {
@@ -63,497 +73,474 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   insight?: GeneratedInsight;
+  contextUsed?: InsightDataType[];
   isStreaming?: boolean;
+  /** For assistant messages: the user question this answered (enables regenerate + feedback telemetry) */
+  question?: string;
+  attachment?: { name: string; rowCount: number };
+  actions?: QuickAction[];
+  feedback?: 'up' | 'down';
 }
 
-interface SuggestedQuestion {
+interface PromptCard {
   text: string;
-  icon: React.ComponentType;
+  icon: LucideIcon;
   category: string;
 }
+
+type Timeframe = '24h' | '7d' | '30d' | '60d';
+
+const SOURCE_META: Array<{ key: InsightDataType; label: string; icon: LucideIcon }> = [
+  { key: 'revenue', label: 'Revenue', icon: TrendingUpIcon },
+  { key: 'products', label: 'Products', icon: InventoryIcon },
+  { key: 'orders', label: 'Orders', icon: OrdersIcon },
+  { key: 'competitors', label: 'Competitors', icon: StorefrontIcon },
+  { key: 'costs', label: 'Costs', icon: CostIcon },
+];
+
+const formatCurrency = (value: number) =>
+  value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+
+const relativeTime = (iso?: string): string => {
+  if (!iso) return 'unknown';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return 'just now';
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+};
+
+type SyncState = 'syncing' | 'fresh' | 'delayed' | 'none';
+
+const SYNC_TONE: Record<SyncState, { color: string; pulse: boolean }> = {
+  syncing: { color: '#f59e0b', pulse: true },
+  fresh: { color: '#15b87a', pulse: false },
+  delayed: { color: '#f59e0b', pulse: false },
+  none: { color: '#6f7c88', pulse: false },
+};
+
+/** Tiny single-series trend: de-emphasis line, latest point in the accent hue. */
+const Sparkline: React.FC<{ data: number[]; width?: number; height?: number }> = ({
+  data,
+  width = 64,
+  height = 20,
+}) => {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pad = 3;
+  const points = data.map((value, i) => [
+    pad + (i * (width - pad * 2)) / (data.length - 1),
+    pad + (height - pad * 2) * (1 - (value - min) / range),
+  ]);
+  const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const [lastX, lastY] = points[points.length - 1];
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden="true"
+      style={{ display: 'block', flexShrink: 0, marginLeft: 'auto', overflow: 'visible' }}
+    >
+      <path d={path} fill="none" stroke="#c3ccd5" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lastX} cy={lastY} r={2.5} fill="#2f5bea" />
+    </svg>
+  );
+};
+
+/** Compact digest of an uploaded CSV/TSV so answers can cross-reference it. */
+const buildAttachmentDigest = (fileName: string, text: string): ChatAttachment => {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const delimiter = (lines[0] || '').includes('\t') ? '\t' : ',';
+  const headers = (lines[0] || '').split(delimiter).map((h) => h.trim()).filter(Boolean);
+  const rowCount = Math.max(lines.length - 1, 0);
+  const sample = lines.slice(1, 9).join('\n');
+  const digest = [
+    `Attached file "${fileName}" (${rowCount} rows).`,
+    headers.length ? `Columns: ${headers.join(', ')}.` : '',
+    sample ? `Sample rows:\n${sample}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 1500);
+  return { name: fileName, rowCount, digest };
+};
 
 const BusinessIntelligencePage: React.FC = () => {
   const { isAuthenticated, shop, isDemoMode } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // Data state
   const [aggregatedData, setAggregatedData] = useState<AggregatedDashboardData | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
-  
+
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [streamingMessage, setStreamingMessage] = useState('');
-  const [selectedTimeframe, setSelectedTimeframe] = useState<'24h' | '7d' | '30d' | '60d'>('7d');
+  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('7d');
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [pendingAsk, setPendingAsk] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const askHandledRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Timeframe options for user selection
+  // Right-rail state
+  const [briefing, setBriefing] = useState<{ insight: GeneratedInsight | null; loading: boolean }>({
+    insight: null,
+    loading: false,
+  });
+  const [nextActions, setNextActions] = useState<{ insight: GeneratedInsight | null; loading: boolean }>({
+    insight: null,
+    loading: false,
+  });
+
+  // Deep link from the command palette / "Explain this" affordances: /business-intelligence?ask=...
+  // Auto-submits once data is ready (answers are generated locally, so this is free).
+  useEffect(() => {
+    if (askHandledRef.current) return;
+    const ask = new URLSearchParams(location.search).get('ask');
+    if (ask) {
+      askHandledRef.current = true;
+      setPendingAsk(ask);
+      window.history.replaceState({}, '', location.pathname);
+    }
+  }, [location.search, location.pathname]);
+
   const timeframeOptions = [
-    { value: '24h' as const, label: 'Last 24 Hours', description: 'Recent activity' },
-    { value: '7d' as const, label: 'Last 7 Days', description: 'Weekly trends' },
-    { value: '30d' as const, label: 'Last 30 Days', description: 'Monthly overview' },
-    { value: '60d' as const, label: 'Last 60 Days', description: 'Two-month trend (default reporting window)' }
+    { value: '24h' as const, label: 'Last 24 hours' },
+    { value: '7d' as const, label: 'Last 7 days' },
+    { value: '30d' as const, label: 'Last 30 days' },
+    { value: '60d' as const, label: 'Last 60 days' },
   ];
 
-  // Smart timeframe detection based on user question
-  const detectTimeframeFromQuestion = (question: string): '24h' | '7d' | '30d' | '60d' => {
-    const lowerQuestion = question.toLowerCase();
-    
-    // Recent/immediate timeframes
-    if (lowerQuestion.includes('today') || lowerQuestion.includes('yesterday') || 
-        lowerQuestion.includes('last 24') || lowerQuestion.includes('past day') ||
-        lowerQuestion.includes('recent') || lowerQuestion.includes('now') ||
-        lowerQuestion.includes('current')) {
+  const detectTimeframeFromQuestion = (question: string): Timeframe => {
+    const q = question.toLowerCase();
+    if (
+      q.includes('today') || q.includes('yesterday') || q.includes('last 24') ||
+      q.includes('past day') || q.includes('recent') || q.includes('now') || q.includes('current')
+    ) {
       return '24h';
     }
-    
-    // Two-month / 60 day timeframes
-    if (lowerQuestion.includes('60') || lowerQuestion.includes('two months') || lowerQuestion.includes('last 2 months') ||
-        lowerQuestion.includes('past 60') || lowerQuestion.includes('bi-month') || lowerQuestion.includes('bimonth')) {
+    if (
+      q.includes('60') || q.includes('two months') || q.includes('last 2 months') ||
+      q.includes('past 60') || q.includes('bi-month') || q.includes('bimonth')
+    ) {
       return '60d';
     }
-
-    // Monthly timeframes
-    if (lowerQuestion.includes('month') || lowerQuestion.includes('last 30') ||
-        lowerQuestion.includes('past month') || lowerQuestion.includes('monthly') ||
-        lowerQuestion.includes('long term') || lowerQuestion.includes('overall') ||
-        lowerQuestion.includes('total') || lowerQuestion.includes('all time')) {
+    if (
+      q.includes('month') || q.includes('last 30') || q.includes('past month') ||
+      q.includes('monthly') || q.includes('long term') || q.includes('overall') ||
+      q.includes('total') || q.includes('all time')
+    ) {
       return '30d';
     }
-    
-    // Default to weekly for most questions
     return '7d';
   };
-  
-  // Insight cards with subtle colors matching Market Intelligence theme
-  const [insightCards, setInsightCards] = useState<InsightCard[]>([
-    { 
-      id: 'summary', 
-      type: 'summary', 
-      title: 'Executive Summary', 
-      description: 'Key performance metrics and business overview',
-      icon: AnalyticsIcon,
-      color: '#2563eb', // Blue color matching Market Intelligence
-      insight: null, 
-      loading: false, 
-      error: null 
-    },
-    { 
-      id: 'trends', 
-      type: 'trends', 
-      title: 'Performance Trends', 
-      description: 'Revenue growth patterns and market dynamics',
-      icon: TrendingUpIcon,
-      color: '#059669', // Green color matching Market Intelligence
-      insight: null, 
-      loading: false, 
-      error: null 
-    },
-    { 
-      id: 'costs', 
-      type: 'costs', 
-      title: 'Cost Analysis', 
-      description: 'Market intelligence ROI and optimization opportunities',
-      icon: CostIcon,
-      color: '#d97706', // Orange color matching Market Intelligence
-      insight: null, 
-      loading: false, 
-      error: null 
-    },
-    { 
-      id: 'recommendations', 
-      type: 'recommendations', 
-      title: 'Strategic Recommendations', 
-      description: 'Prioritized action items for business growth',
-      icon: RecommendationIcon,
-      color: '#7c3aed', // Purple color for recommendations
-      insight: null, 
-      loading: false, 
-      error: null 
-    }
-  ]);
 
-  // Suggested questions - dynamically generated based on data
-  const getSuggestedQuestions = (): SuggestedQuestion[] => {
-    const baseQuestions: SuggestedQuestion[] = [
-      { 
-        text: "What are my top performing products today?", 
-        icon: TrendingUpIcon,
-        category: "Performance"
-      },
-      { 
-        text: "How is my revenue trending this week?", 
-        icon: AnalyticsIcon,
-        category: "Revenue"
-      },
-      { 
-        text: "What should I focus on to increase revenue?", 
-        icon: CostIcon,
-        category: "Growth"
-      },
-      { 
-        text: "How can I optimize my business operations?", 
-        icon: RecommendationIcon,
-        category: "Optimization"
-      },
-      { 
-        text: "What marketing strategies should I prioritize?", 
-        icon: AIIcon,
-        category: "Strategy"
-      }
-    ];
-    
-    // Add context-specific questions based on aggregated data
-    if (aggregatedData) {
-      const contextQuestions: SuggestedQuestion[] = [];
-      
-      if (aggregatedData.products?.lowInventory > 0) {
-        contextQuestions.push({
-          text: `I have ${aggregatedData.products.lowInventory} low-stock items. What should I do?`,
-          icon: RecommendationIcon,
-          category: "Urgent"
-        });
-      }
-      
-      if (aggregatedData.marketIntelligence?.competitors?.length > 0) {
-        contextQuestions.push({
-          text: `How do I compare to my ${aggregatedData.marketIntelligence.competitors.length} competitors?`,
-          icon: AnalyticsIcon,
-          category: "Competition"
-        });
-      } else {
-        contextQuestions.push({
-          text: "Should I start monitoring competitors?",
-          icon: AnalyticsIcon,
-          category: "Market Intelligence"
-        });
-      }
-      
-      if (aggregatedData.orders?.abandonedCarts > 5) {
-        contextQuestions.push({
-          text: `How can I reduce my ${aggregatedData.orders.abandonedCarts} abandoned carts?`,
-          icon: TrendingUpIcon,
-          category: "Conversion"
-        });
-      }
-      
-      // Return context questions first, then base questions
-      return [...contextQuestions.slice(0, 2), ...baseQuestions].slice(0, 6);
-    }
-    
-    return baseQuestions;
+  const competitors = aggregatedData?.marketIntelligence?.competitors ?? [];
+  const hasCompetitors = competitors.length > 0;
+
+  // Which data sources ShopGPT can actually draw on right now
+  const availableSources = useMemo(() => {
+    if (!aggregatedData) return new Set<InsightDataType>();
+    const set = new Set<InsightDataType>();
+    const freshness = aggregatedData.metadata?.freshness || {};
+    if ((freshness.revenue ?? 999) < 999 || aggregatedData.revenue?.total > 0) set.add('revenue');
+    if ((freshness.products ?? 999) < 999 || aggregatedData.products?.total > 0) set.add('products');
+    if ((freshness.orders ?? 999) < 999 || aggregatedData.orders?.total > 0) set.add('orders');
+    if (hasCompetitors) set.add('competitors');
+    if ((aggregatedData.marketIntelligence?.costs?.daily ?? 0) > 0) set.add('costs');
+    return set;
+  }, [aggregatedData, hasCompetitors]);
+
+  // Per-source sync status for the header pills
+  const sourceSyncState = useCallback(
+    (key: InsightDataType): SyncState => {
+      if (dataLoading) return 'syncing';
+      if (!availableSources.has(key)) return 'none';
+      const freshness = aggregatedData?.metadata?.freshness?.[key];
+      if (freshness !== undefined && freshness >= 999) return 'delayed';
+      return 'fresh';
+    },
+    [dataLoading, availableSources, aggregatedData]
+  );
+
+  const sourceSyncTooltip = (key: InsightDataType, label: string): string => {
+    const state = sourceSyncState(key);
+    if (state === 'syncing') return `${label} · syncing…`;
+    if (state === 'delayed') return `${label} · sync delayed — showing last known data`;
+    if (state === 'none') return `No ${label.toLowerCase()} data yet`;
+    const timestamp = aggregatedData?.metadata?.timestamp;
+    const freshnessMinutes = aggregatedData?.metadata?.freshness?.[key] ?? 0;
+    const syncedAt = timestamp
+      ? new Date(new Date(timestamp).getTime() - freshnessMinutes * 60000).toISOString()
+      : undefined;
+    return `${label} · synced ${relativeTime(syncedAt)}`;
   };
-  
-  const suggestedQuestions = getSuggestedQuestions();
 
-  // Load data on component mount
+  // Live intent preview for the composer: show which sources will be used
+  const composerContext = useMemo(() => {
+    const trimmed = chatInput.trim();
+    if (!trimmed) return null;
+    return detectQuestionIntent(trimmed);
+  }, [chatInput]);
+
+  const promptCards = useMemo((): PromptCard[] => {
+    const cards: PromptCard[] = [];
+    if (hasCompetitors) {
+      cards.push(
+        {
+          text: `How do I compare to my ${competitors.length} competitor${competitors.length > 1 ? 's' : ''}?`,
+          icon: StorefrontIcon,
+          category: 'Competition',
+        },
+        { text: 'Am I overpriced compared to the market?', icon: AnalyticsIcon, category: 'Pricing' },
+        { text: 'Which competitors are out of stock right now?', icon: InventoryIcon, category: 'Opportunity' }
+      );
+    }
+    if ((aggregatedData?.products?.lowInventory ?? 0) > 0) {
+      cards.push({
+        text: `I have ${aggregatedData!.products.lowInventory} low-stock items. What should I do?`,
+        icon: RecommendationIcon,
+        category: 'Urgent',
+      });
+    }
+    if ((aggregatedData?.orders?.abandonedCarts ?? 0) > 5) {
+      cards.push({
+        text: `How can I reduce my ${aggregatedData!.orders.abandonedCarts} abandoned carts?`,
+        icon: OrdersIcon,
+        category: 'Conversion',
+      });
+    }
+    cards.push(
+      { text: 'How is my revenue trending this week?', icon: TrendingUpIcon, category: 'Revenue' },
+      { text: 'What are my top performing products?', icon: AnalyticsIcon, category: 'Performance' },
+      { text: 'What should I focus on to increase revenue?', icon: RecommendationIcon, category: 'Growth' }
+    );
+    return cards.slice(0, 6);
+  }, [aggregatedData, competitors.length, hasCompetitors]);
+
+  const getQuestionTone = (category: string) => {
+    const normalized = category.toLowerCase();
+    if (normalized.includes('urgent') || normalized.includes('opportunity')) {
+      return { bg: 'rgba(245, 158, 11, 0.12)', color: '#b45309', border: 'rgba(245, 158, 11, 0.22)' };
+    }
+    if (normalized.includes('conversion') || normalized.includes('performance')) {
+      return { bg: 'rgba(21, 184, 122, 0.12)', color: '#08734c', border: 'rgba(21, 184, 122, 0.22)' };
+    }
+    return { bg: 'rgba(47, 91, 234, 0.10)', color: '#2f5bea', border: 'rgba(47, 91, 234, 0.18)' };
+  };
+
   useEffect(() => {
     if (shop && isAuthenticated) {
-      console.log('🤖 ShopGPT: Loading data', { shop, isDemoMode });
       loadAggregatedData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shop, isAuthenticated, isDemoMode]);
 
-
-
-  // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, streamingMessage]);
 
-  const loadAggregatedData = useCallback(async (forceRefresh = true) => {
-    if (!shop || !isAuthenticated) return;
-    
-    setDataLoading(true);
-    setDataError(null);
-    
-    try {
-      console.log('🔄 ShopGPT: Loading shop data', { 
-        shop, 
-        isDemoMode, 
-        forceRefresh,
-        timestamp: new Date().toISOString() 
+  const generateRailInsights = useCallback(
+    async (data: AggregatedDashboardData, timeframe: Timeframe) => {
+      setBriefing((prev) => ({ ...prev, loading: true }));
+      setNextActions((prev) => ({ ...prev, loading: true }));
+
+      const build = (type: 'summary' | 'recommendations'): InsightRequest => ({
+        type,
+        data,
+        context: { timeframe, focus: [type] },
       });
-      
-      const data = await dataAggregationService.aggregateShopData(shop, forceRefresh);
-      
-      console.log('✅ ShopGPT: Data loaded successfully', {
-        shop: data.metadata.shop,
-        revenue: data.revenue?.total,
-        products: data.products?.total,
-        orders: data.orders?.total,
-        competitors: data.marketIntelligence?.competitors?.length,
-        isDemoMode
-      });
-      
-      setAggregatedData(data);
-      
-      // Auto-generate insights on initial load
-      if (forceRefresh) {
-        await generateAllInsights(data);
-      }
-    } catch (error) {
-      console.error('❌ ShopGPT: Failed to load aggregated data:', error);
-      setDataError(isDemoMode 
-        ? 'Failed to load demo data. Please refresh the page.' 
-        : 'Failed to load business data. Please try again.');
-    } finally {
-      setDataLoading(false);
-    }
-  }, [shop, isAuthenticated, isDemoMode]);
 
-  const generateAllInsights = async (data?: AggregatedDashboardData) => {
-    const dataToUse = data || aggregatedData;
-    if (!dataToUse) return;
-    
-    // Set all cards to loading
-    setInsightCards(prev => prev.map(card => ({
-      ...card,
-      loading: true,
-      error: null
-    })));
-    
-    try {
-      const insights = await Promise.all(
-        insightCards.map(async (card) => {
-          const request: InsightRequest = {
-            type: card.type,
-            data: dataToUse,
-            context: {
-              timeframe: selectedTimeframe,
-              focus: [card.type]
-            }
-          };
-          
-          try {
-            return await aiInsightsService.generateInsight(request);
-          } catch (error) {
-            console.error(`Failed to generate ${card.type} insight:`, error);
-            return null;
-          }
-        })
-      );
-      
-      setInsightCards(prev => prev.map((card, index) => ({
-        ...card,
-        insight: insights[index] || null,
-        loading: false,
-        error: insights[index] ? null : 'Failed to generate insight'
-      })));
-    } catch (error) {
-      console.error('Batch insight generation failed:', error);
-      setInsightCards(prev => prev.map(card => ({
-        ...card,
-        loading: false,
-        error: 'Failed to generate insights'
-      })));
-    }
-  };
+      const [summary, recommendations] = await Promise.all([
+        aiInsightsService.generateInsight(build('summary')).catch(() => null),
+        aiInsightsService.generateInsight(build('recommendations')).catch(() => null),
+      ]);
 
-  // Regenerate insights when timeframe changes
-  useEffect(() => {
-    if (aggregatedData && selectedTimeframe) {
-      generateAllInsights();
-    }
-  }, [selectedTimeframe, aggregatedData]);
+      setBriefing({ insight: summary, loading: false });
+      setNextActions({ insight: recommendations, loading: false });
+    },
+    []
+  );
 
-  const generateSingleInsight = async (cardId: string) => {
-    if (!aggregatedData) return;
-    
-    const card = insightCards.find(c => c.id === cardId);
-    if (!card) return;
-    
-    setInsightCards(prev => prev.map(c => 
-      c.id === cardId 
-        ? { ...c, loading: true, error: null }
-        : c
-    ));
-    
-    try {
-      const request: InsightRequest = {
-        type: card.type,
-        data: aggregatedData,
-        context: {
-          timeframe: selectedTimeframe,
-          focus: [card.type]
+  const loadAggregatedData = useCallback(
+    async (forceRefresh = true) => {
+      if (!shop || !isAuthenticated) return;
+
+      setDataLoading(true);
+      setDataError(null);
+
+      try {
+        const data = await dataAggregationService.aggregateShopData(shop, forceRefresh);
+        setAggregatedData(data);
+        if (forceRefresh) {
+          await generateRailInsights(data, selectedTimeframe);
         }
-      };
-      
-      const insight = await aiInsightsService.generateInsight(request);
-      
-      setInsightCards(prev => prev.map(c => 
-        c.id === cardId 
-          ? { ...c, insight, loading: false, error: null }
-          : c
-      ));
-      
-    } catch (error) {
-      console.error('Single insight generation failed:', error);
-      setInsightCards(prev => prev.map(c => 
-        c.id === cardId 
-          ? { ...c, loading: false, error: 'Failed to generate insight' }
-          : c
-      ));
-    }
-  };
+      } catch (error) {
+        console.error('ShopGPT: failed to load aggregated data:', error);
+        setDataError(
+          isDemoMode
+            ? 'Failed to load demo data. Please refresh the page.'
+            : 'Failed to load business data. Please try again.'
+        );
+      } finally {
+        setDataLoading(false);
+      }
+    },
+    [shop, isAuthenticated, isDemoMode, selectedTimeframe, generateRailInsights]
+  );
 
-  // Simulate streaming text effect
-  const simulateStreamingText = (text: string, messageId: string) => {
-    return new Promise<void>((resolve) => {
+  // Regenerate briefing when timeframe changes
+  useEffect(() => {
+    if (aggregatedData) {
+      generateRailInsights(aggregatedData, selectedTimeframe);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTimeframe]);
+
+  const simulateStreamingText = (text: string) =>
+    new Promise<void>((resolve) => {
       let currentIndex = 0;
       const words = text.split(' ');
-      
       const interval = setInterval(() => {
         if (currentIndex < words.length) {
-          const currentText = words.slice(0, currentIndex + 1).join(' ');
-          setStreamingMessage(currentText);
+          setStreamingMessage(words.slice(0, currentIndex + 1).join(' '));
           currentIndex++;
         } else {
           setStreamingMessage('');
           clearInterval(interval);
           resolve();
         }
-      }, 80); // Adjust speed as needed
+      }, 60);
     });
-  };
 
-  // Determine insight type based on question content
-  const determineInsightType = (question: string): InsightRequest['type'] => {
-    const lowerQuestion = question.toLowerCase();
-    
-    // Check for cost/budget related keywords
-    if (lowerQuestion.includes('cost') || lowerQuestion.includes('budget') || 
-        lowerQuestion.includes('spend') || lowerQuestion.includes('expense') ||
-        lowerQuestion.includes('roi') || lowerQuestion.includes('investment')) {
-      return 'costs';
+  // Actionable follow-ups shown as buttons inside the chat stream, derived from
+  // the data sources an answer drew on and the store's current state.
+  const buildQuickActions = (dataTypes: InsightDataType[]): QuickAction[] => {
+    const actions: QuickAction[] = [];
+    if (dataTypes.includes('products') && (aggregatedData?.products?.lowInventory ?? 0) > 0) {
+      actions.push({
+        label: 'Generate restock plan',
+        kind: 'ask',
+        payload: `Generate a prioritized restock plan for my ${aggregatedData!.products.lowInventory} low-stock items.`,
+      });
+      actions.push({ label: 'Review inventory', kind: 'navigate', payload: '/dashboard' });
     }
-    
-    // Check for trend/growth related keywords
-    if (lowerQuestion.includes('trend') || lowerQuestion.includes('growth') || 
-        lowerQuestion.includes('performance') || lowerQuestion.includes('revenue') ||
-        lowerQuestion.includes('sales') || lowerQuestion.includes('pattern')) {
-      return 'trends';
+    if (dataTypes.includes('orders') && (aggregatedData?.orders?.abandonedCarts ?? 0) > 0) {
+      actions.push({
+        label: 'Draft cart recovery plan',
+        kind: 'ask',
+        payload: `Draft a recovery plan for my ${aggregatedData!.orders.abandonedCarts} abandoned carts.`,
+      });
     }
-    
-    // Check for recommendation/action related keywords
-    if (lowerQuestion.includes('should') || lowerQuestion.includes('recommend') || 
-        lowerQuestion.includes('improve') || lowerQuestion.includes('optimize') ||
-        lowerQuestion.includes('what to do') || lowerQuestion.includes('how to')) {
-      return 'recommendations';
+    if (dataTypes.includes('competitors') && hasCompetitors) {
+      actions.push({ label: 'Open competitor monitor', kind: 'navigate', payload: '/competitors' });
     }
-    
-    // Default to summary for general questions
-    return 'summary';
+    if (dataTypes.includes('revenue')) {
+      actions.push({ label: 'Break down revenue drivers', kind: 'ask', payload: 'What is driving my revenue trend right now?' });
+    }
+    return actions.slice(0, 3);
   };
 
   const handleChatSubmit = async (question?: string) => {
-    const messageText = question || chatInput.trim();
+    const messageText = (question || chatInput).trim();
     if (!messageText || !aggregatedData) return;
-    
-    // Hide suggestions while processing
+
     setShowSuggestions(false);
-    
-    // Add user message
+
+    const pendingAttachment = question ? null : attachment;
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
       content: messageText,
-      timestamp: new Date()
+      timestamp: new Date(),
+      attachment: pendingAttachment
+        ? { name: pendingAttachment.name, rowCount: pendingAttachment.rowCount }
+        : undefined,
     };
-    
-    setChatMessages(prev => [...prev, userMessage]);
+
+    setChatMessages((prev) => [...prev, userMessage]);
     setChatInput('');
+    if (pendingAttachment) setAttachment(null);
     setChatLoading(true);
-    
+
     try {
-      // Determine insight type and timeframe based on question content
-      const insightType = determineInsightType(messageText);
+      const { intent, dataTypes } = detectQuestionIntent(messageText);
       const detectedTimeframe = detectTimeframeFromQuestion(messageText);
-      
-      // Show timeframe detection if different from selected
-      const timeframeChanged = detectedTimeframe !== selectedTimeframe;
-      if (timeframeChanged) {
-        console.log(`🎯 ShopGPT: Auto-detected timeframe: ${detectedTimeframe} (was ${selectedTimeframe})`);
-      }
-      
-      console.log('🤖 ShopGPT: Processing question', {
-        question: messageText,
-        insightType,
-        timeframe: detectedTimeframe,
-        shop: aggregatedData.metadata.shop,
-        isDemoMode,
-        dataPoints: aggregatedData.metadata.dataPoints
-      });
-      
+      const enrichedQuestion = pendingAttachment
+        ? `${messageText}\n\n${pendingAttachment.digest}`
+        : messageText;
+
       const request: InsightRequest = {
-        type: insightType,
+        type: 'question',
         data: aggregatedData,
+        userQuestion: enrichedQuestion,
         context: {
           timeframe: detectedTimeframe,
-          focus: [insightType],
-          userQuestion: messageText // Pass the question for context
-        }
+          focus: [intent],
+          intent,
+          dataTypes,
+          userQuestion: enrichedQuestion,
+        },
       };
-      
+
       const insight = await aiInsightsService.generateInsight(request);
-      
-      console.log('✅ ShopGPT: Generated insight', {
-        source: insight.source,
-        confidence: insight.confidence,
-        fromCache: insight.fromCache,
-        cost: insight.cost
-      });
-      
-      // Create assistant message with streaming effect
+
       const assistantMessageId = (Date.now() + 1).toString();
+      const contextUsed = dataTypes.filter((dataType) => availableSources.has(dataType));
       const assistantMessage: ChatMessage = {
         id: assistantMessageId,
         type: 'assistant',
         content: '',
         timestamp: new Date(),
         insight,
-        isStreaming: true
+        contextUsed,
+        isStreaming: true,
+        question: messageText,
+        actions: buildQuickActions(contextUsed),
       };
-      
-      setChatMessages(prev => [...prev, assistantMessage]);
+
+      setChatMessages((prev) => [...prev, assistantMessage]);
       setChatLoading(false);
-      
-      // Simulate streaming
-      await simulateStreamingText(insight.insight, assistantMessageId);
-      
-      // Update with final content and show suggestions again
-      setChatMessages(prev => prev.map(msg => 
-        msg.id === assistantMessageId 
-          ? { ...msg, content: insight.insight, isStreaming: false }
-          : msg
-      ));
-      
-      // Show suggestions again after answer is complete
-      setTimeout(() => {
-        setShowSuggestions(true);
-      }, 500);
-      
+
+      await simulateStreamingText(insight.insight);
+
+      setChatMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId ? { ...msg, content: insight.insight, isStreaming: false } : msg
+        )
+      );
+
+      setTimeout(() => setShowSuggestions(true), 500);
     } catch (error) {
-      console.error('❌ ShopGPT: Chat insight generation failed:', error);
+      console.error('ShopGPT: chat insight generation failed:', error);
       setChatLoading(false);
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: isDemoMode
-          ? 'I apologize, but I encountered an error processing your question in demo mode. Please try refreshing the page or asking a different question.'
-          : 'I apologize, but I encountered an error processing your question. Please try again or rephrase your question.',
-        timestamp: new Date()
-      };
-      setChatMessages(prev => [...prev, errorMessage]);
-      
-      // Show suggestions again even after error
-      setTimeout(() => {
-        setShowSuggestions(true);
-      }, 500);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content:
+            'I ran into an error answering that. Please try again or rephrase your question.',
+          timestamp: new Date(),
+        },
+      ]);
+      setTimeout(() => setShowSuggestions(true), 500);
     }
   };
 
@@ -564,751 +551,1175 @@ const BusinessIntelligencePage: React.FC = () => {
     }
   };
 
-  const handleSuggestedQuestion = (question: string) => {
-    setChatInput(question);
-    handleChatSubmit(question);
+  // Flush a deep-linked question once store data is available
+  useEffect(() => {
+    if (pendingAsk && aggregatedData && !chatLoading) {
+      const question = pendingAsk;
+      setPendingAsk(null);
+      handleChatSubmit(question);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAsk, aggregatedData]);
+
+  const handleCopyMessage = (message: ChatMessage) => {
+    navigator.clipboard?.writeText(message.content);
+    setCopiedMessageId(message.id);
+    setTimeout(() => setCopiedMessageId(null), 1800);
   };
+
+  // Thumbs up/down: toggles on the message and appends to a local telemetry log
+  // used to refine prompts over time.
+  const handleFeedback = (message: ChatMessage, rating: 'up' | 'down') => {
+    const next = message.feedback === rating ? undefined : rating;
+    setChatMessages((prev) => prev.map((m) => (m.id === message.id ? { ...m, feedback: next } : m)));
+    if (!next) return;
+    try {
+      const key = 'shopgpt_feedback';
+      const log = JSON.parse(localStorage.getItem(key) || '[]');
+      log.push({
+        question: message.question,
+        rating: next,
+        source: message.insight?.source,
+        confidence: message.insight?.confidence,
+        at: new Date().toISOString(),
+      });
+      localStorage.setItem(key, JSON.stringify(log.slice(-100)));
+    } catch {
+      // Telemetry is best-effort; never block the UI on storage errors.
+    }
+  };
+
+  const handleRegenerate = (message: ChatMessage) => {
+    if (message.question && !chatLoading) handleChatSubmit(message.question);
+  };
+
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setAttachError(null);
+    if (file.size > 2 * 1024 * 1024) {
+      setAttachError('File too large — attach a CSV under 2 MB.');
+      return;
+    }
+    try {
+      const text = await file.text();
+      setAttachment(buildAttachmentDigest(file.name, text));
+    } catch {
+      setAttachError("Couldn't read that file. Try a plain CSV or TSV export.");
+    }
+  };
+
+  const formatMessageTime = (timestamp: Date) =>
+    new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   if (!isAuthenticated || !shop) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="warning">
-          Please log in to access ShopGPT insights.
-        </Alert>
+        <Alert severity="warning">Please log in to access ShopGPT insights.</Alert>
       </Container>
     );
   }
 
+  const sortedByGap = [...competitors].sort(
+    (a, b) => Math.abs(b.percentDiff || 0) - Math.abs(a.percentDiff || 0)
+  );
+  const avgGap = hasCompetitors
+    ? competitors.reduce((sum, c) => sum + (c.percentDiff || 0), 0) / competitors.length
+    : 0;
+  const outOfStockCount = competitors.filter((c) => !c.inStock).length;
+
   return (
     <ErrorBoundary>
-      <Box sx={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-        py: { xs: 3, md: 4 }
-      }}>
-        <Container maxWidth="xl">
-          {/* Header */}
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, justifyContent: 'center' }}>
-                <AIIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
-                <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                  ShopGPT
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          p: { xs: 2, md: 3 },
+          boxSizing: 'border-box',
+          bgcolor: '#f6f7f9',
+          minHeight: { xs: '100vh', lg: 'auto' },
+          height: { lg: '100vh' },
+          overflow: { lg: 'hidden' },
+        }}
+      >
+        {/* Command header */}
+        <Box
+          sx={{
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            flexDirection: { xs: 'column', md: 'row' },
+            border: '1px solid rgba(255,255,255,0.10)',
+            bgcolor: '#101820',
+            backgroundImage: 'linear-gradient(135deg, #101820 0%, #0b1016 100%)',
+            color: '#ffffff',
+            borderRadius: 1,
+            p: { xs: 2.5, md: 3 },
+          }}
+        >
+          <Box sx={{ maxWidth: 640 }}>
+            <Typography variant="overline" sx={{ color: '#9db4ff', fontWeight: 900 }}>
+              AI Analyst
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 900, mt: 0.25, lineHeight: 1.15 }}>
+              ShopGPT
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#c3ccd5', mt: 1, maxWidth: 560 }}>
+              Ask questions about revenue, orders, inventory, and competitors — answered from your store data.
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'flex-start', md: 'flex-end' }, gap: 1, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                label={isDemoMode ? 'Demo data' : 'Live data'}
+                size="small"
+                sx={{
+                  bgcolor: isDemoMode ? 'rgba(47, 91, 234, 0.22)' : 'rgba(21,184,122,0.18)',
+                  color: isDemoMode ? '#b9c8ff' : '#7fe0b6',
+                  fontWeight: 800,
+                  border: '1px solid rgba(255,255,255,0.12)',
+                }}
+              />
+              {aggregatedData?.metadata?.timestamp && (
+                <Typography variant="caption" sx={{ color: '#8b96a2', whiteSpace: 'nowrap' }}>
+                  Updated {relativeTime(aggregatedData.metadata.timestamp)}
                 </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                {SOURCE_META.map(({ key, label, icon: SourceIcon }) => {
+                  const active = availableSources.has(key);
+                  const count = key === 'competitors' && hasCompetitors ? ` · ${competitors.length}` : '';
+                  const syncState = sourceSyncState(key);
+                  const syncTone = SYNC_TONE[syncState];
+                  return (
+                    <Tooltip key={key} title={sourceSyncTooltip(key, label)}>
+                      <Chip
+                        data-testid={`source-chip-${key}`}
+                        data-sync-state={syncState}
+                        size="small"
+                        icon={<SourceIcon size={13} />}
+                        label={
+                          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
+                            {`${label}${count}`}
+                            <Box
+                              component="span"
+                              sx={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                                bgcolor: syncTone.color,
+                                ...(syncTone.pulse && {
+                                  animation: 'shopgptSyncPulse 1.4s ease-in-out infinite',
+                                  '@keyframes shopgptSyncPulse': { '50%': { opacity: 0.3 } },
+                                }),
+                              }}
+                            />
+                          </Box>
+                        }
+                        sx={{
+                          height: 24,
+                          fontWeight: 800,
+                          fontSize: 11,
+                          bgcolor: active ? 'rgba(21,184,122,0.14)' : 'rgba(255,255,255,0.06)',
+                          color: active ? '#7fe0b6' : '#6f7c88',
+                          border: `1px solid ${active ? 'rgba(21,184,122,0.35)' : 'rgba(255,255,255,0.10)'}`,
+                          '& .MuiChip-icon': { color: 'inherit' },
+                        }}
+                      />
+                    </Tooltip>
+                  );
+                })}
               </Box>
-              
-              {/* Timeframe Selector */}
               <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>Timeframe</InputLabel>
+                <InputLabel sx={{ color: '#aab5c0', '&.Mui-focused': { color: '#7c9cff' } }}>Timeframe</InputLabel>
                 <Select
                   value={selectedTimeframe}
                   label="Timeframe"
-                  onChange={(e) => setSelectedTimeframe(e.target.value as '24h' | '7d' | '30d')}
-                  sx={{ 
-                    '& .MuiSelect-select': { 
-                      py: 1,
-                      fontSize: '0.875rem'
-                    }
+                  onChange={(e) => setSelectedTimeframe(e.target.value as Timeframe)}
+                  sx={{
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.22)' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                    '.MuiSvgIcon-root': { color: '#ffffff' },
                   }}
                 >
                   {timeframeOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {option.label}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.description}
-                        </Typography>
-                      </Box>
+                      {option.label}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Box>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-                Your AI business analyst, ready to provide insights and answer questions about {shop} • {timeframeOptions.find(t => t.value === selectedTimeframe)?.description}
-                {isDemoMode && (
-                  <Chip 
-                    label="Demo Mode" 
-                    size="small" 
-                    color="primary" 
-                    sx={{ ml: 1, verticalAlign: 'middle' }}
-                  />
-                )}
-              </Typography>
-            </Box>
           </Box>
+        </Box>
 
-          {/* Data Context Info */}
-          {aggregatedData && !dataLoading && (
-            <Paper sx={{ 
-              mb: 3, 
-              p: 2.5, 
-              borderRadius: 3,
-              bgcolor: isDemoMode ? 'rgba(37, 99, 235, 0.05)' : 'rgba(5, 150, 105, 0.05)',
-              border: '1px solid',
-              borderColor: isDemoMode ? 'rgba(37, 99, 235, 0.2)' : 'rgba(5, 150, 105, 0.2)'
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AIIcon sx={{ fontSize: 20, color: isDemoMode ? 'primary.main' : 'success.main' }} />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {isDemoMode ? 'Demo Data Active' : 'Live Data Connected'}
-                  </Typography>
-                </Box>
-                <Divider orientation="vertical" flexItem />
-                <Typography variant="caption" color="text.secondary">
-                  Last updated: {new Date(aggregatedData.metadata.timestamp).toLocaleTimeString()}
-                </Typography>
-                <Divider orientation="vertical" flexItem />
-                <Typography variant="caption" color="text.secondary">
-                  {aggregatedData.metadata.dataPoints} data points
-                </Typography>
-                {aggregatedData.revenue && (
-                  <>
-                    <Divider orientation="vertical" flexItem />
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                      Revenue: ${aggregatedData.revenue.total?.toLocaleString() || '0'}
-                    </Typography>
-                  </>
-                )}
-              </Box>
-            </Paper>
-          )}
-          
-          {/* Loading State */}
-          {dataLoading && (
-            <Box sx={{ mb: 3 }}>
-              <Paper sx={{ 
-                p: 3, 
-                borderRadius: 3, 
-                bgcolor: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)'
-              }}>
-                <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />
-                <Typography variant="body2" sx={{ 
-                  textAlign: 'center', 
-                  color: 'text.secondary',
-                  fontWeight: 500
-                }}>
-                  {isDemoMode ? 'Loading demo data...' : 'Loading your business data...'}
-                </Typography>
-              </Paper>
-            </Box>
-          )}
-          
-          {/* Error State */}
-          {dataError && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 3, 
-                borderRadius: 3,
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
+        {dataError && (
+          <Alert
+            severity="error"
+            sx={{ flexShrink: 0, borderRadius: 2 }}
+            action={
+              <IconButton size="small" onClick={() => loadAggregatedData(true)} color="inherit">
+                <RefreshIcon size={16} />
+              </IconButton>
+            }
+          >
+            {dataError}
+          </Alert>
+        )}
+        {dataLoading && !aggregatedData && <LinearProgress sx={{ flexShrink: 0, borderRadius: 1 }} />}
+
+        {/* Workspace: chat + briefing rail (chat first on mobile) */}
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 360px' },
+            gap: 2,
+            alignItems: 'stretch',
+          }}
+        >
+          {/* Chat panel */}
+          <Paper
+            elevation={0}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: { xs: '70vh', lg: 0 },
+              borderRadius: 2.5,
+              border: '1px solid #e4e7eb',
+              bgcolor: '#ffffff',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Messages */}
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                px: { xs: 2, md: 3 },
+                py: 2.5,
+                bgcolor: '#f9fafb',
               }}
             >
-              {dataError}
-            </Alert>
-          )}
-
-          {/* ChatGPT-style Interface */}
-          {aggregatedData && (
-            <Box>
-              {/* Chat Container */}
-              <Card sx={{ 
-                mb: 4,
-                minHeight: 500,
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: 3,
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-                overflow: 'hidden'
-              }}>
-                {/* Chat Header */}
-                <Box sx={{ 
-                  p: 3, 
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ 
-                      bgcolor: 'rgba(255, 255, 255, 0.2)',
-                      width: 40,
-                      height: 40
-                    }}>
-                      <BotIcon sx={{ fontSize: 20 }} />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="h6" fontWeight={600}>
-                        ShopGPT Assistant
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        Powered by AI • Always learning
-                      </Typography>
-                    </Box>
+              {chatMessages.length === 0 && !chatLoading ? (
+                <Box sx={{ maxWidth: 640, mx: 'auto', textAlign: 'center', pt: { xs: 1, md: 4 } }}>
+                  <Box
+                    sx={{
+                      width: 60,
+                      height: 60,
+                      mx: 'auto',
+                      borderRadius: 2.5,
+                      background: 'linear-gradient(135deg, #101820 0%, #1539a6 130%)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      boxShadow: '0 22px 44px -22px rgba(21,57,166,0.7)',
+                    }}
+                  >
+                    <AIIcon size={28} color="#9db4ff" />
                   </Box>
-                </Box>
-                
-                {/* Chat Messages Area */}
-                <Box sx={{ 
-                  flexGrow: 1,
-                  p: 3,
-                  overflowY: 'auto',
-                  minHeight: 350,
-                  maxHeight: 500,
-                  background: 'linear-gradient(to bottom, #f8fafc 0%, #ffffff 50%)'
-                }}>
-                  {/* Welcome Message */}
-                  {chatMessages.length === 0 && (
-                    <Fade in>
-                      <Box>
-                        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                          <Avatar sx={{ 
-                            bgcolor: 'primary.main',
-                            width: 32,
-                            height: 32
-                          }}>
-                            <BotIcon sx={{ fontSize: 18 }} />
-                          </Avatar>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Paper sx={{ 
-                              p: 3,
-                              bgcolor: 'rgba(103, 126, 234, 0.05)',
-                              borderRadius: 3,
-                              border: '1px solid rgba(103, 126, 234, 0.1)'
-                            }}>
-                              <Typography variant="body1" sx={{ mb: 2 }}>
-                                Hello! I'm your AI business analyst for **{aggregatedData?.metadata?.shop || shop}**. {isDemoMode && 'You\'re in demo mode - feel free to explore! '}I have access to your {aggregatedData && (
-                                  <>
-                                    revenue data (${aggregatedData.revenue?.total?.toLocaleString() || '0'}), {aggregatedData.products?.total || 0} products, {aggregatedData.orders?.total || 0} orders
-                                    {aggregatedData.marketIntelligence?.competitors?.length > 0 && `, and ${aggregatedData.marketIntelligence.competitors.length} competitors`}
-                                  </>
-                                )}. I can help you understand performance trends, identify opportunities, and provide strategic recommendations. What would you like to know?
-                              </Typography>
-                              
-                              {/* Initial Suggested Questions - Market Intelligence Style */}
-                              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
-                                Suggested questions to get you started:
-                              </Typography>
-                              <Box sx={{ 
-                                display: 'grid',
-                                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                                gap: 1.5
-                              }}>
-                                {suggestedQuestions.map((q, idx) => {
-                                  const IconComponent = q.icon;
-                                  return (
-                                    <Box
-                                      key={idx}
-                                      onClick={() => handleSuggestedQuestion(q.text)}
-                                      sx={{
-                                        p: 2,
-                                        borderRadius: 2.5,
-                                        border: '1px solid',
-                                        borderColor: 'divider',
-                                        bgcolor: 'background.paper',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: 1.5,
-                                        '&:hover': {
-                                          bgcolor: 'rgba(103, 126, 234, 0.04)',
-                                          borderColor: 'rgba(103, 126, 234, 0.3)',
-                                          transform: 'translateY(-1px)',
-                                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
-                                        }
-                                      }}
-                                    >
-                                      <Box sx={{ color: 'primary.main', mt: 0.25, '& > *': { fontSize: '18px' } }}>
-                                        <IconComponent />
-                                      </Box>
-                                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="body2" sx={{ 
-                                          fontWeight: 500,
-                                          lineHeight: 1.4,
-                                          color: 'text.primary'
-                                        }}>
-                                          {q.text}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                          {q.category}
-                                        </Typography>
-                                      </Box>
-                                    </Box>
-                                  );
-                                })}
-                              </Box>
-                            </Paper>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Fade>
-                  )}
-                  
-                  {/* Chat Messages */}
-                  {chatMessages.map((message) => (
-                    <Box key={message.id} sx={{ mb: 3 }}>
-                      <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Avatar sx={{ 
-                          bgcolor: message.type === 'user' ? 'primary.main' : 'secondary.main',
-                          width: 32,
-                          height: 32
-                        }}>
-                          {message.type === 'user' ? 
-                            <PersonIcon sx={{ fontSize: 18 }} /> : 
-                            <BotIcon sx={{ fontSize: 18 }} />
-                          }
-                        </Avatar>
-                        <Box sx={{ flexGrow: 1 }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                            {message.type === 'user' ? 'You' : 'ShopGPT'} • {new Date(message.timestamp).toLocaleTimeString()}
-                          </Typography>
-                          <Paper sx={{ 
-                            p: 2.5,
-                            bgcolor: message.type === 'user' 
-                              ? 'rgba(37, 99, 235, 0.08)' 
-                              : 'rgba(248, 250, 252, 0.8)',
-                            borderRadius: 3,
-                            border: message.type === 'user' 
-                              ? '1px solid rgba(37, 99, 235, 0.2)' 
-                              : '1px solid rgba(0, 0, 0, 0.05)',
-                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
-                          }}>
-                            <Typography variant="body1" sx={{ 
-                              whiteSpace: 'pre-wrap',
-                              lineHeight: 1.6
-                            }}>
-                              {message.isStreaming ? streamingMessage : message.content}
-                              {message.isStreaming && (
-                                <Box component="span" sx={{ 
-                                  display: 'inline-block',
-                                  width: 2,
-                                  height: 16,
-                                  bgcolor: 'primary.main',
-                                  ml: 0.5,
-                                  animation: 'blink 1s infinite',
-                                  '@keyframes blink': {
-                                    '0%, 50%': { opacity: 1 },
-                                    '51%, 100%': { opacity: 0 }
-                                  }
-                                }} />
-                              )}
-                            </Typography>
-                          </Paper>
-                        </Box>
-                      </Box>
-                    </Box>
-                  ))}
-                  
-                  {/* Loading indicator */}
-                  {chatLoading && (
-                    <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                      <Avatar sx={{ 
-                        bgcolor: 'secondary.main',
-                        width: 32,
-                        height: 32
-                      }}>
-                        <BotIcon sx={{ fontSize: 18 }} />
-                      </Avatar>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                          ShopGPT is thinking...
-                        </Typography>
-                        <Paper sx={{ 
-                          p: 2.5,
-                          bgcolor: 'rgba(248, 250, 252, 0.8)',
-                          borderRadius: 3,
-                          border: '1px solid rgba(0, 0, 0, 0.05)',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
-                        }}>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {[0, 1, 2].map((i) => (
-                              <Box
-                                key={i}
-                                sx={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: '50%',
-                                  bgcolor: 'primary.main',
-                                  animation: 'pulse 1.5s ease-in-out infinite',
-                                  animationDelay: `${i * 0.3}s`,
-                                  '@keyframes pulse': {
-                                    '0%, 80%, 100%': {
-                                      opacity: 0.3,
-                                      transform: 'scale(0.8)'
-                                    },
-                                    '40%': {
-                                      opacity: 1,
-                                      transform: 'scale(1)'
-                                    }
-                                  }
-                                }}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* Follow-up Suggestions */}
-                  {showSuggestions && chatMessages.length > 0 && !chatLoading && (
-                    <Fade in>
-                      <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 500 }}>
-                          Continue the conversation:
-                        </Typography>
-                        <Box sx={{ 
-                          display: 'grid',
-                          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                          gap: 1.5
-                        }}>
-                          {suggestedQuestions.slice(0, 4).map((q, idx) => {
-                            const IconComponent = q.icon;
-                            return (
-                              <Box
-                                key={`followup-${idx}`}
-                                onClick={() => handleSuggestedQuestion(q.text)}
-                                sx={{
-                                  p: 2,
-                                  borderRadius: 2,
-                                  border: '1px solid',
-                                  borderColor: 'divider',
-                                  bgcolor: 'background.paper',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s ease',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1.5,
-                                  '&:hover': {
-                                    bgcolor: 'rgba(103, 126, 234, 0.04)',
-                                    borderColor: 'rgba(103, 126, 234, 0.3)',
-                                    transform: 'translateY(-1px)',
-                                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-                                  }
-                                }}
-                              >
-                                <Box sx={{ color: 'primary.main', '& > *': { fontSize: '16px' } }}>
-                                  <IconComponent />
-                                </Box>
-                                <Typography variant="body2" sx={{ 
-                                  fontWeight: 500,
-                                  fontSize: '0.8rem',
-                                  color: 'text.primary'
-                                }}>
-                                  {q.text}
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Box>
-                      </Box>
-                    </Fade>
-                  )}
-                  
-                  <div ref={chatEndRef} />
-                </Box>
-                
-                {/* Chat Input */}
-                <Box sx={{ 
-                  p: 3, 
-                  borderTop: 1,
-                  borderColor: 'divider',
-                  bgcolor: 'grey.50'
-                }}>
-                  <TextField
-                    fullWidth
-                    placeholder="Ask me anything about your business performance, trends, or get strategic advice..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    disabled={!aggregatedData || chatLoading}
-                    multiline
-                    maxRows={3}
-                    variant="outlined"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <AIIcon sx={{ color: 'primary.main' }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => handleChatSubmit()}
-                            disabled={!chatInput.trim() || chatLoading}
+                  <Typography variant="h6" sx={{ fontWeight: 900, mt: 2 }}>
+                    Ask anything about your store
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5f6b76', mt: 0.5, mb: 3 }}>
+                    {hasCompetitors
+                      ? `Answers draw on your revenue, products, orders, and ${competitors.length} monitored competitor${competitors.length > 1 ? 's' : ''}.`
+                      : 'Answers draw on your live revenue, product, and order data.'}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gap: 1.25,
+                      textAlign: 'left',
+                    }}
+                  >
+                    {promptCards.map((card) => {
+                      const tone = getQuestionTone(card.category);
+                      const CardIcon = card.icon;
+                      return (
+                        <Box
+                          key={card.text}
+                          component="button"
+                          type="button"
+                          data-testid="prompt-card"
+                          onClick={() => handleChatSubmit(card.text)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 1.25,
+                            p: 1.5,
+                            borderRadius: 1.75,
+                            border: '1px solid #e4e7eb',
+                            bgcolor: '#ffffff',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
+                            '&:hover': {
+                              borderColor: 'rgba(47,91,234,0.45)',
+                              boxShadow: '0 14px 30px -24px rgba(16,24,32,0.6)',
+                              transform: 'translateY(-1px)',
+                            },
+                          }}
+                        >
+                          <Box
                             sx={{
-                              color: 'primary.main',
-                              '&.Mui-disabled': {
-                                color: 'action.disabled'
-                              }
+                              width: 30,
+                              height: 30,
+                              borderRadius: 1,
+                              flexShrink: 0,
+                              display: 'grid',
+                              placeItems: 'center',
+                              bgcolor: tone.bg,
+                              color: tone.color,
                             }}
                           >
-                            <SendIcon />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                      sx: {
-                        borderRadius: 2,
-                        '& fieldset': {
-                          borderColor: 'divider',
-                          borderRadius: 2
-                        },
-                        '&:hover fieldset': {
-                          borderColor: 'primary.main',
-                          boxShadow: '0 0 0 2px rgba(37, 99, 235, 0.1)'
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: 'primary.main',
-                          boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.1)'
-                        }
-                      }
-                    }}
-                  />
-                </Box>
-              </Card>
-
-              {/* Insight Cards - Below Chat */}
-              <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                  <AIIcon sx={{ fontSize: 28, color: 'primary.main' }} />
-                  <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                    AI-Generated Insights
-                  </Typography>
-                </Box>
-                <Box sx={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: { 
-                    xs: '1fr', 
-                    sm: '1fr 1fr', 
-                    lg: 'repeat(4, 1fr)' 
-                  }, 
-                  gap: 3,
-                  alignItems: 'stretch' // Ensure all cards have equal height
-                }}>
-                  {insightCards.map((card) => {
-                    const IconComponent = card.icon;
-                    // Generate background and border colors based on card color (matching Market Intelligence)
-                    const getCardColors = (color: string) => {
-                      switch (color) {
-                        case '#2563eb': // Blue
-                          return { bg: 'rgba(37, 99, 235, 0.05)', border: 'rgba(37, 99, 235, 0.1)', iconBg: 'rgba(37, 99, 235, 0.1)' };
-                        case '#059669': // Green
-                          return { bg: 'rgba(5, 150, 105, 0.05)', border: 'rgba(5, 150, 105, 0.1)', iconBg: 'rgba(5, 150, 105, 0.1)' };
-                        case '#d97706': // Orange
-                          return { bg: 'rgba(217, 119, 6, 0.05)', border: 'rgba(217, 119, 6, 0.1)', iconBg: 'rgba(217, 119, 6, 0.1)' };
-                        case '#7c3aed': // Purple
-                          return { bg: 'rgba(124, 58, 237, 0.05)', border: 'rgba(124, 58, 237, 0.1)', iconBg: 'rgba(124, 58, 237, 0.1)' };
-                        default:
-                          return { bg: 'rgba(0, 0, 0, 0.02)', border: 'rgba(0, 0, 0, 0.1)', iconBg: 'rgba(0, 0, 0, 0.1)' };
-                      }
-                    };
-                    
-                    const colors = getCardColors(card.color);
-                    
-                    return (
-                      <Card key={card.id} sx={{ 
-                        height: '100%',
-                        minHeight: 280, // Ensure minimum consistent height
-                        position: 'relative',
-                        borderRadius: 3,
-                        border: `1px solid ${colors.border}`,
-                        bgcolor: colors.bg,
-                        transition: 'all 0.2s ease-in-out',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
-                          borderColor: card.color
-                        }
-                      }}>
-                        <CardContent sx={{ 
-                          p: 3, 
-                          height: '100%', 
-                          display: 'flex', 
-                          flexDirection: 'column' 
-                        }}>
-                          {/* Card Header - Market Intelligence style */}
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'flex-start',
-                            mb: 3
-                          }}>
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
-                              <Box sx={{ 
-                                p: 1.5,
-                                borderRadius: 2,
-                                bgcolor: colors.iconBg,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}>
-                                <Box sx={{ color: card.color, '& > *': { fontSize: '24px' } }}>
-                                  <IconComponent />
-                                </Box>
-                              </Box>
-                              <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="h6" sx={{ 
-                                  fontWeight: 600,
-                                  color: 'text.primary',
-                                  fontSize: '1rem',
-                                  mb: 0.5,
-                                  lineHeight: 1.2
-                                }}>
-                                  {card.title}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ 
-                                  lineHeight: 1.3,
-                                  display: 'block',
-                                  fontSize: '0.75rem'
-                                }}>
-                                  {card.description}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            
-
+                            <CardIcon size={17} />
                           </Box>
-                          
-                          {/* Content - Flexible height */}
-                          <Box sx={{ 
-                            flexGrow: 1, 
-                            display: 'flex', 
-                            alignItems: card.insight || card.error ? 'flex-start' : 'center',
-                            minHeight: 100
-                          }}>
-                            {card.loading && (
-                              <Box sx={{ width: '100%' }}>
-                                <Skeleton variant="text" height={20} sx={{ mb: 1 }} />
-                                <Skeleton variant="text" height={20} sx={{ mb: 1 }} />
-                                <Skeleton variant="text" height={20} width="60%" />
-                              </Box>
-                            )}
-                            
-                            {card.error && (
-                              <Alert severity="error" sx={{ 
-                                py: 1, 
-                                px: 2, 
-                                borderRadius: 2,
-                                fontSize: '0.875rem',
-                                width: '100%'
-                              }}>
-                                {card.error}
-                              </Alert>
-                            )}
-                            
-                            {card.insight && !card.loading && (
-                              <Box sx={{ width: '100%' }}>
-                                <Typography variant="body2" sx={{ 
-                                  color: 'text.primary',
-                                  lineHeight: 1.5,
-                                  fontSize: '0.875rem',
-                                  mb: 1.5
-                                }}>
-                                  {card.insight.insight}
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#101820', lineHeight: 1.4 }}>
+                              {card.text}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 700 }}>
+                              {card.category}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  {!hasCompetitors && aggregatedData && (
+                    <Box
+                      data-testid="start-monitoring-cta"
+                      sx={{
+                        mt: 2,
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px dashed rgba(47,91,234,0.4)',
+                        bgcolor: 'rgba(47,91,234,0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <StorefrontIcon size={22} color="#2f5bea" style={{ flexShrink: 0 }} />
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#101820' }}>
+                          No competitors monitored yet
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#5f6b76' }}>
+                          Add competitors to unlock pricing gaps, stock alerts, and market answers here.
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label="Start monitoring"
+                        onClick={() => navigate('/competitors')}
+                        icon={<ArrowForwardIcon size={14} />}
+                        sx={{
+                          bgcolor: '#2f5bea',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          flexShrink: 0,
+                          '& .MuiChip-icon': { color: '#ffffff' },
+                          '&:hover': { bgcolor: '#244bd4' },
+                        }}
+                      />
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                <>
+                  {chatMessages.map((message) => {
+                    const isUser = message.type === 'user';
+                    return (
+                      <Box
+                        key={message.id}
+                        sx={{
+                          display: 'flex',
+                          gap: 1.25,
+                          mb: 2.25,
+                          flexDirection: isUser ? 'row-reverse' : 'row',
+                          alignItems: 'flex-end',
+                          '&:hover .msg-actions': { opacity: 1 },
+                        }}
+                      >
+                        <Avatar sx={{ width: 28, height: 28, bgcolor: isUser ? '#2f5bea' : '#101820' }}>
+                          {isUser ? (
+                            <PersonIcon size={16} />
+                          ) : (
+                            <BotIcon size={16} color="#7c9cff" />
+                          )}
+                        </Avatar>
+                        <Box sx={{ maxWidth: isMobile ? '85%' : '76%', minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              px: 2,
+                              py: 1.5,
+                              borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                              bgcolor: isUser ? '#2f5bea' : '#ffffff',
+                              color: isUser ? '#ffffff' : '#101820',
+                              border: isUser ? 'none' : '1px solid #e4e7eb',
+                              boxShadow: '0 12px 26px -22px rgba(16,24,32,0.55)',
+                            }}
+                          >
+                            {isUser ? (
+                              <>
+                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                                  {message.content}
                                 </Typography>
-                                
-                                {/* Insight metadata footer */}
-                                <Box sx={{ 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  gap: 1, 
-                                  pt: 1.5, 
-                                  borderTop: '1px solid',
-                                  borderColor: 'divider',
-                                  flexWrap: 'nowrap',
-                                  minWidth: 0
-                                }}>
-                                  {debugLog.isEnabled() && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Chip 
-                                        label={card.insight.source === 'ai' ? 'AI Generated' : 
-                                               card.insight.source === 'local' ? 'Rule-Based' : 
-                                               'Fallback'}
-                                        size="small"
-                                        sx={{ 
-                                          fontSize: '0.7rem',
-                                          height: 20,
-                                          bgcolor: card.insight.source === 'ai' ? 'rgba(37, 99, 235, 0.1)' : 
-                                                   card.insight.source === 'local' ? 'rgba(5, 150, 105, 0.1)' : 
-                                                   'rgba(156, 163, 175, 0.1)',
-                                          color: card.insight.source === 'ai' ? 'primary.main' : 
-                                                 card.insight.source === 'local' ? 'success.main' : 
-                                                 'text.secondary'
-                                        }}
-                                      />
-                                      {card.insight.fromCache && (
-                                        <Chip 
-                                          label="Cached" 
-                                          size="small"
-                                          sx={{ 
-                                            fontSize: '0.7rem',
-                                            height: 20,
-                                            bgcolor: 'rgba(217, 119, 6, 0.1)',
-                                            color: 'warning.main'
-                                          }}
-                                        />
-                                      )}
-                                    </Box>
-                                  )}
-                                  <Typography 
-                                    variant="caption" 
-                                    color="text.secondary" 
-                                    sx={{ ml: 'auto', fontSize: '0.72rem' }}
-                                  >
-                                    Insight confidence: {Math.round((card.insight.confidence || 0) * 100)}%
-                                  </Typography>
-                                  <IconButton 
-                                    size="small" 
-                                    onClick={() => generateSingleInsight(card.id)}
-                                    sx={{ 
-                                      ml: 1,
-                                      p: 0.5,
-                                      color: card.color
+                                {message.attachment && (
+                                  <Box
+                                    data-testid="message-attachment"
+                                    sx={{
+                                      mt: 1,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 0.75,
+                                      px: 1,
+                                      py: 0.5,
+                                      borderRadius: 1,
+                                      bgcolor: 'rgba(255,255,255,0.16)',
+                                      border: '1px solid rgba(255,255,255,0.25)',
                                     }}
                                   >
-                                    <RefreshIcon sx={{ fontSize: 16 }} />
-                                  </IconButton>
-                                </Box>
-                              </Box>
-                            )}
-                            
-                            {!card.insight && !card.loading && !card.error && (
-                              <Box sx={{ 
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'text.disabled',
-                                width: '100%',
-                                textAlign: 'center'
-                              }}>
-                                <Box sx={{ color: card.color, mb: 1 }}>
-                                  <AIIcon style={{ fontSize: 32, opacity: 0.3 }} />
-                                </Box>
-                                <Typography variant="caption">
-                                  Click refresh to generate insights
-                                </Typography>
-                              </Box>
+                                    <FileIcon size={13} />
+                                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                                      {message.attachment.name} · {message.attachment.rowCount} rows
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </>
+                            ) : message.isStreaming ? (
+                              <>
+                                <ChatMarkdown text={streamingMessage || '…'} />
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    display: 'inline-block',
+                                    width: 2,
+                                    height: 14,
+                                    ml: 0.25,
+                                    bgcolor: '#2f5bea',
+                                    animation: 'shopgptCaret 1s steps(2) infinite',
+                                    '@keyframes shopgptCaret': { '50%': { opacity: 0 } },
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <ChatMarkdown text={message.content} />
                             )}
                           </Box>
-                        </CardContent>
-                      </Card>
+
+                          {/* Context used + metadata */}
+                          {!isUser && !message.isStreaming && (message.contextUsed?.length || message.insight) ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.75, flexWrap: 'wrap' }}>
+                              {(message.contextUsed || []).map((source) => {
+                                const meta = SOURCE_META.find((s) => s.key === source);
+                                if (!meta) return null;
+                                const SourceIcon = meta.icon;
+                                return (
+                                  <Chip
+                                    key={source}
+                                    data-testid="context-chip"
+                                    size="small"
+                                    icon={<SourceIcon size={11} />}
+                                    label={meta.label}
+                                    sx={{
+                                      height: 20,
+                                      fontSize: 10.5,
+                                      fontWeight: 800,
+                                      bgcolor: 'rgba(47,91,234,0.08)',
+                                      color: '#2f5bea',
+                                      border: '1px solid rgba(47,91,234,0.16)',
+                                      '& .MuiChip-icon': { color: 'inherit' },
+                                    }}
+                                  />
+                                );
+                              })}
+                              {message.insight && (
+                                <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 700, ml: 0.25 }}>
+                                  {message.insight.fromCache
+                                    ? 'cached'
+                                    : message.insight.source === 'local'
+                                      ? 'computed locally'
+                                      : `${Math.round(message.insight.confidence * 100)}% confidence`}
+                                </Typography>
+                              )}
+                            </Box>
+                          ) : null}
+
+                          {/* In-chat quick actions: close the loop from insight to execution */}
+                          {!isUser && !message.isStreaming && (message.actions?.length ?? 0) > 0 && (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+                              {message.actions!.map((action) => (
+                                <Chip
+                                  key={action.label}
+                                  data-testid="quick-action"
+                                  size="small"
+                                  icon={<ArrowForwardIcon size={12} />}
+                                  label={action.label}
+                                  disabled={chatLoading}
+                                  onClick={() =>
+                                    action.kind === 'ask'
+                                      ? handleChatSubmit(action.payload)
+                                      : navigate(action.payload)
+                                  }
+                                  sx={{
+                                    height: 26,
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    bgcolor: '#ffffff',
+                                    color: '#2f5bea',
+                                    border: '1px solid rgba(47,91,234,0.35)',
+                                    '& .MuiChip-icon': { color: 'inherit' },
+                                    '&:hover': { bgcolor: 'rgba(47,91,234,0.08)' },
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          )}
+
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.25,
+                              mt: 0.5,
+                              justifyContent: isUser ? 'flex-end' : 'flex-start',
+                            }}
+                          >
+                            <Typography variant="caption" sx={{ color: '#98a1ab', mr: 0.5 }}>
+                              {formatMessageTime(message.timestamp)}
+                            </Typography>
+                            {!isUser && !message.isStreaming && (
+                              <>
+                                <Tooltip title="Helpful">
+                                  <IconButton
+                                    className="msg-actions"
+                                    size="small"
+                                    onClick={() => handleFeedback(message, 'up')}
+                                    aria-label="Helpful answer"
+                                    sx={{
+                                      width: 22,
+                                      height: 22,
+                                      opacity: message.feedback === 'up' ? 1 : 0,
+                                      transition: 'opacity 0.2s ease',
+                                      color: message.feedback === 'up' ? '#08734c' : '#98a1ab',
+                                    }}
+                                  >
+                                    <ThumbsUpIcon size={13} />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Not helpful">
+                                  <IconButton
+                                    className="msg-actions"
+                                    size="small"
+                                    onClick={() => handleFeedback(message, 'down')}
+                                    aria-label="Unhelpful answer"
+                                    sx={{
+                                      width: 22,
+                                      height: 22,
+                                      opacity: message.feedback === 'down' ? 1 : 0,
+                                      transition: 'opacity 0.2s ease',
+                                      color: message.feedback === 'down' ? '#b42318' : '#98a1ab',
+                                    }}
+                                  >
+                                    <ThumbsDownIcon size={13} />
+                                  </IconButton>
+                                </Tooltip>
+                                {message.question && (
+                                  <Tooltip title="Regenerate answer">
+                                    <IconButton
+                                      className="msg-actions"
+                                      size="small"
+                                      onClick={() => handleRegenerate(message)}
+                                      disabled={chatLoading}
+                                      aria-label="Regenerate answer"
+                                      sx={{ width: 22, height: 22, opacity: 0, transition: 'opacity 0.2s ease', color: '#98a1ab' }}
+                                    >
+                                      <RegenerateIcon size={13} />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                                <Tooltip title="Copy answer">
+                                  <IconButton
+                                    className="msg-actions"
+                                    size="small"
+                                    onClick={() => handleCopyMessage(message)}
+                                    sx={{ width: 22, height: 22, opacity: 0, transition: 'opacity 0.2s ease', color: '#98a1ab' }}
+                                    aria-label="Copy answer"
+                                  >
+                                    {copiedMessageId === message.id ? (
+                                      <CheckIcon size={13} color="#15b87a" />
+                                    ) : (
+                                      <CopyIcon size={13} />
+                                    )}
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+
+                  {/* Typing indicator */}
+                  {chatLoading && !streamingMessage && (
+                    <Box sx={{ display: 'flex', gap: 1.25, mb: 2, alignItems: 'center' }}>
+                      <Avatar sx={{ width: 28, height: 28, bgcolor: '#101820' }}>
+                        <BotIcon size={16} color="#7c9cff" />
+                      </Avatar>
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.5,
+                          borderRadius: '16px 16px 16px 4px',
+                          bgcolor: '#ffffff',
+                          border: '1px solid #e4e7eb',
+                          display: 'flex',
+                          gap: 0.6,
+                          alignItems: 'center',
+                        }}
+                      >
+                        {[0, 1, 2].map((dot) => (
+                          <Box
+                            key={dot}
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              bgcolor: '#2f5bea',
+                              animation: 'shopgptDot 1.2s ease-in-out infinite',
+                              animationDelay: `${dot * 0.18}s`,
+                              '@keyframes shopgptDot': {
+                                '0%, 60%, 100%': { opacity: 0.25, transform: 'translateY(0)' },
+                                '30%': { opacity: 1, transform: 'translateY(-3px)' },
+                              },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Follow-up suggestions */}
+                  {showSuggestions && !chatLoading && chatMessages.length > 0 && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                      {promptCards.slice(0, 4).map((card) => {
+                        const tone = getQuestionTone(card.category);
+                        return (
+                          <Chip
+                            key={card.text}
+                            label={card.text}
+                            onClick={() => handleChatSubmit(card.text)}
+                            sx={{
+                              bgcolor: '#ffffff',
+                              border: `1px solid ${tone.border}`,
+                              color: tone.color,
+                              fontWeight: 700,
+                              maxWidth: '100%',
+                              '&:hover': { bgcolor: tone.bg },
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
+                  <div ref={chatEndRef} />
+                </>
+              )}
+            </Box>
+
+            {/* Composer */}
+            <Box
+              sx={{
+                flexShrink: 0,
+                borderTop: '1px solid #e4e7eb',
+                px: 2,
+                py: 1.5,
+                bgcolor: '#ffffff',
+                position: 'sticky',
+                bottom: 0,
+              }}
+            >
+              {(attachment || attachError) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                  {attachment && (
+                    <Chip
+                      data-testid="composer-attachment"
+                      size="small"
+                      icon={<FileIcon size={13} />}
+                      label={`${attachment.name} · ${attachment.rowCount} rows`}
+                      onDelete={() => setAttachment(null)}
+                      deleteIcon={<RemoveIcon size={13} />}
+                      sx={{
+                        height: 24,
+                        fontWeight: 800,
+                        fontSize: 11.5,
+                        bgcolor: 'rgba(47,91,234,0.08)',
+                        color: '#2f5bea',
+                        border: '1px solid rgba(47,91,234,0.18)',
+                        '& .MuiChip-icon': { color: 'inherit' },
+                        '& .MuiChip-deleteIcon': { color: 'inherit', '&:hover': { color: '#b42318' } },
+                      }}
+                    />
+                  )}
+                  {attachError && (
+                    <Typography variant="caption" sx={{ color: '#b42318', fontWeight: 700 }}>
+                      {attachError}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+              {composerContext && composerContext.dataTypes.length > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 700, mr: 0.25 }}>
+                    Will use:
+                  </Typography>
+                  {composerContext.dataTypes.map((source) => {
+                    const meta = SOURCE_META.find((s) => s.key === source);
+                    if (!meta) return null;
+                    const active = availableSources.has(source);
+                    return (
+                      <Chip
+                        key={source}
+                        data-testid="composer-context-chip"
+                        size="small"
+                        label={meta.label}
+                        sx={{
+                          height: 20,
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          bgcolor: active ? 'rgba(47,91,234,0.08)' : '#f1f3f5',
+                          color: active ? '#2f5bea' : '#98a1ab',
+                          border: `1px solid ${active ? 'rgba(47,91,234,0.16)' : '#e4e7eb'}`,
+                        }}
+                      />
                     );
                   })}
                 </Box>
+              )}
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 1,
+                  alignItems: 'flex-end',
+                  border: '1px solid #dfe3e8',
+                  borderRadius: 3,
+                  px: 1.5,
+                  py: 0.75,
+                  bgcolor: '#f6f7f9',
+                  transition: 'border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease',
+                  '&:focus-within': {
+                    bgcolor: '#ffffff',
+                    borderColor: '#2f5bea',
+                    boxShadow: '0 0 0 3px rgba(47,91,234,0.12)',
+                  },
+                }}
+              >
+                <Box
+                  component="input"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt"
+                  onChange={handleFileSelected}
+                  sx={{ display: 'none' }}
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
+                <Tooltip title="Attach a CSV for extra context (ad spend, supplier pricing…)">
+                  <span>
+                    <IconButton
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={chatLoading}
+                      aria-label="Attach file"
+                      sx={{ width: 34, height: 34, mb: 0.4, color: attachment ? '#2f5bea' : '#98a1ab' }}
+                    >
+                      <AttachIcon size={17} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Box
+                  component="textarea"
+                  rows={1}
+                  value={chatInput}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setChatInput(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder={
+                    hasCompetitors
+                      ? 'Ask about revenue, pricing vs competitors, stock, or next steps…'
+                      : 'Ask about revenue, products, orders, or next steps…'
+                  }
+                  disabled={chatLoading || !aggregatedData}
+                  aria-label="Ask ShopGPT"
+                  sx={{
+                    flex: 1,
+                    border: 'none',
+                    outline: 'none',
+                    resize: 'none',
+                    bgcolor: 'transparent',
+                    fontFamily: 'inherit',
+                    fontSize: 14.5,
+                    lineHeight: 1.6,
+                    py: 0.75,
+                    maxHeight: 120,
+                    color: '#101820',
+                    '&::placeholder': { color: '#98a1ab' },
+                    '&:disabled': { color: '#98a1ab', cursor: 'not-allowed' },
+                  }}
+                />
+                <IconButton
+                  onClick={() => handleChatSubmit()}
+                  disabled={chatLoading || !chatInput.trim() || !aggregatedData}
+                  aria-label="Send question"
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    mb: 0.25,
+                    borderRadius: 2,
+                    bgcolor: '#2f5bea',
+                    color: '#ffffff',
+                    transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+                    boxShadow: '0 12px 24px -16px rgba(47,91,234,0.85)',
+                    '&:hover': { bgcolor: '#244bd4' },
+                    '&.Mui-disabled': { bgcolor: '#e4e7eb', color: '#98a1ab', boxShadow: 'none' },
+                  }}
+                >
+                  <SendIcon size={17} />
+                </IconButton>
               </Box>
             </Box>
-          )}
-        </Container>
+          </Paper>
+
+          {/* Briefing rail */}
+          <Box
+            sx={{
+              minHeight: 0,
+              overflowY: { lg: 'auto' },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5,
+              pb: { xs: 1, lg: 0 },
+            }}
+          >
+            {/* Business briefing */}
+            <Paper
+              elevation={0}
+              data-testid="business-briefing"
+              sx={{ flexShrink: 0, borderRadius: 2.5, border: '1px solid #e4e7eb', overflow: 'hidden' }}
+            >
+              <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.25, borderBottom: '1px solid #eef0f3' }}>
+                <Box
+                  sx={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 1,
+                    display: 'grid',
+                    placeItems: 'center',
+                    bgcolor: 'rgba(47,91,234,0.08)',
+                    color: '#2f5bea',
+                  }}
+                >
+                  <AnalyticsIcon size={17} />
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, flex: 1 }}>
+                  Business briefing
+                </Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => aggregatedData && generateRailInsights(aggregatedData, selectedTimeframe)}
+                  disabled={!aggregatedData || briefing.loading}
+                  aria-label="Refresh briefing"
+                  sx={{ color: '#98a1ab' }}
+                >
+                  <RefreshIcon size={15} className={briefing.loading ? 'animate-spin' : ''} />
+                </IconButton>
+              </Box>
+
+              <Box sx={{ px: 2, py: 1.5 }}>
+                {aggregatedData ? (
+                  <Stack spacing={1} sx={{ mb: 1.5 }}>
+                    {[
+                      {
+                        label: 'Revenue',
+                        value: formatCurrency(aggregatedData.revenue?.total || 0),
+                        detail: `${(aggregatedData.revenue?.growth || 0) >= 0 ? '+' : ''}${(aggregatedData.revenue?.growth || 0).toFixed(1)}% growth`,
+                        positive: (aggregatedData.revenue?.growth || 0) >= 0,
+                        trend: [...(aggregatedData.revenue?.timeseries || [])]
+                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                          .slice(-12)
+                          .map((point) => point.revenue),
+                      },
+                      {
+                        label: 'Orders',
+                        value: `${aggregatedData.orders?.total || 0}`,
+                        detail: aggregatedData.orders?.conversionRate
+                          ? `${aggregatedData.orders.conversionRate.toFixed(1)}% conversion`
+                          : `${aggregatedData.orders?.abandonedCarts || 0} abandoned carts`,
+                        positive: (aggregatedData.orders?.abandonedCarts || 0) <= 5,
+                        trend: [...(aggregatedData.orders?.recent || [])]
+                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                          .map((order) => order.total || 0),
+                      },
+                      {
+                        label: 'Products',
+                        value: `${aggregatedData.products?.total || 0}`,
+                        detail:
+                          (aggregatedData.products?.lowInventory || 0) > 0
+                            ? `${aggregatedData.products.lowInventory} low stock`
+                            : 'inventory healthy',
+                        positive: (aggregatedData.products?.lowInventory || 0) === 0,
+                        trend: [] as number[],
+                      },
+                    ].map((row) => (
+                      <Box key={row.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 800, width: 64, flexShrink: 0 }}>
+                          {row.label}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 900, color: '#101820' }}>
+                          {row.value}
+                        </Typography>
+                        <Typography variant="caption" noWrap sx={{ color: row.positive ? '#08734c' : '#b45309', fontWeight: 700 }}>
+                          {row.detail}
+                        </Typography>
+                        <Sparkline data={row.trend} />
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <>
+                    <Skeleton width="90%" />
+                    <Skeleton width="70%" />
+                  </>
+                )}
+
+                {briefing.loading ? (
+                  <>
+                    <Skeleton width="95%" />
+                    <Skeleton width="85%" />
+                  </>
+                ) : briefing.insight ? (
+                  <Box sx={{ pt: 1, borderTop: '1px solid #eef0f3' }}>
+                    <ChatMarkdown text={briefing.insight.insight} />
+                  </Box>
+                ) : null}
+              </Box>
+            </Paper>
+
+            {/* Market context */}
+            <Paper
+              elevation={0}
+              data-testid="market-context"
+              sx={{ flexShrink: 0, borderRadius: 2.5, border: '1px solid #e4e7eb', overflow: 'hidden' }}
+            >
+              <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.25, borderBottom: '1px solid #eef0f3' }}>
+                <Box
+                  sx={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 1,
+                    display: 'grid',
+                    placeItems: 'center',
+                    bgcolor: 'rgba(217,119,6,0.10)',
+                    color: '#d97706',
+                  }}
+                >
+                  <StorefrontIcon size={17} />
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, flex: 1 }}>
+                  Market context
+                </Typography>
+                {hasCompetitors && (
+                  <Chip
+                    label={`${competitors.length} tracked`}
+                    size="small"
+                    sx={{ height: 20, fontSize: 10.5, fontWeight: 800, bgcolor: '#f1f3f5', color: '#5f6b76' }}
+                  />
+                )}
+              </Box>
+
+              <Box sx={{ px: 2, py: 1.5 }}>
+                {!aggregatedData ? (
+                  <>
+                    <Skeleton width="90%" />
+                    <Skeleton width="75%" />
+                  </>
+                ) : hasCompetitors ? (
+                  <>
+                    <Stack spacing={1.25}>
+                      {sortedByGap.slice(0, 4).map((competitor) => {
+                        const gap = competitor.percentDiff || 0;
+                        return (
+                          <Box key={`${competitor.url}-${competitor.name}`} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box
+                              sx={{
+                                width: 7,
+                                height: 7,
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                                bgcolor: competitor.inStock ? '#15b87a' : '#dc2626',
+                              }}
+                            />
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography variant="body2" noWrap sx={{ fontWeight: 800, color: '#101820' }}>
+                                {competitor.name}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#98a1ab', fontWeight: 700 }}>
+                                {formatCurrency(competitor.price || 0)} · checked {relativeTime(competitor.lastChecked)}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              size="small"
+                              label={`${gap > 0 ? '+' : ''}${gap.toFixed(1)}%`}
+                              sx={{
+                                height: 20,
+                                fontSize: 10.5,
+                                fontWeight: 900,
+                                bgcolor: gap < 0 ? 'rgba(220,38,38,0.10)' : 'rgba(21,184,122,0.12)',
+                                color: gap < 0 ? '#b42318' : '#08734c',
+                              }}
+                            />
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                    <Box
+                      sx={{
+                        mt: 1.5,
+                        pt: 1.25,
+                        borderTop: '1px solid #eef0f3',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 0.75,
+                      }}
+                    >
+                      <Chip
+                        size="small"
+                        label={`avg gap ${avgGap > 0 ? '+' : ''}${avgGap.toFixed(1)}%`}
+                        sx={{ height: 20, fontSize: 10.5, fontWeight: 800, bgcolor: '#f1f3f5', color: '#5f6b76' }}
+                      />
+                      {outOfStockCount > 0 && (
+                        <Chip
+                          size="small"
+                          label={`${outOfStockCount} out of stock`}
+                          sx={{ height: 20, fontSize: 10.5, fontWeight: 800, bgcolor: 'rgba(220,38,38,0.10)', color: '#b42318' }}
+                        />
+                      )}
+                      {(aggregatedData.marketIntelligence?.suggestions || 0) > 0 && (
+                        <Chip
+                          size="small"
+                          label={`${aggregatedData.marketIntelligence.suggestions} suggestions`}
+                          onClick={() => navigate('/competitors')}
+                          sx={{ height: 20, fontSize: 10.5, fontWeight: 800, bgcolor: 'rgba(47,91,234,0.08)', color: '#2f5bea' }}
+                        />
+                      )}
+                      {(aggregatedData.marketIntelligence?.costs?.daily || 0) > 0 && (
+                        <Chip
+                          size="small"
+                          label={`$${aggregatedData.marketIntelligence.costs.daily.toFixed(2)}/day`}
+                          sx={{ height: 20, fontSize: 10.5, fontWeight: 800, bgcolor: '#f1f3f5', color: '#5f6b76' }}
+                        />
+                      )}
+                    </Box>
+                    <Typography
+                      component="button"
+                      type="button"
+                      variant="caption"
+                      onClick={() => handleChatSubmit('How do I compare to my competitors?')}
+                      disabled={chatLoading}
+                      sx={{
+                        mt: 1.25,
+                        border: 'none',
+                        bgcolor: 'transparent',
+                        color: '#2f5bea',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        p: 0,
+                        '&:hover': { textDecoration: 'underline' },
+                        '&:disabled': { color: '#98a1ab', cursor: 'default' },
+                      }}
+                    >
+                      Ask ShopGPT about your market position
+                    </Typography>
+                  </>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#5f6b76', mb: 1.25 }}>
+                      No competitors monitored yet. Add a few to see pricing gaps and stock alerts here.
+                    </Typography>
+                    <Chip
+                      label="Start monitoring"
+                      onClick={() => navigate('/competitors')}
+                      icon={<ArrowForwardIcon size={14} />}
+                      sx={{
+                        bgcolor: '#2f5bea',
+                        color: '#ffffff',
+                        fontWeight: 800,
+                        '& .MuiChip-icon': { color: '#ffffff' },
+                        '&:hover': { bgcolor: '#244bd4' },
+                      }}
+                    />
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+
+            {/* Next best actions */}
+            <Paper
+              elevation={0}
+              sx={{ flexShrink: 0, borderRadius: 2.5, border: '1px solid #e4e7eb', overflow: 'hidden' }}
+            >
+              <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.25, borderBottom: '1px solid #eef0f3' }}>
+                <Box
+                  sx={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 1,
+                    display: 'grid',
+                    placeItems: 'center',
+                    bgcolor: 'rgba(21,184,122,0.10)',
+                    color: '#059669',
+                  }}
+                >
+                  <RecommendationIcon size={17} />
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, flex: 1 }}>
+                  Next best actions
+                </Typography>
+              </Box>
+              <Box sx={{ px: 2, py: 1.5 }}>
+                {nextActions.loading ? (
+                  <>
+                    <Skeleton width="92%" />
+                    <Skeleton width="80%" />
+                    <Skeleton width="86%" />
+                  </>
+                ) : nextActions.insight ? (
+                  <ChatMarkdown text={nextActions.insight.insight} />
+                ) : (
+                  <Typography variant="caption" sx={{ color: '#98a1ab' }}>
+                    Prioritized actions appear here once your data loads.
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          </Box>
+        </Box>
       </Box>
     </ErrorBoundary>
   );

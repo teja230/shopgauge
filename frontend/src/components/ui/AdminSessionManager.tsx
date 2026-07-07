@@ -30,20 +30,20 @@ import {
   Stack
 } from '@mui/material';
 import {
-  Visibility as VisibilityIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
+  Eye as VisibilityIcon,
+  AlertTriangle as WarningIcon,
+  CheckCircle2 as CheckCircleIcon,
+  AlertCircle as ErrorIcon,
   Info as InfoIcon,
-  Computer as ComputerIcon,
-  PhoneAndroid as PhoneIcon,
+  Monitor as ComputerIcon,
+  Smartphone as PhoneIcon,
   Tablet as TabletIcon,
-  DesktopMac as DesktopIcon,
+  Laptop as DesktopIcon,
   Store as StoreIcon,
-  MonitorHeart as MonitorHeartIcon,
-  Block as BlockIcon,
-  RestartAlt as RestartAltIcon
-} from '@mui/icons-material';
+  Activity as MonitorHeartIcon,
+  Ban as BlockIcon,
+  RotateCcw as RestartAltIcon
+} from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { useNotifications } from '../../hooks/useNotifications';
 import { 
@@ -475,9 +475,9 @@ const AdminSessionManager: React.FC = () => {
   };
 
   const getStatusIcon = (isActive: boolean, isExpired: boolean) => {
-    if (isExpired) return <ErrorIcon color="error" />;
-    if (isActive) return <CheckCircleIcon color="success" />;
-    return <WarningIcon color="warning" />;
+    if (isExpired) return <ErrorIcon color="#dc2626" />;
+    if (isActive) return <CheckCircleIcon color="#059669" />;
+    return <WarningIcon color="#f59e0b" />;
   };
 
   // Update lastUpdated on successful fetch
@@ -504,7 +504,7 @@ const AdminSessionManager: React.FC = () => {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Typography variant="h5" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <MonitorHeartIcon color="primary" />
+              <MonitorHeartIcon color="#2f5bea" />
               Session Health Overview
             </Typography>
             <RefreshHeader
@@ -591,7 +591,7 @@ const AdminSessionManager: React.FC = () => {
                      {sessionHealth.recommendations.map((rec, index) => (
                        <ListItem key={index} sx={{ px: 0 }}>
                          <ListItemIcon>
-                           <InfoIcon color="info" />
+                           <InfoIcon color="#0ea5a6" />
                          </ListItemIcon>
                          <ListItemText primary={rec} />
                        </ListItem>
@@ -613,7 +613,7 @@ const AdminSessionManager: React.FC = () => {
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Typography variant="h5" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <StoreIcon color="primary" />
+              <StoreIcon color="#2f5bea" />
               Shops with Active Sessions
             </Typography>
             <RefreshHeader
@@ -774,7 +774,7 @@ const AdminSessionManager: React.FC = () => {
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <StoreIcon color="primary" />
+            <StoreIcon color="#2f5bea" />
             Sessions for {selectedShop}
           </Box>
         </DialogTitle>

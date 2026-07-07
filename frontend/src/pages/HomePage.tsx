@@ -3,10 +3,22 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { API_BASE_URL } from '../api';
 import { useNotifications } from '../hooks/useNotifications';
-import { CheckCircleIcon } from '@heroicons/react/24/solid';
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  CheckCircle2,
+  LayoutDashboard,
+  Loader2,
+  Play,
+  Share2,
+  ShieldCheck,
+  Store,
+  Target,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
-import { DemoModeBanner } from '../components/ui/DemoModeIndicator';
 
 const features = [
   'AI-Powered Revenue Forecasting with 7-60 day predictions and confidence intervals',
@@ -28,6 +40,237 @@ const features = [
   'Instant file downloads with professional templates and auto-generated messaging',
   'Enterprise-grade session management with automatic cleanup and optimization'
 ];
+
+const featureCategories = [
+  {
+    icon: LayoutDashboard,
+    title: 'Dashboard Experience',
+    accent: '#2f5bea',
+    tint: '#e7ecff',
+    items: [
+      'Beautiful, intuitive dashboard with instant insights',
+      'Real-time revenue, orders, and conversion tracking',
+      'One-click chart switching between 7 visualization types',
+      'Mobile-optimized interface for on-the-go monitoring',
+      'Smart notifications for important business milestones',
+    ],
+  },
+  {
+    icon: TrendingUp,
+    title: 'AI-Powered Forecasting',
+    accent: '#15b87a',
+    tint: '#dff8ea',
+    items: [
+      '7 advanced chart types with predictive analytics',
+      '7-60 day revenue forecasting with confidence intervals',
+      'Intelligent color separation for historical vs forecast data',
+      'Professional shareable charts with PNG/PDF export',
+      'Enhanced mobile experience with optimized loading',
+    ],
+  },
+  {
+    icon: Share2,
+    title: 'Professional Sharing & Export',
+    accent: '#f59e0b',
+    tint: '#fff1cf',
+    items: [
+      'Export in PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)',
+      'Share on LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging',
+      'Professional Templates: Executive, Investor, Marketing PDF formats with metadata',
+      'Chart-Relevant Messaging: Auto-generated professional content for social sharing',
+    ],
+  },
+  {
+    icon: Target,
+    title: 'Market Intelligence',
+    accent: '#f9734d',
+    tint: '#ffe4d8',
+    items: [
+      'AI-powered competitor discovery and analysis',
+      'Real-time price monitoring with automated alerts',
+      'Strategic positioning insights and recommendations',
+      'Track up to 10 competitors with intelligent monitoring',
+    ],
+    note: 'Unlimited competitor tracking coming soon!',
+  },
+  {
+    icon: Users,
+    title: 'Multi-Session Support',
+    accent: '#2f5bea',
+    tint: '#e7ecff',
+    items: [
+      'Concurrent access from up to 5 devices',
+      'Session-based notification privacy',
+      'Team collaboration without conflicts',
+      'Secure session isolation & management',
+    ],
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Enterprise Security',
+    accent: '#101820',
+    tint: '#eef1f4',
+    items: [
+      'Comprehensive audit logging',
+      'GDPR/CCPA compliance built-in',
+      'Admin dashboard with full control',
+      'Advanced debugging & monitoring',
+    ],
+  },
+];
+
+const testimonials = [
+  {
+    quote:
+      'The AI-powered forecasting with confidence intervals helps us plan inventory perfectly. The professional chart exports made our board presentation look incredible!',
+    name: 'Alex, DTC Brand Owner',
+    stat: 'Revenue forecasting accuracy: 94%',
+  },
+  {
+    quote:
+      'Love the color separation between historical and forecast data! The LinkedIn integration lets me share our growth milestones effortlessly with professional templates.',
+    name: 'Priya, Shopify Merchant',
+    stat: 'Social engagement increased 60%',
+  },
+  {
+    quote:
+      'The 7 chart types with predictive analytics give us insights we never had. The Executive template PDFs are perfect for investor updates!',
+    name: 'Marcus, E-commerce Director',
+    stat: 'Investment confidence improved dramatically',
+  },
+];
+
+const socialProofStats = [
+  {
+    value: '10',
+    label: 'competitors tracked',
+    description: 'per store with intelligent monitoring',
+    icon: Store,
+  },
+  {
+    value: '7-60',
+    label: 'day forecasts',
+    description: 'revenue, order, and conversion outlooks',
+    icon: TrendingUp,
+  },
+  {
+    value: '85-95%',
+    label: 'planning accuracy',
+    description: 'typical range with clean historical data',
+    icon: CheckCircle2,
+  },
+];
+
+const faqs = [
+  {
+    question: 'How accurate is the AI forecasting?',
+    answer:
+      'Our AI-powered forecasting uses advanced algorithms with confidence intervals to predict revenue, orders, and conversion rates 7-60 days ahead. Historical accuracy averages 85-95% depending on data quality and market conditions.',
+  },
+  {
+    question: 'What export and sharing options are available?',
+    answer:
+      'Export charts as PNG (3 quality levels), PDF (professional templates with metadata), and Excel (full data series). Share directly on LinkedIn, Twitter, Email, Slack, and Teams with auto-generated professional messaging. All files download instantly with no waiting time.',
+  },
+  {
+    question: 'How do the 7 chart types work?',
+    answer:
+      'Choose from Line, Area, Bar, Candlestick, Waterfall, Stacked, and Composed charts. Each chart type offers unique insights with intelligent color separation between historical (blue/green/amber) and forecast (lighter/dashed) data.',
+  },
+  {
+    question: 'Is my data secure and compliant?',
+    answer:
+      'Yes! We provide enterprise-grade security with audit logging, GDPR/CCPA compliance, session isolation, and comprehensive admin controls for complete data protection.',
+  },
+  {
+    question: 'What happens after my free trial?',
+    answer:
+      "After your 3-day free trial, you'll be automatically enrolled in our Pro plan at $19.99/month. You can cancel anytime with no commitment. All your data, sessions, and configurations are preserved.",
+  },
+  {
+    question: 'What payment methods do you accept?',
+    answer:
+      'We accept all major credit cards, PayPal, and enterprise billing options. All transactions are processed securely with industry-standard encryption and audit trails.',
+  },
+];
+
+const heroPrimaryButton =
+  'inline-flex min-h-11 items-center justify-center rounded-md bg-[#2f5bea] px-5 py-3 text-sm font-bold text-white shadow-[0_18px_34px_-24px_rgba(47,91,234,0.9)] transition-colors duration-200 hover:bg-[#244bd4] disabled:cursor-not-allowed disabled:opacity-50';
+const heroSecondaryButton =
+  'inline-flex min-h-11 items-center justify-center rounded-md border border-white/20 bg-white/10 px-5 py-3 text-sm font-bold text-white transition-colors duration-200 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50';
+
+interface ConnectStoreFormProps {
+  shopDomain: string;
+  onShopDomainChange: (value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  isLoading: boolean;
+}
+
+const ConnectStoreForm: React.FC<ConnectStoreFormProps> = ({
+  shopDomain,
+  onShopDomainChange,
+  onSubmit,
+  isLoading,
+}) => (
+  <form onSubmit={onSubmit} className="flex flex-col items-center gap-4 w-full">
+    <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+      <input
+        type="text"
+        value={shopDomain}
+        onChange={(e) => onShopDomainChange(e.target.value)}
+        placeholder="Enter your store name or full URL"
+        className="flex-1 rounded-md border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        disabled={isLoading}
+      />
+      <button type="submit" disabled={isLoading || !normalizeShopDomain(shopDomain)} className={heroPrimaryButton}>
+        {isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <>
+            <Store className="w-5 h-5 mr-2" />
+            Connect Store
+          </>
+        )}
+      </button>
+    </div>
+  </form>
+);
+
+const Reveal: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.12 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`${className} transition-all duration-500 ease-out ${
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'
+      }`}
+    >
+      {children}
+    </div>
+  );
+};
 
 const HomePage = () => {
   const [shopDomain, setShopDomain] = useState('');
@@ -216,377 +459,337 @@ const HomePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col items-center px-4 py-8">
-      <header className="mb-10 text-center">
-        <h1 className="text-4xl font-extrabold text-blue-900 mb-2">ShopGauge</h1>
-        <p className="text-lg text-blue-700 mb-4 max-w-4xl mx-auto">
-          AI-Powered Analytics Platform with predictive forecasting, professional shareable charts, and intelligent visualization. 
-          Generate executive-ready reports, share insights on social media, and make data-driven decisions with confidence intervals and trend analysis.
-          Transform your Shopify store with advanced chart types, automated competitor discovery, and enterprise-grade team collaboration.
-        </p>
-      </header>
+    <div className="min-h-screen bg-[#f6f7f9] text-[#101820]">
+      {/* Hero */}
+      <section
+        className="relative overflow-hidden bg-[#101820] text-white"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 18% 12%, rgba(47, 91, 234, 0.28), transparent 30%), radial-gradient(circle at 82% 18%, rgba(21, 184, 122, 0.18), transparent 26%), linear-gradient(180deg, #101820 0%, #0b1016 100%)',
+        }}
+      >
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:min-h-[calc(100vh-152px)] lg:grid-cols-[0.82fr_1.18fr] lg:px-8 lg:py-12">
+          <div>
+            <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold text-[#b9c8ff]">
+              Commerce command center · 3-day trial
+            </span>
+            <h1 className="mt-6 text-5xl font-black leading-none text-white sm:text-6xl lg:text-7xl">
+              ShopGauge
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-8 text-[#c3ccd5]">
+              A focused operating room for Shopify merchants: forecast revenue, watch competitors,
+              spot inventory risk, and ask AI what to do next.
+            </p>
 
-      {/* Error Display Section */}
-      {errorMessage && (
-        <div className="mb-8 w-full max-w-2xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-lg font-medium text-red-800">
-                  {errorCode === 'code_used' ? 'Authorization Link Expired' : 'Connection Error'}
-                </h3>
-                <p className="mt-2 text-red-700">{errorMessage}</p>
-                <div className="mt-4">
-                  <button
-                    onClick={() => {
-                      setErrorMessage('');
-                      setErrorCode('');
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    Try Again
+            <div className="mt-7 grid max-w-xl grid-cols-3 gap-3 text-sm">
+              {[
+                ['Forecast', '7-60 day outlook'],
+                ['Monitor', 'Price movement'],
+                ['Act', 'AI next steps'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-md border border-white/10 bg-white/[0.06] p-3">
+                  <p className="font-bold text-white">{label}</p>
+                  <p className="mt-1 text-xs text-[#9aa5b1]">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8">
+              {showAuthConnected ? (
+                showConnectForm ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+                    <ConnectStoreForm
+                      shopDomain={shopDomain}
+                      onShopDomainChange={setShopDomain}
+                      onSubmit={handleLogin}
+                      isLoading={isLoading}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex max-w-md items-center gap-3 rounded-lg border border-[#15b87a]/40 bg-[#15b87a]/15 px-4 py-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#15b87a] text-white">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="font-bold text-white">Store connected</p>
+                        <p className="text-sm text-[#aab5c0]">Your command center is ready.</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button onClick={() => navigate('/dashboard')} className={heroPrimaryButton}>
+                        <LayoutDashboard className="mr-2 h-5 w-5" />
+                        Go to Dashboard
+                      </button>
+                      <button onClick={handleSwitchStore} className={heroSecondaryButton}>
+                        <ArrowRightLeft className="mr-2 h-5 w-5" />
+                        Switch Store
+                      </button>
+                    </div>
+                  </div>
+                )
+              ) : showConnectForm ? (
+                <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+                  <ConnectStoreForm
+                    shopDomain={shopDomain}
+                    onShopDomainChange={setShopDomain}
+                    onSubmit={handleLogin}
+                    isLoading={isLoading}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button onClick={() => setShowConnectForm(true)} className={heroPrimaryButton}>
+                    <Store className="mr-2 h-5 w-5" />
+                    Connect Store
+                  </button>
+                  <button onClick={handleDemoMode} disabled={isLoading} className={heroSecondaryButton}>
+                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />}
+                    Try Demo
                   </button>
                 </div>
+              )}
+            </div>
+
+            <p className="mt-5 text-sm text-[#8b96a2]">
+              No credit card required for trial. Explore instantly with sample data.
+            </p>
+          </div>
+
+          <div
+            className="animate-float rounded-lg border border-white/10 bg-[#0b1016] p-3 shadow-[0_42px_110px_-52px_rgba(0,0,0,0.95),0_0_80px_-44px_rgba(47,91,234,0.95)] motion-reduce:animate-none"
+            style={{ animationDuration: '6s' }}
+          >
+            <div className="grid overflow-hidden rounded-md border border-white/10 bg-[#161c24] lg:grid-cols-[76px_1fr]">
+              <div className="hidden border-r border-white/10 bg-[#0d1218] p-3 lg:block">
+                <div className="mb-6 h-9 w-9 rounded-md bg-[#2f5bea]" />
+                <div className="space-y-3">
+                  {[0, 1, 2, 3].map((item) => (
+                    <div key={item} className={item === 1 ? 'h-9 rounded-md bg-white/12' : 'h-9 rounded-md bg-white/[0.05]'} />
+                  ))}
+                </div>
+              </div>
+              <div className="bg-[#f6f7f9] p-4 text-[#101820]">
+                <div className="flex flex-col gap-3 border-b border-[#e4e7eb] pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-[#5f6b76]">Today&apos;s command queue</p>
+                    <p className="mt-1 text-xl font-black">Revenue pulse</p>
+                  </div>
+                  <span className="rounded-full border border-[#b3c4f5] bg-[#e8edff] px-3 py-1 text-xs font-black text-[#1d3db8]">
+                    demo-shopgauge.myshopify.com
+                  </span>
+                </div>
+
+                <div className="grid gap-3 py-4 sm:grid-cols-4">
+                  {[
+                    ['$26.9K', 'Revenue', '#2f5bea'],
+                    ['187', 'Orders', '#15b87a'],
+                    ['8', 'Low stock', '#f59e0b'],
+                    ['8', 'Price moves', '#f9734d'],
+                  ].map(([value, label, color]) => (
+                    <div key={label} className="rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm">
+                      <div className="mb-3 h-1.5 w-10 rounded-full" style={{ backgroundColor: color }} />
+                      <p className="text-2xl font-black text-[#101820]">{value}</p>
+                      <p className="mt-1 text-xs font-bold text-[#5f6b76]">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+                  <div className="rounded-md border border-[#e4e7eb] bg-white p-4 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-sm font-black">Forecast curve</p>
+                      <p className="text-xs font-bold text-[#15b87a]">+12.4% projected</p>
+                    </div>
+                    <div className="flex h-56 items-end gap-2">
+                      {[36, 48, 42, 64, 58, 72, 68, 83, 78, 90, 86, 96].map((height, index) => (
+                        <div key={index} className="flex h-full flex-1 flex-col justify-end">
+                          <div
+                            className={index > 8 ? 'rounded-t bg-[#15b87a]' : 'rounded-t bg-[#2f5bea]'}
+                            style={{ height: `${height}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {[
+                      ['AI next action', 'Restock 8 low-inventory products before the weekend.', '#2f5bea'],
+                      ['Market signal', 'Competitors moved prices on 8 tracked products.', '#7c9cff'],
+                      ['Margin watch', 'Two products are under your safe floor.', '#f9734d'],
+                    ].map(([label, text, color]) => (
+                      <div key={label} className="rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm">
+                        <div className="mb-2 h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                        <p className="text-xs font-black uppercase text-[#5f6b76]">{label}</p>
+                        <p className="mt-1 text-sm font-semibold leading-5 text-[#24312b]">{text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Error Display */}
+      {errorMessage && (
+        <div className="mx-auto mt-10 max-w-2xl px-4">
+          <div className="rounded-lg border border-red-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-red-50 text-red-500">
+                <AlertTriangle className="w-5 h-5" />
+              </span>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {errorCode === 'code_used' ? 'Authorization Link Expired' : 'Connection Error'}
+                </h3>
+                <p className="mt-1 text-gray-600">{errorMessage}</p>
+                <button
+                  onClick={() => {
+                    setErrorMessage('');
+                    setErrorCode('');
+                  }}
+                  className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Try Again
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Pricing Section */}
-      <section className="mb-12 w-full max-w-4xl">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center">
-          <h2 className="text-3xl font-bold mb-4">🚀 Limited Time Offer</h2>
-          <p className="text-xl mb-6 opacity-90">Start your 3-day free trial today and unlock enterprise-grade analytics!</p>
-          
-          {/* Pricing Display */}
-          <div className="mb-6">
-            <div className="text-3xl font-bold mb-2">$19.99/month</div>
-            <div className="text-lg opacity-80">after 3-day free trial</div>
-          </div>
-          
-          {/* Action section */}
-          <div className="mt-8 flex flex-col items-center">
-            {showAuthConnected ? (
-              showConnectForm ? (
-                <form onSubmit={handleLogin} className="flex flex-col items-center gap-4 w-full">
-                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
-                    <input
-                      type="text"
-                      value={shopDomain}
-                      onChange={(e) => setShopDomain(e.target.value)}
-                      placeholder="Enter your store name or full URL"
-                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/90 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading || !normalizeShopDomain(shopDomain)}
-                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                          </svg>
-                          Connect Store
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3 bg-white/95 backdrop-blur-sm border-2 border-green-500 rounded-xl px-8 py-4 shadow-xl">
-                    <div className="flex items-center justify-center w-10 h-10 bg-green-500 rounded-full shadow-lg">
-                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                      </svg>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-green-800 font-bold text-xl drop-shadow-sm">Successfully Connected!</p>
-                      <p className="text-green-700 text-base font-semibold">Your store is ready for analytics</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={() => navigate('/dashboard')}
-                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl"
-                    >
-                      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-                      </svg>
-                      Go to Dashboard
-                    </button>
-                    <button
-                      onClick={handleSwitchStore}
-                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl"
-                    >
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                      </svg>
-                      Switch Store
-                    </button>
-                  </div>
-                </div>
-              )
-            ) : (
-              showConnectForm ? (
-                <form onSubmit={handleLogin} className="flex flex-col items-center gap-4 w-full">
-                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
-                    <input
-                      type="text"
-                      value={shopDomain}
-                      onChange={(e) => setShopDomain(e.target.value)}
-                      placeholder="Enter your store name or full URL"
-                      className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white/90 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading || !normalizeShopDomain(shopDomain)}
-                      className="inline-flex items-center px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-600"></div>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                          </svg>
-                          Connect Store
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                                <div className="flex items-center gap-3">
-                  {/* Primary CTA - Connect Store */}
-                  <button
-                    onClick={() => setShowConnectForm(true)}
-                    className="inline-flex items-center px-8 py-4 rounded-xl font-semibold shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border border-white/20 text-blue-600 hover:bg-white hover:shadow-2xl transform hover:scale-105 active:scale-95"
-                  >
-                    <svg className="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                    </svg>
-                    Connect Store
-                  </button>
-                  
-                  {/* Modern Demo Icon Button */}
-                  <div className="relative group">
-                    <button
-                      onClick={handleDemoMode}
-                      disabled={isLoading}
-                      className="inline-flex items-center justify-center w-16 h-16 rounded-full transition-all duration-300 bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white hover:bg-white/30 hover:border-white/50 transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-                      title="Try Demo - Explore with sample data"
-                    >
-                      {isLoading ? (
-                        <svg className="animate-spin h-7 w-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z"/>
-                        </svg>
-                      )}
-                    </button>
-                    
-                    {/* Enhanced Tooltip */}
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-4 py-3 bg-gray-900/95 backdrop-blur-sm text-white text-sm rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-10 shadow-2xl border border-gray-700">
-                      <div className="flex items-center mb-2">
-                        <span className="mr-2 text-lg">▶️</span>
-                        <span className="font-semibold">Try Demo</span>
-                      </div>
-                      <div className="text-xs opacity-90 leading-relaxed">
-                        Start exploring with<br/>realistic sample data
-                      </div>
-                      {/* Tooltip arrow */}
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-            <p className="text-sm opacity-90 mt-6 text-white">No credit card required for trial • Cancel anytime</p>
-          </div>
+      {/* Social Proof */}
+      <section className="border-b border-[#e4e7eb] bg-white">
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:px-6 md:grid-cols-3 lg:px-8">
+          {socialProofStats.map(({ value, label, description, icon: Icon }) => (
+            <div
+              key={label}
+              className="flex items-center gap-4 rounded-lg border border-[#e4e7eb] bg-[#fbfcfd] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.72)]"
+            >
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-[#c9d4ff] bg-[#e7ecff] text-[#2f5bea]">
+                <Icon className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-2xl font-black text-[#101820]" style={{ fontFeatureSettings: '"tnum"' }}>{value}</p>
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-[#5f6b76]">{label}</p>
+                <p className="mt-1 text-sm text-[#5f6b76]">{description}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Advanced Features Showcase */}
-      <section className="mb-12 w-full max-w-6xl">
-        <h2 className="text-3xl font-bold mb-8 text-blue-800 text-center">Enterprise-Grade Analytics Platform</h2>
-        
-        {/* Feature Categories */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border border-indigo-200">
-            <div className="text-indigo-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-              </svg>
+      {/* Feature Categories */}
+      <Reveal>
+      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mb-10 max-w-3xl">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant workflows</p>
+          <h2 className="mt-2 text-3xl font-black text-[#101820]">Built for daily merchant decisions</h2>
+          <p className="mt-3 text-[#5f6b76]">
+            The product experience should put revenue, inventory, competition, and AI guidance within one scan.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          {featureCategories.map(({ icon: Icon, title, items, note, accent, tint }) => (
+            <div
+              key={title}
+              className="group rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#2f5bea]/35 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            >
+              <span
+                className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-md border transition-transform duration-200 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                style={{ backgroundColor: tint, borderColor: `${accent}33`, color: accent }}
+              >
+                <Icon className="w-6 h-6" />
+              </span>
+              <h3 className="mb-3 text-lg font-black text-[#101820]">{title}</h3>
+              <ul className="space-y-2 text-sm leading-relaxed text-[#5f6b76]">
+                {items.slice(0, 3).map((item) => (
+                  <li key={item} className="flex items-start">
+                    <span className="mr-2 mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#15b87a]" />
+                    {item}
+                  </li>
+                ))}
+                {note && (
+                  <li className="flex items-start font-bold text-[#2f5bea]">
+                    <span className="mr-2 mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#2f5bea]" />
+                    {note}
+                  </li>
+                )}
+              </ul>
             </div>
-            <h3 className="text-xl font-bold text-indigo-900 mb-3">📈 Dashboard Experience</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• Beautiful, intuitive dashboard with instant insights</li>
-              <li>• Real-time revenue, orders, and conversion tracking</li>
-              <li>• One-click chart switching between 7 visualization types</li>
-              <li>• Mobile-optimized interface for on-the-go monitoring</li>
-              <li>• Smart notifications for important business milestones</li>
-            </ul>
-          </div>
-          
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-            <div className="text-blue-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-blue-900 mb-3">🚀 AI-Powered Forecasting</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• 7 advanced chart types with predictive analytics</li>
-              <li>• 7-60 day revenue forecasting with confidence intervals</li>
-              <li>• Intelligent color separation for historical vs forecast data</li>
-              <li>• Professional shareable charts with PNG/PDF export</li>
-              <li>• Enhanced mobile experience with optimized loading</li>
-            </ul>
-          </div>
-          
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200">
-            <div className="text-orange-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-orange-900 mb-3">📊 Professional Sharing & Export</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• Export in PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)</li>
-              <li>• Share on LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging</li>
-              <li>• Professional Templates: Executive, Investor, Marketing PDF formats with metadata</li>
-              <li>• Chart-Relevant Messaging: Auto-generated professional content for social sharing</li>
-            </ul>
-          </div>
-          
-          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6 border border-red-200">
-            <div className="text-red-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-red-900 mb-3">🎯 Market Intelligence</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• AI-powered competitor discovery and analysis</li>
-              <li>• Real-time price monitoring with automated alerts</li>
-              <li>• Strategic positioning insights and recommendations</li>
-              <li>• Track up to 10 competitors with intelligent monitoring</li>
-              <li className="text-red-600 font-medium">• Unlimited competitor tracking coming soon!</li>
-            </ul>
-          </div>
-          
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
-            <div className="text-green-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-green-900 mb-3">Multi-Session Support</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• Concurrent access from up to 5 devices</li>
-              <li>• Session-based notification privacy</li>
-              <li>• Team collaboration without conflicts</li>
-              <li>• Secure session isolation & management</li>
-            </ul>
-          </div>
-          
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
-            <div className="text-purple-600 mb-4">
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-purple-900 mb-3">Enterprise Security</h3>
-            <ul className="text-gray-700 space-y-2">
-              <li>• Comprehensive audit logging</li>
-              <li>• GDPR/CCPA compliance built-in</li>
-              <li>• Admin dashboard with full control</li>
-              <li>• Advanced debugging & monitoring</li>
-            </ul>
-          </div>
+          ))}
         </div>
 
         {/* Core Features List */}
-        <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100">
-          <h3 className="text-2xl font-bold mb-6 text-blue-900 text-center">Complete Feature Set</h3>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map((f) => (
-              <li key={f} className="flex items-start p-3 rounded-lg hover:bg-blue-50 transition-colors">
-                <CheckCircleIcon className="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-800 font-medium">{f}</span>
+        <div className="border-y border-[#e4e7eb] py-10">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Included capabilities</p>
+          <h3 className="mb-6 mt-2 text-2xl font-black text-[#101820]">Complete feature set</h3>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {features.slice(0, 9).map((f) => (
+              <li key={f} className="flex items-start rounded-md border border-transparent bg-white/50 p-3 transition-all duration-200 hover:border-[#e4e7eb] hover:bg-white motion-reduce:transition-none">
+                <CheckCircle2 className="mr-3 mt-0.5 h-5 w-5 flex-shrink-0 text-[#15b87a]" />
+                <span className="text-[#5f6b76]">{f}</span>
               </li>
             ))}
           </ul>
         </div>
       </section>
+      </Reveal>
 
-      {/* Testimonials Section */}
-      <section className="w-full max-w-4xl my-12">
-        <h2 className="text-2xl font-bold mb-6 text-blue-800 text-center">What Merchants Say</h2>
+      {/* Testimonials */}
+      <Reveal>
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant proof</p>
+          <h2 className="mt-2 text-2xl font-black text-[#101820]">What merchants say</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
-            <p className="text-gray-700 italic mb-3">"The AI-powered forecasting with confidence intervals helps us plan inventory perfectly. The professional chart exports made our board presentation look incredible!"</p>
-            <div className="font-semibold text-blue-900">— Alex, DTC Brand Owner</div>
-            <div className="text-sm text-gray-500 mt-1">Revenue forecasting accuracy: 94%</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-green-500">
-            <p className="text-gray-700 italic mb-3">"Love the color separation between historical and forecast data! The LinkedIn integration lets me share our growth milestones effortlessly with professional templates."</p>
-            <div className="font-semibold text-blue-900">— Priya, Shopify Merchant</div>
-            <div className="text-sm text-gray-500 mt-1">Social engagement increased 60%</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-purple-500">
-                            <p className="text-gray-700 italic mb-3">"The 7 chart types with predictive analytics give us insights we never had. The Executive template PDFs are perfect for investor updates!"</p>
-            <div className="font-semibold text-blue-900">— Marcus, E-commerce Director</div>
-            <div className="text-sm text-gray-500 mt-1">Investment confidence improved dramatically</div>
-          </div>
+          {testimonials.map((t) => (
+            <figure
+              key={t.name}
+              className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#2f5bea]/35 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            >
+              <blockquote className="mb-5 text-[#5f6b76]">&quot;{t.quote}&quot;</blockquote>
+              <figcaption className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#101820] text-sm font-black text-white">
+                  {t.name
+                    .split(',')[0]
+                    .split(' ')
+                    .map((part) => part[0])
+                    .join('')
+                    .slice(0, 2)}
+                </span>
+                <div>
+                  <div className="font-bold text-[#101820]">{t.name}</div>
+                  <div className="mt-1 text-sm text-[#5f6b76]">{t.stat}</div>
+                </div>
+              </figcaption>
+            </figure>
+          ))}
         </div>
       </section>
+      </Reveal>
 
-      {/* FAQ Section */}
-      <section className="w-full max-w-5xl mt-12">
-        <h2 className="text-2xl font-bold mb-6 text-blue-800 text-center">Frequently Asked Questions</h2>
+      {/* FAQ */}
+      <Reveal>
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Details</p>
+          <h2 className="mt-2 text-2xl font-black text-[#101820]">Frequently asked questions</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-blue-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">How accurate is the AI forecasting?</h3>
-            <p className="text-gray-700">Our AI-powered forecasting uses advanced algorithms with confidence intervals to predict revenue, orders, and conversion rates 7-60 days ahead. Historical accuracy averages 85-95% depending on data quality and market conditions.</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-green-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">What export and sharing options are available?</h3>
-            <p className="text-gray-700">Export charts as PNG (3 quality levels), PDF (professional templates with metadata), and Excel (full data series). Share directly on LinkedIn, Twitter, Email, Slack, and Teams with auto-generated professional messaging. All files download instantly with no waiting time.</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-purple-500">
-                            <h3 className="text-lg font-semibold mb-3 text-blue-900">How do the 7 chart types work?</h3>
-            <p className="text-gray-700">Choose from Line, Area, Bar, Candlestick, Waterfall, Stacked, and Composed charts. Each chart type offers unique insights with intelligent color separation between historical (blue/green/amber) and forecast (lighter/dashed) data.</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-orange-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">Is my data secure and compliant?</h3>
-            <p className="text-gray-700">Yes! We provide enterprise-grade security with audit logging, GDPR/CCPA compliance, session isolation, and comprehensive admin controls for complete data protection.</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-red-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">What happens after my free trial?</h3>
-            <p className="text-gray-700">After your 3-day free trial, you'll be automatically enrolled in our Pro plan at $19.99/month. You can cancel anytime with no commitment. All your data, sessions, and configurations are preserved.</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-indigo-500">
-            <h3 className="text-lg font-semibold mb-3 text-blue-900">What payment methods do you accept?</h3>
-            <p className="text-gray-700">We accept all major credit cards, PayPal, and enterprise billing options. All transactions are processed securely with industry-standard encryption and audit trails.</p>
-          </div>
+          {faqs.map((faq) => (
+            <div key={faq.question} className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+              <h3 className="mb-3 text-lg font-black text-[#101820]">{faq.question}</h3>
+              <p className="text-[#5f6b76]">{faq.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
+      </Reveal>
     </div>
   );
 };
