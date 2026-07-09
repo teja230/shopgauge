@@ -11,7 +11,7 @@ import {
   getPrivacyReport,
   API_BASE_URL
 } from '../api';
-import { AlertTriangle, BarChart3, CheckCircle2, Clock, FileText, Lock, Monitor, RefreshCw, Scale, Store, XCircle } from 'lucide-react';
+import { AlertTriangle, BarChart3, Check, CheckCircle2, Clock, DollarSign, FileBarChart, FileDown, FileText, Home, Info, Lock, LogOut, Minus, Monitor, Plus, RefreshCw, Scale, ShoppingCart, Store, Trash2, Users, X, XCircle, Zap } from 'lucide-react';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
@@ -79,7 +79,7 @@ const saveStoreStatsToCache = (data: any, shop: string) => {
 };
 
 export default function ProfilePage() {
-  const { shop, logout, setShop } = useAuth();
+  const { shop, logout, setShop, isDemoMode } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isForceDisconnecting, setIsForceDisconnecting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -753,17 +753,17 @@ export default function ProfilePage() {
 
   const getConnectionStatusColor = () => {
     switch (connectionStatus) {
-      case 'connected': return 'text-green-600';
+      case 'connected': return 'text-[#059669]';
       case 'error': return 'text-red-600';
-      default: return 'text-yellow-600';
+      default: return 'text-[#f59e0b]';
     }
   };
 
   const getConnectionStatusIcon = () => {
     switch (connectionStatus) {
-      case 'connected': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      case 'connected': return <CheckCircle2 className="h-5 w-5 text-[#059669]" />;
       case 'error': return <XCircle className="h-5 w-5 text-red-600" />;
-      default: return <Clock className="h-5 w-5 text-yellow-600" />;
+      default: return <Clock className="h-5 w-5 text-[#f59e0b]" />;
     }
   };
 
@@ -790,14 +790,23 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[#f6f7f9] px-4 py-6 sm:px-6">
       <DemoModeBanner />
       <div className="max-w-5xl mx-auto space-y-6">
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white">
-        <p className="text-sm font-black uppercase text-[#9db4ff]">Account</p>
-        <h1 className="mt-1 text-2xl font-black leading-tight text-white">Profile & Settings</h1>
-        <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#c3ccd5]">Manage your store connection, data privacy, and account settings.</p>
+      <div className="flex flex-col gap-4 overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white md:flex-row md:items-center md:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-sm font-black uppercase text-[#9db4ff]">Account</p>
+          <h1 className="mt-1 text-2xl font-black leading-tight text-white">Profile & Settings</h1>
+          <p className="mt-1.5 text-sm leading-6 text-[#c3ccd5]">Manage your store connection, data privacy, and account settings.</p>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1.5 self-start rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[#c3ccd5] md:self-auto">
+          <span className={`h-2 w-2 rounded-full ${
+            connectionStatus === 'connected' ? 'bg-[#15b87a]' :
+            connectionStatus === 'error' ? 'bg-red-400' : 'bg-[#f59e0b]'
+          }`} />
+          {shop}
+        </div>
       </div>
 
       {/* Store Information - Enhanced */}
-      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+      <div className="animate-slideUp motion-reduce:animate-none rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
         <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
           <Store className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Store Information
@@ -823,8 +832,8 @@ export default function ProfilePage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Connection Status</label>
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full ${
-                  connectionStatus === 'connected' ? 'bg-green-500' : 
-                  connectionStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
+                  connectionStatus === 'connected' ? 'bg-[#059669]' :
+                  connectionStatus === 'error' ? 'bg-red-500' : 'bg-[#f59e0b]'
                 }`}></div>
                 <span className="text-sm text-gray-600">
                   {connectionStatus === 'connected' ? 'Active Shopify Integration' :
@@ -841,11 +850,11 @@ export default function ProfilePage() {
                   <button
                     onClick={handleRefreshStoreStats}
                     disabled={storeStatsLoading || refreshDebounce}
-                    className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 flex items-center gap-1"
+                    className="text-xs text-[#2f5bea] hover:text-[#1539a6] disabled:text-gray-400 flex items-center gap-1"
                   >
                     {storeStatsLoading ? (
                       <>
-                        <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-3 h-3 border border-[#2f5bea] border-t-transparent rounded-full animate-spin"></div>
                         Updating...
                       </>
                     ) : refreshDebounce ? (
@@ -862,13 +871,21 @@ export default function ProfilePage() {
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{storeStats.totalOrders || 0}</div>
-                    <div className="text-xs text-blue-500">Orders</div>
+                  <div className="group relative overflow-hidden rounded-lg border border-[#e4e7eb] bg-white p-3 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#2f5bea]/40">
+                    <div className="pointer-events-none absolute -right-6 -top-8 h-16 w-16 rounded-full bg-[#2f5bea] opacity-10 blur-2xl" />
+                    <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-[#2f5bea]/20 bg-[#2f5bea]/10">
+                      <ShoppingCart className="h-4 w-4 text-[#2f5bea]" />
+                    </div>
+                    <div className="text-2xl font-black text-[#101820]" style={{ fontFeatureSettings: '"tnum"' }}>{storeStats.totalOrders || 0}</div>
+                    <div className="text-xs font-black uppercase tracking-[0.08em] text-[#5f6b76]">Orders</div>
                   </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">${storeStats.totalRevenue || 0}</div>
-                    <div className="text-xs text-green-500">Revenue</div>
+                  <div className="group relative overflow-hidden rounded-lg border border-[#e4e7eb] bg-white p-3 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#059669]/40">
+                    <div className="pointer-events-none absolute -right-6 -top-8 h-16 w-16 rounded-full bg-[#059669] opacity-10 blur-2xl" />
+                    <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-[#059669]/20 bg-[#059669]/10">
+                      <DollarSign className="h-4 w-4 text-[#059669]" />
+                    </div>
+                    <div className="text-2xl font-black text-[#101820]" style={{ fontFeatureSettings: '"tnum"' }}>${Number(storeStats.totalRevenue || 0).toLocaleString()}</div>
+                    <div className="text-xs font-black uppercase tracking-[0.08em] text-[#5f6b76]">Revenue</div>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-2 space-y-1">
@@ -910,7 +927,7 @@ export default function ProfilePage() {
               <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Data Collection</label>
               <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-[#2f5bea] rounded-full"></div>
                 <span className="text-sm text-gray-600">Orders, Analytics, Revenue & Metrics</span>
                 </div>
             </div>
@@ -919,21 +936,16 @@ export default function ProfilePage() {
               <button
                 onClick={handleCheckConnection}
                 disabled={connectionStatus === 'checking'}
-                className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] disabled:opacity-50"
               >
                 {connectionStatus === 'checking' ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent -ml-1 mr-2"></div>
                     Checking...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Check Connection
                   </>
                 )}
@@ -941,11 +953,9 @@ export default function ProfilePage() {
 
               <button
                 onClick={clearCacheAndRefresh}
-                className="w-full inline-flex items-center justify-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="w-full inline-flex items-center justify-center px-4 py-2 border border-[#2f5bea]/32 text-sm font-medium rounded-lg text-[#1d3db8] bg-[#2f5bea]/6 hover:bg-[#2f5bea]/12 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea]"
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+                <RefreshCw className="w-4 h-4 mr-2" />
                 Clear All Caches & Refresh
               </button>
               </div>
@@ -962,21 +972,16 @@ export default function ProfilePage() {
               <button
                 onClick={handleReAuthenticate}
                 disabled={isLoading}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent -ml-1 mr-2"></div>
                     Re-authenticating...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Re-authenticate
                   </>
                 )}
@@ -986,7 +991,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Store Management Section - Enhanced */}
-      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+      <div className="animate-slideUp motion-reduce:animate-none rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]" style={{ animationDelay: '60ms', animationFillMode: 'both' }}>
         <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
           <RefreshCw className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Store Management
@@ -999,16 +1004,12 @@ export default function ProfilePage() {
             </div>
             <button
               onClick={() => setShowStoreSwitcher(!showStoreSwitcher)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] transition-colors"
             >
               {showStoreSwitcher ? (
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                </svg>
+                <Minus className="w-4 h-4 mr-2" />
               ) : (
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <Plus className="w-4 h-4 mr-2" />
               )}
               {showStoreSwitcher ? 'Hide Store Manager' : 'Manage Stores'}
             </button>
@@ -1020,22 +1021,22 @@ export default function ProfilePage() {
               <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-semibold text-blue-900 mb-1">Current Store</h4>
-                    <p className="text-blue-700 font-mono text-sm">{shop}</p>
-                    <p className="text-xs text-blue-600 mt-1">
+                    <h4 className="font-semibold text-[#101820] mb-1">Current Store</h4>
+                    <p className="text-[#1d3db8] font-mono text-sm">{shop}</p>
+                    <p className="text-xs text-[#2f5bea] mt-1">
                       Connected • Last sync: {lastSyncTime?.toLocaleTimeString()}
                     </p>
                   </div>
-                  <div className="flex items-center text-blue-600">
+                  <div className="flex items-center text-[#2f5bea]">
                     <Store className="w-6 h-6 mr-2" />
                     <div className="text-right">
                       <div className="flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                        <div className="w-2 h-2 bg-[#059669] rounded-full mr-2"></div>
                     <span className="text-sm font-medium">Active</span>
                       </div>
                       {storeStats && (
-                        <div className="text-xs text-blue-500 mt-1">
-                          {storeStats.totalOrders} orders • ${storeStats.totalRevenue} revenue (60d)
+                        <div className="text-xs text-[#2f5bea] mt-1">
+                          {Number(storeStats.totalOrders).toLocaleString()} orders • ${Number(storeStats.totalRevenue).toLocaleString()} revenue (60d)
                         </div>
                       )}
                     </div>
@@ -1054,16 +1055,14 @@ export default function ProfilePage() {
                     {pastStores.slice(0, 3).map((pastStore, index) => (
                       <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
                         <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
+                          <div className="w-2 h-2 bg-[#7c9cff] rounded-full mr-3"></div>
                           <span className="text-sm font-mono text-gray-700">{pastStore}</span>
                         </div>
                         <button
                           onClick={() => handleReconnectPastStore(pastStore)}
-                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-blue-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-[#1d3db8] bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] transition-colors"
                         >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
+                          <RefreshCw className="w-3 h-3 mr-1" />
                           Reconnect
                         </button>
                       </div>
@@ -1086,44 +1085,37 @@ export default function ProfilePage() {
                     value={newStoreDomain}
                     onChange={(e) => setNewStoreDomain(e.target.value)}
                     placeholder="Enter store name or full URL"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2f5bea] focus:border-[#2f5bea] text-sm"
                     disabled={isConnectingStore}
                   />
                     </div>
                   <button
                     type="submit"
                       disabled={isConnectingStore || !normalizeShopDomain(newStoreDomain)}
-                      className="inline-flex items-center px-5 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="inline-flex items-center px-5 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-[#2f5bea] hover:bg-[#1d3db8] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isConnectingStore ? (
                       <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent -ml-1 mr-2"></div>
                         Connecting...
                       </>
                     ) : (
                       <>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
+                        <Plus className="w-4 h-4 mr-2" />
                         Connect Store
                       </>
                     )}
                   </button>
                   </div>
-                  <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <div className="text-xs text-gray-500 bg-[#2f5bea]/6 p-3 rounded-lg border border-[#2f5bea]/18">
                     <div className="flex items-start">
-                      <svg className="w-4 h-4 mr-2 mt-0.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                      <Info className="w-4 h-4 mr-2 mt-0.5 text-[#2f5bea] flex-shrink-0" />
                       <div>
-                        <p className="font-medium text-blue-800 mb-1">Quick Connect Process:</p>
-                        <p className="text-blue-700">• Enter store name or .myshopify.com URL</p>
-                        <p className="text-blue-700">• Authorize via Shopify (secure OAuth)</p>
-                        <p className="text-blue-700">• Automatically redirected to Dashboard</p>
-                        <p className="text-blue-600 mt-2 text-xs italic">
+                        <p className="font-medium text-[#1539a6] mb-1">Quick Connect Process:</p>
+                        <p className="text-[#1d3db8]">• Enter store name or .myshopify.com URL</p>
+                        <p className="text-[#1d3db8]">• Authorize via Shopify (secure OAuth)</p>
+                        <p className="text-[#1d3db8]">• Automatically redirected to Dashboard</p>
+                        <p className="text-[#2f5bea] mt-2 text-xs italic">
                           Same-account stores connect instantly with success notification.
                         </p>
                       </div>
@@ -1141,38 +1133,30 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <button
                     onClick={() => navigate('/')}
-                    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] transition-colors"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
+                    <Home className="w-4 h-4 mr-2" />
                     Home
                   </button>
                   <button
                     onClick={() => navigate('/dashboard')}
-                    className="inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="inline-flex items-center justify-center px-3 py-2 border border-[#2f5bea]/32 text-sm font-medium rounded-lg text-[#1d3db8] bg-[#2f5bea]/6 hover:bg-[#2f5bea]/12 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] transition-colors"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
+                    <BarChart3 className="w-4 h-4 mr-2" />
                     Dashboard
                   </button>
                   <button
                     onClick={() => navigate('/competitors')}
-                    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] transition-colors"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
+                    <BarChart3 className="w-4 h-4 mr-2" />
                     Market Intelligence
                   </button>
                   <button
                     onClick={clearCacheAndRefresh}
-                    className="inline-flex items-center justify-center px-3 py-2 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                    className="inline-flex items-center justify-center px-3 py-2 border border-[#15b87a]/30 text-sm font-medium rounded-lg text-[#047857] bg-[#15b87a]/10 hover:bg-[#15b87a]/14 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#059669] transition-colors"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh
                   </button>
                 </div>
@@ -1183,7 +1167,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Privacy & Data Rights Section - Enhanced */}
-      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+      <div className="animate-slideUp motion-reduce:animate-none rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]" style={{ animationDelay: '120ms', animationFillMode: 'both' }}>
         <h2 className="text-xl font-black text-[#101820] mb-4 flex items-center">
           <Lock className="w-5 h-5 mr-3 text-[#2f5bea]" />
           Privacy & Data Rights
@@ -1197,38 +1181,31 @@ export default function ProfilePage() {
           {/* Data Access & Export */}
           <div className="bg-[#f9fafb] p-5 rounded-lg border border-[#e4e7eb]">
             <h3 className="font-black text-[#101820] mb-3 flex items-center">
-              <FileText className="mr-2 h-5 w-5 text-blue-600" />
+              <FileText className="mr-2 h-5 w-5 text-[#2f5bea]" />
               Data Access & Export
             </h3>
           <div className="space-y-3">
             <button
               onClick={handlePrivacyReport}
-                className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-[#2f5bea]/32 text-sm font-medium rounded-lg text-[#1d3db8] bg-[#2f5bea]/6 hover:bg-[#2f5bea]/12 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] transition-colors"
             >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <FileBarChart className="w-4 h-4 mr-2" />
                 View Privacy Report
             </button>
             
             <button
               onClick={handleDataExport}
               disabled={isExporting}
-                className="w-full inline-flex items-center justify-center px-4 py-3 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-[#15b87a]/30 text-sm font-medium rounded-lg text-[#047857] bg-[#15b87a]/10 hover:bg-[#15b87a]/14 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#059669] disabled:opacity-50 transition-colors"
             >
                 {isExporting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#059669] border-t-transparent -ml-1 mr-2"></div>
                     Exporting Data...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <FileDown className="w-4 h-4 mr-2" />
                     Export My Data
                   </>
                 )}
@@ -1247,9 +1224,7 @@ export default function ProfilePage() {
               onClick={() => navigate('/privacy-policy')}
                 className="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
             >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <FileText className="w-4 h-4 mr-2" />
                 Privacy Policy
             </button>
             
@@ -1260,17 +1235,12 @@ export default function ProfilePage() {
             >
                 {isDeletingData ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent -ml-1 mr-2"></div>
                     Deleting Data...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <Trash2 className="w-4 h-4 mr-2" />
                     Delete All My Data
                   </>
                 )}
@@ -1282,7 +1252,7 @@ export default function ProfilePage() {
         {/* Compliance Info */}
         <div className="mt-6 bg-[#f9fafb] p-4 rounded-lg border border-[#e4e7eb]">
           <h4 className="font-black text-[#101820] mb-3 flex items-center">
-            <CheckCircle2 className="mr-2 h-5 w-5 text-green-600" />
+            <CheckCircle2 className="mr-2 h-5 w-5 text-[#059669]" />
             Your Data Rights & Our Commitments
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600">
@@ -1315,16 +1285,14 @@ export default function ProfilePage() {
             <div className="sticky top-0 bg-white border-b px-6 py-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black text-[#101820] flex items-center">
-                  <BarChart3 className="w-5 h-5 mr-3 text-blue-600" />
+                  <BarChart3 className="w-5 h-5 mr-3 text-[#2f5bea]" />
                   Privacy Compliance Report
                 </h3>
                 <button
                   onClick={() => setShowPrivacyReport(false)}
                   className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-6 h-6" />
                 </button>
               </div>
               </div>
@@ -1332,10 +1300,10 @@ export default function ProfilePage() {
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-6">
                 {/* Compliance Status - Enhanced */}
-                <div className="relative bg-green-50 p-6 rounded-xl border border-green-200 overflow-hidden">
+                <div className="relative bg-[#15b87a]/10 p-6 rounded-xl border border-[#15b87a]/20 overflow-hidden">
                   {/* Decorative background pattern */}
                   <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
-                    <svg viewBox="0 0 100 100" className="w-full h-full text-green-600">
+                    <svg viewBox="0 0 100 100" className="w-full h-full text-[#059669]">
                       <circle cx="50" cy="50" r="40" fill="currentColor" />
                       <path d="M30 50l10 10 30-30" stroke="white" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
@@ -1343,59 +1311,53 @@ export default function ProfilePage() {
                 
                   <div className="relative z-10">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-xl font-bold text-green-800 flex items-center">
-                        <div className="mr-3 p-2 bg-green-100 rounded-full">
-                          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
+                      <h4 className="text-xl font-bold text-[#08734c] flex items-center">
+                        <div className="mr-3 p-2 bg-[#15b87a]/14 rounded-full">
+                          <CheckCircle2 className="w-6 h-6 text-[#059669]" />
                         </div>
                         Overall Compliance Status
                       </h4>
                       <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">LIVE</span>
+                        <div className="w-3 h-3 bg-[#059669] rounded-full animate-pulse"></div>
+                        <span className="text-xs font-medium text-[#047857] bg-[#15b87a]/14 px-2 py-1 rounded-full">LIVE</span>
                       </div>
                     </div>
                     
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-green-100 shadow-sm">
+                      <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-[#15b87a]/14 shadow-sm">
                         <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-green-500 rounded-full">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                          <div className="p-2 bg-[#059669] rounded-full">
+                            <Check className="w-5 h-5 text-white" />
                           </div>
                           <div>
-                            <div className="text-lg font-bold text-green-800">{privacyReport.compliance_status}</div>
-                            <div className="text-sm text-green-600">All privacy requirements are being met</div>
+                            <div className="text-lg font-bold text-[#08734c]">{privacyReport.compliance_status}</div>
+                            <div className="text-sm text-[#059669]">All privacy requirements are being met</div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-3xl font-bold text-green-600">100%</div>
-                          <div className="text-xs text-green-500 font-medium">Compliance Rate</div>
+                          <div className="text-3xl font-bold text-[#059669]">100%</div>
+                          <div className="text-xs text-[#059669] font-medium">Compliance Rate</div>
                         </div>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
-                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                          <span className="text-sm font-medium text-green-700">GDPR Compliant</span>
+                          <div className="w-2 h-2 bg-[#15b87a] rounded-full"></div>
+                          <span className="text-sm font-medium text-[#047857]">GDPR Compliant</span>
                         </div>
                         <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
-                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                          <span className="text-sm font-medium text-green-700">CCPA Compliant</span>
+                          <div className="w-2 h-2 bg-[#15b87a] rounded-full"></div>
+                          <span className="text-sm font-medium text-[#047857]">CCPA Compliant</span>
                         </div>
                         <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
-                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                          <span className="text-sm font-medium text-green-700">SOC 2 Ready</span>
+                          <div className="w-2 h-2 bg-[#15b87a] rounded-full"></div>
+                          <span className="text-sm font-medium text-[#047857]">SOC 2 Ready</span>
                         </div>
                       </div>
                       
-                      <div className="flex items-center justify-center mt-4 p-3 bg-green-100/80 rounded-lg">
-                        <svg className="w-4 h-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        <span className="text-sm font-medium text-green-700">Your data is secure and compliant</span>
+                      <div className="flex items-center justify-center mt-4 p-3 bg-[#15b87a]/14/80 rounded-lg">
+                        <Lock className="w-4 h-4 text-[#059669] mr-2" />
+                        <span className="text-sm font-medium text-[#047857]">Your data is secure and compliant</span>
                       </div>
                     </div>
                   </div>
@@ -1432,15 +1394,15 @@ export default function ProfilePage() {
                 
                 {/* Access Statistics */}
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                  <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-                    <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
+                  <h4 className="font-semibold text-[#1539a6] mb-3 flex items-center">
+                    <BarChart3 className="mr-2 h-5 w-5 text-[#2f5bea]" />
                     Data Access Activity Summary
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-blue-600">{privacyReport.audit_logs_today || 0}</div>
-                      <div className="text-sm text-blue-500">Today's Events</div>
-                      <div className="text-xs text-blue-400 mt-1">Data access logs</div>
+                      <div className="text-3xl font-bold text-[#2f5bea]">{privacyReport.audit_logs_today || 0}</div>
+                      <div className="text-sm text-[#2f5bea]">Today's Events</div>
+                      <div className="text-xs text-[#7c9cff] mt-1">Data access logs</div>
                 </div>
                     <div className="text-center">
                       <div className="text-3xl font-bold text-indigo-600">{privacyReport.total_weekly_access_events || 0}</div>
@@ -1448,33 +1410,33 @@ export default function ProfilePage() {
                       <div className="text-xs text-indigo-400 mt-1">Weekly activity</div>
               </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-blue-600">{privacyReport.recent_audit_activity || 0}</div>
-                      <div className="text-sm text-blue-500">30-Day Total</div>
-                      <div className="text-xs text-blue-400 mt-1">Monthly activity</div>
+                      <div className="text-3xl font-bold text-[#2f5bea]">{privacyReport.recent_audit_activity || 0}</div>
+                      <div className="text-sm text-[#2f5bea]">30-Day Total</div>
+                      <div className="text-xs text-[#7c9cff] mt-1">Monthly activity</div>
             </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-green-600">100%</div>
-                      <div className="text-sm text-green-500">Compliance Rate</div>
-                      <div className="text-xs text-green-400 mt-1">GDPR/CCPA compliant</div>
+                      <div className="text-3xl font-bold text-[#059669]">100%</div>
+                      <div className="text-sm text-[#059669]">Compliance Rate</div>
+                      <div className="text-xs text-[#15b87a] mt-1">GDPR/CCPA compliant</div>
                     </div>
                   </div>
                   
                   {/* Weekly Activity Breakdown */}
                   {privacyReport.weekly_action_breakdown && Object.keys(privacyReport.weekly_action_breakdown).length > 0 && (
-                    <div className="mt-4 bg-white p-3 rounded-lg border border-blue-200">
-                      <h5 className="font-medium text-blue-800 mb-2">Weekly Activity Breakdown</h5>
+                    <div className="mt-4 bg-white p-3 rounded-lg border border-[#2f5bea]/18">
+                      <h5 className="font-medium text-[#1539a6] mb-2">Weekly Activity Breakdown</h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                                                  {Object.entries(privacyReport.weekly_action_breakdown).map(([action, count]: [string, any]) => (
-                          <div key={action} className="flex justify-between items-center p-2 bg-blue-50 rounded">
-                            <span className="text-blue-700 font-medium">{action.replace(/_/g, ' ')}</span>
-                            <span className="text-blue-600 font-bold">{count}</span>
+                          <div key={action} className="flex justify-between items-center p-2 bg-[#2f5bea]/6 rounded">
+                            <span className="text-[#1d3db8] font-medium">{action.replace(/_/g, ' ')}</span>
+                            <span className="text-[#2f5bea] font-bold">{count}</span>
                           </div>
                         ))}
           </div>
         </div>
       )}
 
-                  <div className="mt-3 text-xs text-blue-600">
+                  <div className="mt-3 text-xs text-[#2f5bea]">
                     <strong>Note:</strong> Access events include revenue queries, order data requests, exports, and analytics operations. 
                     All data access is automatically logged for transparency and compliance monitoring.
                   </div>
@@ -1521,37 +1483,38 @@ export default function ProfilePage() {
       )}
 
       {/* Session Management Section */}
-      <div className="rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+      <div className="animate-slideUp motion-reduce:animate-none rounded-lg border border-[#e4e7eb] bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]" style={{ animationDelay: '180ms', animationFillMode: 'both' }}>
         <h2 className="text-xl font-black text-[#101820] mb-4 flex items-center">
           <Monitor className="mr-3 h-6 w-6 text-[#2f5bea]" />
           Active Sessions
         </h2>
         <p className="text-sm text-[#5f6b76] mb-6">
-          Manage your active sessions across different devices and browsers. You can have up to 5 active sessions at once.
+          Manage your active sessions across different devices and browsers.{' '}
+          {isDemoMode ? 'Demo mode does not enforce a session limit.' : 'You can have up to 5 active sessions at once.'}
         </p>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Session Status */}
           <div className="bg-[#f9fafb] p-4 lg:p-5 rounded-lg border border-[#e4e7eb]">
             <h3 className="font-black text-[#101820] mb-3 flex items-center">
-              <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
+              <BarChart3 className="mr-2 h-5 w-5 text-[#2f5bea]" />
               Session Status
             </h3>
             <div className="space-y-4">
               {sessionLimitData ? (
                 <>
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between p-4 bg-[#2f5bea]/6 rounded-lg border border-[#2f5bea]/18">
                     <div>
-                      <div className="text-lg font-bold text-blue-800">
-                        {sessionLimitData.currentSessionCount} / {sessionLimitData.maxSessions}
+                      <div className="text-lg font-bold text-[#1539a6]">
+                        {sessionLimitData.currentSessionCount} / {sessionLimitData.maxSessions >= 999 ? '∞' : sessionLimitData.maxSessions}
                       </div>
-                      <div className="text-sm text-blue-600">Active Sessions</div>
+                      <div className="text-sm text-[#2f5bea]">Active Sessions</div>
                     </div>
                     <div className="text-right">
                       <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                        sessionLimitData.limitReached 
-                          ? 'bg-red-100 text-red-800' 
-                          : 'bg-green-100 text-green-800'
+                        sessionLimitData.limitReached
+                          ? 'bg-[#dc2626]/14 text-[#b91c1c]'
+                          : 'bg-[#15b87a]/14 text-[#08734c]'
                       }`}>
                         {sessionLimitData.limitReached ? 'Limit Reached' : 'Available'}
                       </div>
@@ -1572,7 +1535,7 @@ export default function ProfilePage() {
                       return (
                         <div key={session.sessionId} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
                           session.isCurrentSession 
-                            ? 'bg-green-50 border-green-300 shadow-sm' 
+                            ? 'bg-[#15b87a]/10 border-[#15b87a]/30 shadow-sm'
                             : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                         }`}>
                           <div className="flex items-center space-x-3 flex-1">
@@ -1583,8 +1546,8 @@ export default function ProfilePage() {
                                   {device.name}
                                 </span>
                                 {session.isCurrentSession && (
-                                  <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                  <span className="inline-flex items-center gap-1 text-xs bg-[#15b87a]/14 text-[#08734c] px-2 py-1 rounded-full font-medium">
+                                    <span className="w-2 h-2 bg-[#059669] rounded-full animate-pulse"></span>
                                     This Device
                                   </span>
                                 )}
@@ -1593,7 +1556,7 @@ export default function ProfilePage() {
                                 {device.subtitle}
                               </div>
                               <div className={`text-xs font-medium ${
-                                session.isCurrentSession ? 'text-green-700' : 'text-gray-600'
+                                session.isCurrentSession ? 'text-[#047857]' : 'text-gray-600'
                               }`}>
                                 Last used: {session.lastUsedFormatted || getRelativeTime(session.lastAccessedAt)}
                               </div>
@@ -1601,7 +1564,7 @@ export default function ProfilePage() {
                           </div>
                           {session.isCurrentSession && (
                             <div className="text-right">
-                              <div className="text-xs text-green-600 font-medium">Active Now</div>
+                              <div className="text-xs text-[#059669] font-medium">Active Now</div>
                             </div>
                           )}
                         </div>
@@ -1617,14 +1580,14 @@ export default function ProfilePage() {
                 </>
               ) : sessionLimitLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2f5bea]"></div>
                 </div>
               ) : sessionLimitError ? (
                 <div className="text-center py-4">
                   <div className="text-red-600 mb-2">Failed to load session data</div>
                   <button
                     onClick={checkSessionLimit}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-[#2f5bea] hover:text-[#1539a6]"
                   >
                     Try again
                   </button>
@@ -1647,21 +1610,16 @@ export default function ProfilePage() {
               <button
                 onClick={handleRefreshSessionData}
                 disabled={sessionLimitLoading || sessionRefreshDebounce}
-                className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-[#2f5bea]/32 text-sm font-medium rounded-lg text-[#1d3db8] bg-[#2f5bea]/6 hover:bg-[#2f5bea]/12 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] disabled:opacity-50 transition-colors"
               >
                 {sessionLimitLoading ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#2f5bea] border-t-transparent -ml-1 mr-2"></div>
                     Checking Sessions...
                   </>
                 ) : sessionRefreshDebounce ? (
                   <>
-                    <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <Clock className="w-4 h-4 mr-2 text-gray-400" />
                     {sessionRefreshCountdown > 0 ? (
                       <>Wait {Math.floor(sessionRefreshCountdown / 60)}:{(sessionRefreshCountdown % 60).toString().padStart(2, '0')}</>
                     ) : (
@@ -1670,9 +1628,7 @@ export default function ProfilePage() {
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh Sessions
                   </>
                 )}
@@ -1681,18 +1637,16 @@ export default function ProfilePage() {
               <button
                 onClick={openSessionDialog}
                 disabled={(!sessionLimitData || sessionLimitData.sessions.length === 0) && !sessionLimitError}
-                className="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-blue-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-[#1d3db8] bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2f5bea] disabled:opacity-50 transition-colors"
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
+                <Users className="w-4 h-4 mr-2" />
                 Manage All Sessions
               </button>
               
               <div className="text-xs text-gray-600">
                 <p className="font-medium mb-1">Session Features:</p>
                 <ul className="space-y-1">
-                  <li>• Maximum 5 concurrent sessions</li>
+                  <li>• {isDemoMode ? 'No session limit in demo mode' : 'Maximum 5 concurrent sessions'}</li>
                   <li>• Automatic cleanup of old sessions</li>
                   <li>• Device and browser identification</li>
                   <li>• Real-time session monitoring</li>
@@ -1716,14 +1670,14 @@ export default function ProfilePage() {
       />
 
       {/* Danger Zone - Enhanced with Better Explanations */}
-      <div className="rounded-lg border border-red-200 bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
+      <div className="animate-slideUp motion-reduce:animate-none rounded-lg border border-red-200 bg-white p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]" style={{ animationDelay: '240ms', animationFillMode: 'both' }}>
         <h2 className="text-xl font-black text-[#101820] mb-6 flex items-center">
           <AlertTriangle className="mr-3 h-6 w-6 text-red-600" />
           Danger Zone
         </h2>
         <div className="space-y-6">
           {/* Normal Disconnect */}
-          <div className="bg-yellow-50 p-5 rounded-xl border border-red-200">
+          <div className="bg-[#f59e0b]/8 p-5 rounded-xl border border-red-200">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="font-semibold text-red-900 mb-2">Disconnect Store</h3>
@@ -1743,29 +1697,27 @@ export default function ProfilePage() {
               </div>
             <button
               onClick={handleShopDisconnect}
-                className="ml-4 inline-flex items-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
+                className="ml-4 inline-flex items-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-[#f59e0b] hover:bg-[#b45309] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f59e0b] transition-colors"
             >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V5a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <LogOut className="w-4 h-4 mr-2" />
               Disconnect Store
             </button>
           </div>
           </div>
 
           {/* Force Disconnect */}
-          <div className="bg-red-50 p-5 rounded-xl border border-yellow-300">
+          <div className="bg-red-50 p-5 rounded-xl border border-[#f59e0b]/35">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="font-semibold text-yellow-900 mb-2 flex items-center">
-                  <AlertTriangle className="mr-2 h-5 w-5 text-yellow-700" />
+                <h3 className="font-semibold text-[#92400e] mb-2 flex items-center">
+                  <AlertTriangle className="mr-2 h-5 w-5 text-[#b45309]" />
                   Force Disconnect (Troubleshooting)
                 </h3>
-                <p className="text-sm text-yellow-800 mb-3">
+                <p className="text-sm text-[#b45309] mb-3">
                   Use this only if the normal disconnect doesn't work or you're experiencing authentication issues. 
                   This will forcefully clear all tokens, cookies, and cached data.
                 </p>
-                <div className="text-xs text-yellow-700">
+                <div className="text-xs text-[#b45309]">
                   <p className="font-medium mb-1">What happens:</p>
                   <ul className="space-y-1">
                     <li>• Forcefully invalidates all authentication tokens</li>
@@ -1789,17 +1741,12 @@ export default function ProfilePage() {
             >
                 {isForceDisconnecting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent -ml-1 mr-2"></div>
                     Force Disconnecting...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <Zap className="w-4 h-4 mr-2" />
                     Force Disconnect
                   </>
                 )}

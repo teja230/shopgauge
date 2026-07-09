@@ -256,8 +256,11 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   };
 
   const getDialogDescription = () => {
+    const isUnlimited = maxSessions >= 999;
     if (isLimitReached) {
       return `You can only have ${maxSessions} active sessions. Please remove some sessions to continue.`;
+    } else if (isUnlimited) {
+      return `You have ${currentSessionCount} active session${currentSessionCount === 1 ? '' : 's'}. There is no session limit in demo mode.`;
     } else {
       return `You have ${currentSessionCount} active sessions (${Math.max(0, maxSessions - currentSessionCount)} slots remaining). You can manage them here.`;
     }

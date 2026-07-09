@@ -6,16 +6,25 @@ import { useNotifications } from '../hooks/useNotifications';
 import {
   AlertTriangle,
   ArrowRightLeft,
+  BarChart3,
   CheckCircle2,
+  ClipboardList,
+  Download,
   LayoutDashboard,
+  LineChart,
   Loader2,
+  PackageCheck,
   Play,
+  RefreshCw,
   Share2,
   ShieldCheck,
+  ShoppingCart,
+  Sparkles,
   Store,
   Target,
   TrendingUp,
   Users,
+  X,
 } from 'lucide-react';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
@@ -569,63 +578,158 @@ const HomePage = () => {
                   ))}
                 </div>
               </div>
-              <div className="bg-[#f6f7f9] p-4 text-[#101820]">
-                <div className="flex flex-col gap-3 border-b border-[#e4e7eb] pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-3 bg-[#f6f7f9] p-4 text-[#101820]">
+                {/* Header */}
+                <div
+                  className="flex flex-col gap-3 rounded-md border border-white/10 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  style={{ backgroundImage: 'linear-gradient(135deg, #101820 0%, #0b1016 100%)' }}
+                >
                   <div>
-                    <p className="text-xs font-black uppercase text-[#5f6b76]">Today&apos;s command queue</p>
-                    <p className="mt-1 text-xl font-black">Revenue pulse</p>
+                    <p className="text-[11px] font-black uppercase text-[#9db4ff]">Operating overview</p>
+                    <p className="mt-1 text-lg font-black text-white">Dashboard</p>
+                    <p className="mt-1 text-xs text-[#c3ccd5]">
+                      Revenue, orders, inventory risk, and forecast signals for demo-shopgauge.myshopify.com.
+                    </p>
                   </div>
-                  <span className="rounded-full border border-[#b3c4f5] bg-[#e8edff] px-3 py-1 text-xs font-black text-[#1d3db8]">
-                    demo-shopgauge.myshopify.com
+                  <span className="flex items-center gap-1.5 self-start rounded-md border border-white/25 px-3 py-1.5 text-xs font-bold text-white">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Refresh
                   </span>
                 </div>
 
-                <div className="grid gap-3 py-4 sm:grid-cols-4">
-                  {[
-                    ['$26.9K', 'Revenue', '#2f5bea'],
-                    ['187', 'Orders', '#15b87a'],
-                    ['8', 'Low stock', '#f59e0b'],
-                    ['8', 'Price moves', '#f9734d'],
-                  ].map(([value, label, color]) => (
-                    <div key={label} className="rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm">
-                      <div className="mb-3 h-1.5 w-10 rounded-full" style={{ backgroundColor: color }} />
-                      <p className="text-2xl font-black text-[#101820]">{value}</p>
-                      <p className="mt-1 text-xs font-bold text-[#5f6b76]">{label}</p>
+                {/* Metric cards */}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {([
+                    [TrendingUp, '$26.9K', 'Total Revenue', '30.0% last 7d', 'up'],
+                    [BarChart3, '2.50%', 'Conversion Rate', '3.4% vs previous', 'up'],
+                    [ClipboardList, '14', 'Abandoned Carts', '3.8% attention', 'down'],
+                    [PackageCheck, '8', 'Low Inventory', '8 items', 'down'],
+                    [Store, '3', 'New Products', 'New catalog', 'up'],
+                  ] as const).map(([Icon, value, label, delta, direction]) => (
+                    <div key={label as string} className="rounded-md border border-[#e4e7eb] bg-white p-2.5 shadow-sm">
+                      <span className="mb-2 flex h-7 w-7 items-center justify-center rounded-full border border-[#2f5bea]/20 bg-[#2f5bea]/[0.08] text-[#2f5bea]">
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <p className="text-[10px] font-bold uppercase text-[#5f6b76]">{label}</p>
+                      <p className="mt-0.5 text-lg font-black text-[#101820]">{value}</p>
+                      <p className={`mt-0.5 text-[10px] font-bold ${direction === 'up' ? 'text-[#15b87a]' : 'text-[#f9734d]'}`}>
+                        {delta}
+                      </p>
+                      <div className="mt-2 grid grid-cols-8 items-end gap-0.5">
+                        {[10, 14, 12, 20, 18, 26, 22, 30].map((height, barIndex) => (
+                          <div
+                            key={barIndex}
+                            className={`h-6 rounded-sm ${barIndex < 4 ? 'bg-[#2f5bea]' : 'bg-[#15b87a]'} opacity-55`}
+                            style={{ height: `${height}px`, alignSelf: 'end' }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-                  <div className="rounded-md border border-[#e4e7eb] bg-white p-4 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between">
-                      <p className="text-sm font-black">Forecast curve</p>
-                      <p className="text-xs font-bold text-[#15b87a]">+12.4% projected</p>
+                {/* Action queue */}
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {([
+                    [PackageCheck, '8 products low on stock', 'Restock before you miss sales.', 'Review products', '#b45309', 'rgba(245,158,11,0.10)', 'rgba(245,158,11,0.35)'],
+                    [ShoppingCart, '24 abandoned checkouts', 'Recover potential revenue with follow-ups.', 'View checkouts', '#1d3db8', 'rgba(47,91,234,0.08)', 'rgba(47,91,234,0.30)'],
+                    [Sparkles, 'Not sure what to tackle first?', 'Ask ShopGPT for a prioritized plan.', 'Ask ShopGPT', '#0f766e', 'rgba(14,165,166,0.08)', 'rgba(14,165,166,0.30)'],
+                  ] as const).map(([Icon, title, sub, cta, fg, bg, border]) => (
+                    <div
+                      key={title as string}
+                      className="relative rounded-md border bg-white p-3 shadow-sm"
+                      style={{ borderColor: border as string }}
+                    >
+                      <span className="absolute right-2 top-2 text-[#98a1ab]">
+                        <X className="h-3.5 w-3.5" />
+                      </span>
+                      <span
+                        className="mb-2 flex h-8 w-8 items-center justify-center rounded-md"
+                        style={{ backgroundColor: bg as string, color: fg as string }}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <p className="pr-4 text-xs font-black text-[#101820]">{title}</p>
+                      <p className="mt-0.5 text-[11px] text-[#5f6b76]">{sub}</p>
+                      <p className="mt-1.5 text-[11px] font-bold" style={{ color: fg as string }}>
+                        {cta}
+                      </p>
                     </div>
-                    <div className="flex h-56 items-end gap-2">
-                      {[36, 48, 42, 64, 58, 72, 68, 83, 78, 90, 86, 96].map((height, index) => (
-                        <div key={index} className="flex h-full flex-1 flex-col justify-end">
-                          <div
-                            className={index > 8 ? 'rounded-t bg-[#15b87a]' : 'rounded-t bg-[#2f5bea]'}
-                            style={{ height: `${height}%` }}
-                          />
-                        </div>
-                      ))}
+                  ))}
+                </div>
+
+                {/* Forecasting workspace */}
+                <div className="flex flex-col gap-2 rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#e8edff] text-[#2f5bea]">
+                      <LineChart className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-[11px] font-black uppercase text-[#2f5bea]">Forecasting workspace</p>
+                      <p className="text-[11px] text-[#5f6b76]">Classic trends or AI-powered forecasting.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex rounded-md border border-[#e4e7eb] bg-[#f6f7f9] p-0.5 text-[10px] font-bold">
+                      <span className="rounded-md bg-white px-2 py-1 text-[#101820] shadow-sm">Classic</span>
+                      <span className="px-2 py-1 text-[#5f6b76]">AI forecasts</span>
+                    </div>
+                    <span className="flex items-center gap-1 rounded-md bg-[#2f5bea] px-2.5 py-1.5 text-[10px] font-bold text-white">
+                      <Sparkles className="h-3 w-3" />
+                      Try AI
+                    </span>
+                  </div>
+                </div>
+
+                {/* Revenue chart */}
+                <div className="rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-[#e4e7eb] pb-2">
+                    <p className="flex items-center gap-1.5 text-sm font-black text-[#101820]">
+                      <TrendingUp className="h-4 w-4 text-[#2f5bea]" />
+                      Revenue Chart
+                    </p>
+                    <div className="flex gap-1.5">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#2f5bea] text-white">
+                        <Share2 className="h-3 w-3" />
+                      </span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#15b87a] text-white">
+                        <Download className="h-3 w-3" />
+                      </span>
                     </div>
                   </div>
 
-                  <div className="grid gap-3">
+                  <div className="mt-2 grid grid-cols-4 gap-2">
                     {[
-                      ['AI next action', 'Restock 8 low-inventory products before the weekend.', '#2f5bea'],
-                      ['Market signal', 'Competitors moved prices on 8 tracked products.', '#7c9cff'],
-                      ['Margin watch', 'Two products are under your safe floor.', '#f9734d'],
-                    ].map(([label, text, color]) => (
-                      <div key={label} className="rounded-md border border-[#e4e7eb] bg-white p-3 shadow-sm">
-                        <div className="mb-2 h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                        <p className="text-xs font-black uppercase text-[#5f6b76]">{label}</p>
-                        <p className="mt-1 text-sm font-semibold leading-5 text-[#24312b]">{text}</p>
+                      ['Total Revenue', '$29,862.43'],
+                      ['Average Daily', '$995.41'],
+                      ['Peak Day', '$1,180.26'],
+                      ['Latest', '$1,153.81'],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-md border border-[#e4e7eb] bg-[#f6f7f9] p-1.5">
+                        <p className="text-[9px] font-bold uppercase text-[#5f6b76]">{label}</p>
+                        <p className="text-[11px] font-black text-[#101820]">{value}</p>
                       </div>
                     ))}
                   </div>
+
+                  <svg viewBox="0 0 300 90" className="mt-3 h-24 w-full" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#2f5bea" stopOpacity="0.32" />
+                        <stop offset="100%" stopColor="#2f5bea" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M0,60 L20,40 L40,52 L60,30 L80,58 L100,44 L120,20 L140,34 L160,54 L180,26 L200,46 L220,58 L240,24 L260,42 L280,16 L300,36 L300,90 L0,90 Z"
+                      fill="url(#revenueFill)"
+                    />
+                    <path
+                      d="M0,60 L20,40 L40,52 L60,30 L80,58 L100,44 L120,20 L140,34 L160,54 L180,26 L200,46 L220,58 L240,24 L260,42 L280,16 L300,36"
+                      fill="none"
+                      stroke="#2f5bea"
+                      strokeWidth="2"
+                    />
+                  </svg>
                 </div>
               </div>
             </div>

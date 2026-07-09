@@ -673,95 +673,44 @@ const BusinessIntelligencePage: React.FC = () => {
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'flex-start', md: 'flex-end' }, gap: 1, flexShrink: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Chip
-                label={isDemoMode ? 'Demo data' : 'Live data'}
-                size="small"
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0, flexWrap: 'wrap' }}>
+            <Chip
+              label={isDemoMode ? 'Demo data' : 'Live data'}
+              size="small"
+              sx={{
+                bgcolor: isDemoMode ? 'rgba(47, 91, 234, 0.22)' : 'rgba(21,184,122,0.18)',
+                color: isDemoMode ? '#b9c8ff' : '#7fe0b6',
+                fontWeight: 800,
+                border: '1px solid rgba(255,255,255,0.12)',
+              }}
+            />
+            {aggregatedData?.metadata?.timestamp && (
+              <Typography variant="caption" sx={{ color: '#8b96a2', whiteSpace: 'nowrap' }}>
+                Updated {relativeTime(aggregatedData.metadata.timestamp)}
+              </Typography>
+            )}
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel sx={{ color: '#aab5c0', '&.Mui-focused': { color: '#7c9cff' } }}>Timeframe</InputLabel>
+              <Select
+                value={selectedTimeframe}
+                label="Timeframe"
+                onChange={(e) => setSelectedTimeframe(e.target.value as Timeframe)}
                 sx={{
-                  bgcolor: isDemoMode ? 'rgba(47, 91, 234, 0.22)' : 'rgba(21,184,122,0.18)',
-                  color: isDemoMode ? '#b9c8ff' : '#7fe0b6',
-                  fontWeight: 800,
-                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.22)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
+                  '.MuiSvgIcon-root': { color: '#ffffff' },
                 }}
-              />
-              {aggregatedData?.metadata?.timestamp && (
-                <Typography variant="caption" sx={{ color: '#8b96a2', whiteSpace: 'nowrap' }}>
-                  Updated {relativeTime(aggregatedData.metadata.timestamp)}
-                </Typography>
-              )}
-            </Box>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                {SOURCE_META.map(({ key, label, icon: SourceIcon }) => {
-                  const active = availableSources.has(key);
-                  const count = key === 'competitors' && hasCompetitors ? ` · ${competitors.length}` : '';
-                  const syncState = sourceSyncState(key);
-                  const syncTone = SYNC_TONE[syncState];
-                  return (
-                    <Tooltip key={key} title={sourceSyncTooltip(key, label)}>
-                      <Chip
-                        data-testid={`source-chip-${key}`}
-                        data-sync-state={syncState}
-                        size="small"
-                        icon={<SourceIcon size={13} />}
-                        label={
-                          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
-                            {`${label}${count}`}
-                            <Box
-                              component="span"
-                              sx={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                flexShrink: 0,
-                                bgcolor: syncTone.color,
-                                ...(syncTone.pulse && {
-                                  animation: 'shopgptSyncPulse 1.4s ease-in-out infinite',
-                                  '@keyframes shopgptSyncPulse': { '50%': { opacity: 0.3 } },
-                                }),
-                              }}
-                            />
-                          </Box>
-                        }
-                        sx={{
-                          height: 24,
-                          fontWeight: 800,
-                          fontSize: 11,
-                          bgcolor: active ? 'rgba(21,184,122,0.14)' : 'rgba(255,255,255,0.06)',
-                          color: active ? '#7fe0b6' : '#6f7c88',
-                          border: `1px solid ${active ? 'rgba(21,184,122,0.35)' : 'rgba(255,255,255,0.10)'}`,
-                          '& .MuiChip-icon': { color: 'inherit' },
-                        }}
-                      />
-                    </Tooltip>
-                  );
-                })}
-              </Box>
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel sx={{ color: '#aab5c0', '&.Mui-focused': { color: '#7c9cff' } }}>Timeframe</InputLabel>
-                <Select
-                  value={selectedTimeframe}
-                  label="Timeframe"
-                  onChange={(e) => setSelectedTimeframe(e.target.value as Timeframe)}
-                  sx={{
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.22)' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#7c9cff' },
-                    '.MuiSvgIcon-root': { color: '#ffffff' },
-                  }}
-                >
-                  {timeframeOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
+              >
+                {timeframeOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </Box>
 

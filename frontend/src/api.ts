@@ -1224,31 +1224,31 @@ export const getStoreStats = async () => {
       const { DEMO_DATA_BUNDLE } = await import('./data/demoDataBundle');
       const data = DEMO_DATA_BUNDLE.analytics;
       
-      // Return demo store stats that match the expected format
+      // Return demo store stats that match the expected format (camelCase, matching the real backend response)
       const demoStats = {
-        total_orders: data.orders.total_orders,
-        total_revenue: data.revenue.total_revenue,
+        totalOrders: data.orders.total_orders,
+        totalRevenue: data.revenue.total_revenue,
         total_products: data.inventory.total_products,
         conversion_rate: data.orders.conversion_rate,
         average_order_value: data.revenue.total_revenue / data.orders.total_orders,
-        last_sync: new Date().toISOString(),
-        shop_domain: 'demo-shopgauge.myshopify.com',
+        shop: 'demo-shopgauge.myshopify.com',
+        timestamp: Date.now(),
         is_demo: true
       };
-      
+
       console.log('✅ API: Demo store stats loaded:', demoStats);
       return demoStats;
     } catch (error) {
       console.error('❌ API: Failed to load demo data bundle, using fallback:', error);
       // Fallback demo data
       return {
-        total_orders: 187,
-        total_revenue: 26900,
+        totalOrders: 187,
+        totalRevenue: 26900,
         total_products: 24,
         conversion_rate: 2.5,
         average_order_value: 143.85,
-        last_sync: new Date().toISOString(),
-        shop_domain: 'demo-shopgauge.myshopify.com',
+        shop: 'demo-shopgauge.myshopify.com',
+        timestamp: Date.now(),
         is_demo: true
       };
     }
@@ -1267,12 +1267,44 @@ export const forceDisconnectShop = async (shop: string) => {
   return handleResponse<any>(response);
 };
 
+const isDemoModeActive = () =>
+  localStorage.getItem('demo_mode_active') === 'true' ||
+  new URLSearchParams(window.location.search).get('demo') === 'true';
+
 export const exportData = async () => {
+  if (isDemoModeActive()) {
+    console.log('API: Using demo data for data export');
+    const demoExport = {
+      shop_domain: 'demo-shopgauge.myshopify.com',
+      exported_at: new Date().toISOString(),
+      is_demo: true,
+      note: 'This is a sample export generated for demo mode. No real store data is included.',
+      data: {
+        orders: 187,
+        revenue: 26900,
+        products: 24,
+      },
+    };
+    return new Response(JSON.stringify(demoExport, null, 2), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const response = await fetchWithAuth('/api/analytics/privacy/data-export');
   return response; // Return raw response for blob handling
 };
 
 export const deleteData = async (customerId: string) => {
+  if (isDemoModeActive()) {
+    console.log('API: Skipping data deletion in demo mode');
+    return {
+      status: 'success',
+      message: 'Demo mode does not store or delete real data.',
+      is_demo: true,
+    };
+  }
+
   const response = await fetchWithAuth('/api/analytics/privacy/data-deletion', {
     method: 'POST',
     body: JSON.stringify({ customer_id: customerId }),
@@ -1281,6 +1313,29 @@ export const deleteData = async (customerId: string) => {
 };
 
 export const getPrivacyReport = async () => {
+  if (isDemoModeActive()) {
+    console.log('API: Using demo data for privacy compliance report');
+    return {
+      compliance_status: 'COMPLIANT',
+      last_updated: new Date().toISOString(),
+      data_minimization: '✅ Only essential fields processed for analytics',
+      purpose_limitation: '✅ Processing limited to stated business purposes',
+      retention_policy: '✅ 60 days for order data',
+      encryption: '✅ Data encrypted at rest and in transit',
+      consent_tracking: '✅ Customer consent recorded and respected',
+      audit_logs_today: 12,
+      recent_audit_activity: 148,
+      total_weekly_access_events: 41,
+      weekly_action_breakdown: {
+        STORE_STATS_REQUEST: 14,
+        COMPLIANCE_REPORT_GENERATED: 3,
+        REVENUE_QUERY: 18,
+        ORDER_DATA_REQUEST: 6,
+      },
+      is_demo: true,
+    };
+  }
+
   const response = await fetchWithAuth('/api/analytics/privacy/compliance-report');
   return handleResponse<any>(response);
 };
