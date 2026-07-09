@@ -70,15 +70,14 @@ describe('BusinessIntelligencePage (ShopGPT)', () => {
     });
   });
 
-  it('shows source chips with competitors connected when competitor data exists', async () => {
+  it('shows the data status chip and freshness once store data loads', async () => {
     mockAggregateShopData.mockResolvedValue(buildData(2));
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByTestId('source-chip-competitors')).toHaveTextContent('Competitors · 2');
+      expect(screen.getByText('Live data')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('source-chip-revenue')).toBeInTheDocument();
-    expect(screen.getByTestId('source-chip-costs')).toBeInTheDocument();
+    expect(screen.getByText(/^Updated/)).toBeInTheDocument();
   });
 
   it('renders competitor-aware prompt cards when competitors exist', async () => {

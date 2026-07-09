@@ -266,13 +266,13 @@ describe('AdminSidebar Integration Tests', () => {
       const systemHealthSection = screen.getByRole('button', { name: /system health/i });
       
       // Should show collapse icon when expanded
-      expect(systemHealthSection.querySelector('[data-testid="ExpandLessIcon"]')).toBeInTheDocument();
+      expect(systemHealthSection.querySelector('svg.lucide-chevron-up')).toBeInTheDocument();
 
       // Collapse section
       await user.click(systemHealthSection);
 
       await waitFor(() => {
-        expect(systemHealthSection.querySelector('[data-testid="ExpandMoreIcon"]')).toBeInTheDocument();
+        expect(systemHealthSection.querySelector('svg.lucide-chevron-down')).toBeInTheDocument();
       });
     });
 
