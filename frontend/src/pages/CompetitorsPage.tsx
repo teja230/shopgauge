@@ -155,15 +155,15 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'discovery',
-    title: 'AI-Powered Discovery',
-    description: 'Automatically find new competitors using our AI-powered market research.',
+    title: 'Assisted Discovery',
+    description: 'Search public results for possible competitors, then review each match before tracking it.',
     target: '.discovery-button',
     position: 'bottom'
   },
   {
     id: 'suggestions',
     title: 'Competitor Suggestions',
-    description: 'Review AI-suggested competitors and add them to your monitoring list.',
+    description: 'Review discovered candidates and add confirmed matches to your monitoring list.',
     target: '.suggestions-button',
     position: 'bottom'
   },
@@ -3176,7 +3176,7 @@ export default function CompetitorsPage() {
                 }`}
                 title={discoveryStatus.isOnCooldown 
                   ? `Discovery available in ${discoveryStatus.hoursRemaining} hours. This helps us manage costs while finding the best competitors for you.`
-                  : 'Find new competitors automatically using AI-powered market research'
+                  : 'Search for competitor candidates to review before monitoring'
                 }
               >
                 {isDiscovering ? (

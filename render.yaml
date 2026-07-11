@@ -5,9 +5,7 @@ databases:
     user: storesight_user
     plan: free
     region: oregon
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
+    ipAllowList: []
     postgresMajorVersion: "16"
 
 services:
@@ -15,9 +13,7 @@ services:
     name: storesight-redis
     plan: free
     region: oregon
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
+    ipAllowList: []
 
   - type: web
     name: storesight-backend
@@ -68,7 +64,7 @@ services:
       - key: SHOPIFY_SCOPES
         value: "read_products,read_orders,read_customers,read_inventory"
       - key: SHOPIFY_API_VERSION
-        value: "2023-10"
+        value: "2026-07"
       
       # Security Configuration - Set these in Render Dashboard Environment Variables
       - key: JWT_SECRET

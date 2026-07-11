@@ -39,9 +39,6 @@ global.MutationObserver = vi.fn().mockImplementation(() => ({
 // Mock scrollIntoView
 Element.prototype.scrollIntoView = vi.fn();
 
-// Mock focus method
-HTMLElement.prototype.focus = vi.fn();
-
 // Mock getBoundingClientRect
 Element.prototype.getBoundingClientRect = vi.fn(() => ({
   bottom: 0,

@@ -1,6 +1,7 @@
 package com.storesight.backend;
 
 import com.storesight.backend.config.AdminAuthenticationFilter;
+import com.storesight.backend.config.CsrfCookieFilter;
 import com.storesight.backend.config.ShopifyAuthenticationFilter;
 import com.storesight.backend.service.DemoModeService;
 import com.storesight.backend.service.RedisSessionService;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -28,6 +30,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
@@ -239,7 +243,19 @@ public class WebSecurityConfig implements WebMvcConfigurer {
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    http.csrf(csrf -> csrf.disable())
+    CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+    csrfRepository.setCookiePath("/");
+    http.csrf(
+            csrf ->
+                csrf.csrfTokenRepository(csrfRepository)
+                    .ignoringRequestMatchers(
+                        "/api/auth/shopify/login",
+                        "/api/auth/shopify/install",
+                        "/api/auth/shopify/callback",
+                        "/api/webhooks/shopify/**",
+                        "/api/demo/**",
+                        "/api/admin/login",
+                        "/api/product-validation/interest"))
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .headers(
             headers ->
@@ -251,8 +267,8 @@ public class WebSecurityConfig implements WebMvcConfigurer {
                     .contentSecurityPolicy(
                         cspConfig ->
                             cspConfig.policyDirectives(
-                                "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com https://api.shopgaugeai.com; "
-                                    + "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com; "
+                                "default-src 'self' 'unsafe-inline' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com https://api.shopgaugeai.com; "
+                                    + "script-src 'self' 'unsafe-inline' https://cdn.shopify.com https://*.shopify.com https://shopgaugeai.com; "
                                     + "style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://*.shopify.com https://fonts.googleapis.com; "
                                     + "font-src 'self' https://fonts.gstatic.com https://cdn.shopify.com; "
                                     + "img-src 'self' data: https: blob:; "
@@ -265,14 +281,27 @@ public class WebSecurityConfig implements WebMvcConfigurer {
         .authorizeHttpRequests(
             auth -> {
               auth.requestMatchers(
-                      "/api/auth/shopify/**",
-                      "/actuator/**",
-                      "/health/**",
-                      "/api/health/**",
+                      "/api/auth/shopify/login",
+                      "/api/auth/shopify/install",
+                      "/api/auth/shopify/callback",
+                      "/api/webhooks/shopify/**",
+                      "/actuator/health",
+                      "/actuator/health/**",
+                      "/health",
+                      "/api/health/live",
+                      "/api/health/ready",
                       "/",
                       "/api/admin/login",
                       "/api/demo/**") // Allow demo endpoints
                   .permitAll();
+
+              auth.requestMatchers(HttpMethod.POST, "/api/product-validation/interest").permitAll();
+
+              auth.requestMatchers(
+                      "/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**")
+                  .hasRole("ADMIN");
+              auth.requestMatchers("/actuator/**").denyAll();
+              auth.requestMatchers("/api/sse/**").hasRole("ADMIN");
 
               auth.requestMatchers("/api/**")
                   .authenticated(); // Only API endpoints require authentication
@@ -288,6 +317,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
         .addFilterBefore(
             shopifyAuthenticationFilter(demoModeService),
             UsernamePasswordAuthenticationFilter.class)
+        .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
         // SessionErrorHandlingFilter is automatically registered by SessionConfig with @Order(1)
         .exceptionHandling(exceptions -> exceptions.accessDeniedHandler(accessDeniedHandler()));
 
@@ -414,16 +444,7 @@ public class WebSecurityConfig implements WebMvcConfigurer {
   // Helper methods
 
   private String getClientIpAddress(HttpServletRequest request) {
-    String xForwardedFor = request.getHeader("X-Forwarded-For");
-    if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-      return xForwardedFor.split(",")[0].trim();
-    }
-
-    String xRealIp = request.getHeader("X-Real-IP");
-    if (xRealIp != null && !xRealIp.isEmpty()) {
-      return xRealIp;
-    }
-
+    // Forwarding headers are caller controlled unless a trusted proxy has normalized them.
     return request.getRemoteAddr();
   }
 

@@ -26,6 +26,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -1628,7 +1630,8 @@ public class SessionManagementController {
    */
   @GetMapping("/events/{shopDomain}")
   public SseEmitter subscribeToSessionEvents(
-      @PathVariable String shopDomain, HttpServletRequest request) {
+      @PathVariable String shopDomain, HttpServletRequest request, Authentication authentication) {
+    requireAuthenticatedShop(shopDomain, authentication);
     logger.info("SSE connection request for shop: {}", shopDomain);
 
     // Check if SSE is enabled via feature flag
@@ -1749,7 +1752,8 @@ public class SessionManagementController {
 
   /** Production-ready SSE batching endpoint */
   @GetMapping("/events/batch/{shopDomain}")
-  public SseEmitter batchEvents(@PathVariable String shopDomain) {
+  public SseEmitter batchEvents(@PathVariable String shopDomain, Authentication authentication) {
+    requireAuthenticatedShop(shopDomain, authentication);
     SseEmitter emitter = new SseEmitter(10000L);
 
     // Create sample events for demonstration
@@ -1772,5 +1776,13 @@ public class SessionManagementController {
     emitter.complete();
 
     return emitter;
+  }
+
+  private void requireAuthenticatedShop(String shopDomain, Authentication authentication) {
+    if (authentication == null
+        || !authentication.isAuthenticated()
+        || !shopDomain.equalsIgnoreCase(authentication.getName())) {
+      throw new AccessDeniedException("SSE tenant does not match the authenticated shop");
+    }
   }
 }

@@ -1,9 +1,8 @@
 // ShopGauge Service Worker
 // Provides PWA functionality, caching strategies, and offline support
 
-const CACHE_NAME = 'shopgauge-v1';
-const STATIC_CACHE_NAME = 'shopgauge-static-v1';
-const DYNAMIC_CACHE_NAME = 'shopgauge-dynamic-v1';
+const STATIC_CACHE_NAME = 'shopgauge-static-v2';
+const DYNAMIC_CACHE_NAME = 'shopgauge-dynamic-v2';
 
 // Assets to cache immediately
 const STATIC_ASSETS = [
@@ -268,4 +267,4 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.openWindow(event.notification.data.url || '/')
   );
-}); 
+});

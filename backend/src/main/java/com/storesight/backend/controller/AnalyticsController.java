@@ -1,6 +1,5 @@
 package com.storesight.backend.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.config.BackendConfig;
 import com.storesight.backend.config.ShopifyConfig;
@@ -9,6 +8,7 @@ import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.DataPrivacyService;
 import com.storesight.backend.service.RequestThrottlingService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.ShopifyGraphqlClient;
 import jakarta.servlet.http.HttpSession;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,6 +44,7 @@ public class AnalyticsController {
   private final CacheManager cacheManager;
   private final ObjectMapper objectMapper;
   private final RequestThrottlingService requestThrottlingService;
+  private final ShopifyGraphqlClient shopifyGraphqlClient;
   private static final Logger logger = LoggerFactory.getLogger(AnalyticsController.class);
 
   @Autowired
@@ -57,7 +58,8 @@ public class AnalyticsController {
       BackendConfig backendConfig,
       CacheManager cacheManager,
       ObjectMapper objectMapper,
-      RequestThrottlingService requestThrottlingService) {
+      RequestThrottlingService requestThrottlingService,
+      ShopifyGraphqlClient shopifyGraphqlClient) {
     this.webClient = webClientBuilder.build();
     this.shopService = shopService;
     this.redisTemplate = redisTemplate;
@@ -68,6 +70,7 @@ public class AnalyticsController {
     this.cacheManager = cacheManager;
     this.objectMapper = objectMapper;
     this.requestThrottlingService = requestThrottlingService;
+    this.shopifyGraphqlClient = shopifyGraphqlClient;
   }
 
   private String getShopifyUrl(String shop, String endpoint) {
@@ -158,180 +161,80 @@ public class AnalyticsController {
             .minusDays(clampedDays)
             .format(java.time.format.DateTimeFormatter.ISO_DATE);
 
-    // Build URL with modern pagination approach
-    StringBuilder urlBuilder = new StringBuilder();
-    urlBuilder
-        .append(getShopifyUrl(shop, "orders.json"))
-        .append("?limit=")
-        .append(limit)
-        .append("&status=any&created_at_min=")
-        .append(since)
-        .append("T00:00:00Z");
-
-    // Use cursor-based pagination if page_info is provided, otherwise fall back to page-based
-    if (pageInfo != null && !pageInfo.trim().isEmpty()) {
-      urlBuilder.append("&page_info=").append(pageInfo);
-    } else if (page > 1) {
-      // For backwards compatibility, still support page parameter for first few pages
-      urlBuilder.append("&page=").append(page);
-    }
-
-    String url = urlBuilder.toString();
-
     logger.info(
-        "Fetching orders for the last {} days (page {}, limit {}) for shop {} - URL: {}",
+        "Fetching orders over GraphQL for the last {} days (page {}, limit {}) for shop {}",
         clampedDays,
         page,
         limit,
-        shop,
-        url.replaceAll("([?&])([^=]+=[^&]*)", "$1$2")); // Log URL without sensitive data
+        shop);
 
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .exchangeToMono(
-            response -> {
-              // Log response status for debugging
+    return shopifyGraphqlClient
+        .fetchOrders(shop, token, limit, pageInfo, "created_at:>=" + since)
+        .map(
+            data -> {
+              var orders = (List<Map<String, Object>>) data.get("orders");
               logger.info(
-                  "Shopify API response status: {} for shop {}", response.statusCode(), shop);
+                  "Fetched {} orders from Shopify for shop {} (days: {}, page: {})",
+                  orders != null ? orders.size() : 0,
+                  shop,
+                  clampedDays,
+                  page);
 
-              // Handle different response codes
-              if (response.statusCode().is4xxClientError()) {
-                logger.warn(
-                    "Shopify API client error: {} for shop {}", response.statusCode(), shop);
-
-                if (response.statusCode().value() == 403) {
-                  Map<String, Object> errorResponse = new HashMap<>();
-                  errorResponse.put("timeseries", java.util.List.of());
-                  errorResponse.put("page", page);
-                  errorResponse.put("limit", limit);
-                  errorResponse.put("has_more", false);
-                  errorResponse.put("total_orders", 0);
-                  errorResponse.put("error_code", "INSUFFICIENT_PERMISSIONS");
-                  errorResponse.put(
-                      "error",
-                      "Orders API access denied - please re-authenticate with updated permissions");
-                  return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
-                } else if (response.statusCode().value() == 429) {
-                  Map<String, Object> errorResponse = new HashMap<>();
-                  errorResponse.put("timeseries", java.util.List.of());
-                  errorResponse.put("page", page);
-                  errorResponse.put("limit", limit);
-                  errorResponse.put("has_more", false);
-                  errorResponse.put("rate_limited", true);
-                  errorResponse.put("note", "Data temporarily unavailable due to API rate limits");
-                  return Mono.just(ResponseEntity.ok().body(errorResponse));
-                }
+              if (orders == null) {
+                orders = new ArrayList<>();
               }
 
-              // Process successful response
-              return response
-                  .bodyToMono(Map.class)
-                  .map(
-                      data -> {
-                        var orders = (List<Map<String, Object>>) data.get("orders");
-                        logger.info(
-                            "Fetched {} orders from Shopify for shop {} (days: {}, page: {})",
-                            orders != null ? orders.size() : 0,
-                            shop,
-                            clampedDays,
-                            page);
+              List<Map<String, Object>> timeseries =
+                  orders.stream()
+                      .map(
+                          order -> {
+                            Map<String, Object> orderData = new HashMap<>();
+                            orderData.put("id", order.get("id"));
+                            orderData.put("name", order.get("name"));
+                            orderData.put("created_at", order.get("created_at"));
+                            orderData.put("total_price", order.get("total_price"));
+                            orderData.put("customer", order.get("customer"));
+                            orderData.put("financial_status", order.get("financial_status"));
+                            orderData.put("fulfillment_status", order.get("fulfillment_status"));
+                            orderData.put("order_status_url", order.get("order_status_url"));
 
-                        if (orders == null) {
-                          orders = new ArrayList<>();
-                        }
-
-                        List<Map<String, Object>> timeseries =
-                            orders.stream()
-                                .map(
-                                    order -> {
-                                      Map<String, Object> orderData = new HashMap<>();
-                                      orderData.put("id", order.get("id"));
-                                      orderData.put("name", order.get("name"));
-                                      orderData.put("created_at", order.get("created_at"));
-                                      orderData.put("total_price", order.get("total_price"));
-                                      orderData.put("customer", order.get("customer"));
-                                      orderData.put(
-                                          "financial_status", order.get("financial_status"));
-                                      orderData.put(
-                                          "fulfillment_status", order.get("fulfillment_status"));
-                                      orderData.put(
-                                          "order_status_url", order.get("order_status_url"));
-
-                                      Object orderId = order.get("id");
-                                      if (orderId != null) {
-                                        orderData.put(
-                                            "shopify_order_url",
-                                            getShopifyAdminUrl(
-                                                shop, "orders/" + orderId.toString()));
-                                      }
-
-                                      return orderData;
-                                    })
-                                .collect(Collectors.toList());
-
-                        logger.info(
-                            "Processed {} orders into timeseries for shop {}",
-                            timeseries.size(),
-                            shop);
-
-                        Map<String, Object> result = new HashMap<>();
-                        result.put("timeseries", timeseries);
-                        result.put("page", page);
-                        result.put("limit", limit);
-
-                        // Check for pagination link header (modern approach)
-                        String linkHeader =
-                            response.headers().header("Link").stream().findFirst().orElse(null);
-                        boolean hasMore = linkHeader != null && linkHeader.contains("rel=\"next\"");
-                        result.put("has_more", hasMore);
-
-                        // Extract next page info for cursor-based pagination
-                        if (hasMore && linkHeader != null) {
-                          try {
-                            // Parse Link header to extract page_info
-                            String[] links = linkHeader.split(",");
-                            for (String link : links) {
-                              if (link.contains("rel=\"next\"")) {
-                                // Extract page_info from the next link
-                                String nextUrl =
-                                    link.substring(link.indexOf('<') + 1, link.indexOf('>'));
-                                if (nextUrl.contains("page_info=")) {
-                                  String nextPageInfo =
-                                      nextUrl.substring(nextUrl.indexOf("page_info=") + 10);
-                                  if (nextPageInfo.contains("&")) {
-                                    nextPageInfo =
-                                        nextPageInfo.substring(0, nextPageInfo.indexOf("&"));
-                                  }
-                                  result.put("next_page_info", nextPageInfo);
-                                  logger.debug(
-                                      "Next page_info extracted: {} for shop {}",
-                                      nextPageInfo,
-                                      shop);
-                                }
-                                break;
-                              }
+                            Object orderId = order.get("id");
+                            if (orderId != null) {
+                              orderData.put(
+                                  "shopify_order_url",
+                                  getShopifyAdminUrl(shop, "orders/" + orderId.toString()));
                             }
-                          } catch (Exception e) {
-                            logger.warn(
-                                "Failed to parse Link header for pagination: {}", e.getMessage());
-                          }
-                        }
 
-                        // Add debug information
-                        result.put("api_version", "2023-10");
-                        result.put("pagination_method", pageInfo != null ? "cursor" : "page");
-                        result.put("days_requested", clampedDays);
+                            return orderData;
+                          })
+                      .collect(Collectors.toList());
 
-                        // Cache the result in Redis (only for first page)
-                        if (page == 1 && pageInfo == null) {
-                          dashboardCacheService.cacheOrdersData(shop, result);
-                          logger.info("Cached orders data for shop: {}", shop);
-                        }
+              logger.info(
+                  "Processed {} orders into timeseries for shop {}", timeseries.size(), shop);
 
-                        return ResponseEntity.ok(result);
-                      });
+              Map<String, Object> result = new HashMap<>();
+              result.put("timeseries", timeseries);
+              result.put("page", page);
+              result.put("limit", limit);
+
+              result.put("has_more", data.getOrDefault("has_more", false));
+              if (data.containsKey("next_page_info")) {
+                result.put("next_page_info", data.get("next_page_info"));
+              }
+
+              // Add debug information
+              result.put("api_version", shopifyConfig.getApiVersion());
+              result.put("api_transport", "graphql");
+              result.put("pagination_method", "cursor");
+              result.put("days_requested", clampedDays);
+
+              // Cache the result in Redis (only for first page)
+              if (page == 1 && pageInfo == null) {
+                dashboardCacheService.cacheOrdersData(shop, result);
+                logger.info("Cached orders data for shop: {}", shop);
+              }
+
+              return ResponseEntity.ok(result);
             })
         .onErrorResume(
             e -> {
@@ -378,7 +281,8 @@ public class AnalyticsController {
                         "days", clampedDays,
                         "page", page,
                         "limit", limit,
-                        "api_version", "2023-10"));
+                        "api_version", shopifyConfig.getApiVersion(),
+                        "api_transport", "graphql"));
                 return Mono.just(ResponseEntity.ok().body(errorResponse));
               }
             });
@@ -418,13 +322,8 @@ public class AnalyticsController {
       return Mono.just(ResponseEntity.ok((Map<String, Object>) cachedProducts.get()));
     }
 
-    String url = getShopifyUrl(shop, "products.json") + "?limit=50";
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
+    return shopifyGraphqlClient
+        .fetchProducts(shop, token, 50, null)
         .map(
             data -> {
               var products = (List<Map<String, Object>>) data.get("products");
@@ -567,13 +466,8 @@ public class AnalyticsController {
                 response.put("products", List.of());
                 return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
               }
-              String url = getShopifyUrl(shop, "products.json");
-              return webClient
-                  .get()
-                  .uri(url)
-                  .header("X-Shopify-Access-Token", reactiveToken)
-                  .retrieve()
-                  .bodyToMono(Map.class)
+              return shopifyGraphqlClient
+                  .fetchProducts(shop, reactiveToken, 250, null)
                   .map(
                       data -> {
                         var products = (List<Map<String, Object>>) data.get("products");
@@ -711,19 +605,8 @@ public class AnalyticsController {
               }
 
               String since = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_DATE);
-              // Use proper ISO 8601 format with Z for UTC timezone
-              String url =
-                  "https://"
-                      + shop
-                      + "/admin/api/2023-10/products.json?created_at_min="
-                      + since
-                      + "T00:00:00Z";
-              return webClient
-                  .get()
-                  .uri(url)
-                  .header("X-Shopify-Access-Token", token)
-                  .retrieve()
-                  .bodyToMono(Map.class)
+              return shopifyGraphqlClient
+                  .fetchProducts(shop, reactiveToken, 250, "created_at:>=" + since)
                   .map(
                       data -> {
                         var products = (List<Map<String, Object>>) data.get("products");
@@ -817,20 +700,8 @@ public class AnalyticsController {
     String since =
         java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
 
-    // Use proper ISO 8601 format with Z for UTC timezone
-    String url =
-        "https://"
-            + shop
-            + "/admin/api/2023-10/checkouts.json?created_at_min="
-            + since
-            + "T00:00:00Z&limit=50";
-
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
+    return shopifyGraphqlClient
+        .fetchAbandonedCheckouts(shop, token, 50, "created_at:>=" + since)
         .map(
             data -> {
               var checkouts = (List<Map<String, Object>>) data.get("checkouts");
@@ -1011,20 +882,8 @@ public class AnalyticsController {
               .minusDays(60)
               .format(java.time.format.DateTimeFormatter.ISO_DATE);
 
-      // Use proper ISO 8601 format with Z for UTC timezone
-      String url =
-          "https://"
-              + shop
-              + "/admin/api/2023-10/orders.json?created_at_min="
-              + since
-              + "T00:00:00Z&limit=250&status=any";
-
-      return webClient
-          .get()
-          .uri(url)
-          .header("X-Shopify-Access-Token", token)
-          .retrieve()
-          .bodyToMono(Map.class)
+      return shopifyGraphqlClient
+          .fetchOrders(shop, token, 250, null, "created_at:>=" + since)
           .map(
               data -> {
                 var orders = (List<Map<String, Object>>) data.get("orders");
@@ -1287,65 +1146,26 @@ public class AnalyticsController {
     permissions.put("authenticated", true);
     permissions.put("scopes_required", "read_products,read_orders,read_customers,read_inventory");
 
-    // Test products endpoint (basic permission)
-    String productsUrl = "https://" + shop + "/admin/api/2023-10/products.json?limit=1";
-    return webClient
-        .get()
-        .uri(productsUrl)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(String.class)
+    String since = LocalDate.now().minusDays(60).format(DateTimeFormatter.ISO_DATE);
+    return shopifyGraphqlClient
+        .fetchProducts(shop, token, 1, null)
+        .doOnNext(ignored -> permissions.put("products_access", true))
+        .then(shopifyGraphqlClient.fetchOrders(shop, token, 1, null, "created_at:>=" + since))
         .map(
-            response -> {
-              permissions.put("products_access", true);
-              return testOrdersAccess(shop, token, permissions);
+            ignored -> {
+              permissions.put("orders_access", true);
+              permissions.put("api_transport", "graphql");
+              permissions.put("api_version", shopifyConfig.getApiVersion());
+              return ResponseEntity.ok(permissions);
             })
         .onErrorResume(
             e -> {
-              permissions.put("products_access", false);
-              permissions.put("products_error", e.getMessage());
-              return Mono.just(testOrdersAccess(shop, token, permissions));
+              permissions.putIfAbsent("products_access", false);
+              permissions.put("orders_access", false);
+              permissions.put("error", e.getMessage());
+              permissions.put("reauth_required", true);
+              return Mono.just(ResponseEntity.ok(permissions));
             });
-  }
-
-  private ResponseEntity<Map<String, Object>> testOrdersAccess(
-      String shop, String token, Map<String, Object> permissions) {
-    // Limit permission check to last 60 days
-    String sincePerm =
-        java.time.LocalDate.now().minusDays(60).format(java.time.format.DateTimeFormatter.ISO_DATE);
-    // Use proper ISO 8601 format with Z for UTC timezone
-    String url =
-        "https://"
-            + shop
-            + "/admin/api/2023-10/orders.json?created_at_min="
-            + sincePerm
-            + "T00:00:00Z&limit=1";
-    try {
-      webClient
-          .get()
-          .uri(url)
-          .header("X-Shopify-Access-Token", token)
-          .retrieve()
-          .bodyToMono(String.class)
-          .subscribe(
-              response -> permissions.put("orders_access", true),
-              error -> {
-                permissions.put("orders_access", false);
-                permissions.put("orders_error", error.getMessage());
-                if (error.getMessage().contains("403")) {
-                  permissions.put("reauth_required", true);
-                  permissions.put("reauth_url", "/api/auth/shopify/reauth");
-                  permissions.put(
-                      "message",
-                      "Some endpoints require re-authentication with updated permissions");
-                }
-              });
-    } catch (Exception e) {
-      permissions.put("orders_access", false);
-      permissions.put("orders_error", e.getMessage());
-    }
-
-    return ResponseEntity.ok(permissions);
   }
 
   @GetMapping("/revenue/timeseries")
@@ -1369,19 +1189,8 @@ public class AnalyticsController {
     }
 
     String since = LocalDate.now().minusDays(60).format(DateTimeFormatter.ISO_DATE);
-    // Use proper ISO 8601 format with Z for UTC timezone
-    String url =
-        "https://"
-            + shop
-            + "/admin/api/2023-10/orders.json?created_at_min="
-            + since
-            + "T00:00:00Z&limit=250&status=any";
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
+    return shopifyGraphqlClient
+        .fetchOrders(shop, token, 250, null, "created_at:>=" + since)
         .map(
             data -> {
               var orders = (List<Map<String, Object>>) data.get("orders");
@@ -1493,32 +1302,15 @@ public class AnalyticsController {
     String since =
         java.time.LocalDate.now().minusDays(30).format(java.time.format.DateTimeFormatter.ISO_DATE);
 
-    String productsUrl = "https://" + shop + "/admin/api/2023-10/products.json?limit=50";
-    // Use proper ISO 8601 format with Z for UTC timezone
-    String ordersUrl =
-        "https://"
-            + shop
-            + "/admin/api/2023-10/orders.json?created_at_min="
-            + since
-            + "T00:00:00Z&limit=100";
-
-    return webClient
-        .get()
-        .uri(productsUrl)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
+    return shopifyGraphqlClient
+        .fetchProducts(shop, token, 50, null)
         .flatMap(
             productsData -> {
               var products = (List<Map<String, Object>>) productsData.get("products");
               int totalProducts = products != null ? products.size() : 0;
 
-              return webClient
-                  .get()
-                  .uri(ordersUrl)
-                  .header("X-Shopify-Access-Token", token)
-                  .retrieve()
-                  .bodyToMono(Map.class)
+              return shopifyGraphqlClient
+                  .fetchOrders(shop, token, 100, null, "created_at:>=" + since)
                   .map(
                       ordersData -> {
                         var orders = (List<Map<String, Object>>) ordersData.get("orders");
@@ -1620,26 +1412,16 @@ public class AnalyticsController {
     List<Mono<Map<String, Object>>> tests = new java.util.ArrayList<>();
 
     // Test 1: Products (should work)
-    String productsUrl = "https://" + shop + "/admin/api/2023-10/products.json?limit=1";
     tests.add(
-        webClient
-            .get()
-            .uri(productsUrl)
-            .header("X-Shopify-Access-Token", token)
-            .retrieve()
-            .bodyToMono(String.class)
+        shopifyGraphqlClient
+            .fetchProducts(shop, token, 1, null)
             .map(response -> Map.of("products_test", (Object) "SUCCESS"))
             .onErrorReturn(Map.of("products_test", "FAILED")));
 
     // Test 2: Orders (likely failing)
-    String ordersUrl = "https://" + shop + "/admin/api/2023-10/orders.json?limit=1";
     tests.add(
-        webClient
-            .get()
-            .uri(ordersUrl)
-            .header("X-Shopify-Access-Token", token)
-            .retrieve()
-            .bodyToMono(String.class)
+        shopifyGraphqlClient
+            .fetchOrders(shop, token, 1, null, null)
             .map(response -> Map.of("orders_test", (Object) "SUCCESS"))
             .onErrorReturn(Map.of("orders_test", "FAILED")));
 
@@ -1702,23 +1484,14 @@ public class AnalyticsController {
     }
 
     // Try to fetch orders with detailed error reporting
-    String ordersUrl = "https://" + shop + "/admin/api/2023-10/orders.json?limit=5&status=any";
-    logger.info("Debug: Attempting to fetch orders from: {}", ordersUrl);
-
-    return webClient
-        .get()
-        .uri(ordersUrl)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(String.class)
+    return shopifyGraphqlClient
+        .fetchOrders(shop, token, 5, null, null)
         .map(
             response -> {
               Map<String, Object> result = new HashMap<>();
               result.put("success", true);
-              result.put("orders_url", ordersUrl);
-              result.put(
-                  "response_preview", response.substring(0, Math.min(200, response.length())));
-              result.put("full_response_length", response.length());
+              result.put("api_transport", "graphql");
+              result.put("response_preview", response);
               return ResponseEntity.ok(result);
             })
         .onErrorResume(
@@ -1727,7 +1500,7 @@ public class AnalyticsController {
               Map<String, Object> errorResult = new HashMap<>();
               errorResult.put("success", false);
               errorResult.put("error", e.getMessage());
-              errorResult.put("orders_url", ordersUrl);
+              errorResult.put("api_transport", "graphql");
 
               if (e.getMessage().contains("403")) {
                 errorResult.put("error_type", "PERMISSION_DENIED");
@@ -1797,14 +1570,9 @@ public class AnalyticsController {
     List<Mono<Map<String, Object>>> tests = new java.util.ArrayList<>();
 
     // Test 1: Shop Info (Basic - should always work)
-    String shopUrl = "https://" + shop + "/admin/api/2023-10/shop.json";
     tests.add(
-        webClient
-            .get()
-            .uri(shopUrl)
-            .header("X-Shopify-Access-Token", token)
-            .retrieve()
-            .bodyToMono(String.class)
+        shopifyGraphqlClient
+            .fetchShop(shop, token)
             .map(
                 response ->
                     Map.of(
@@ -1818,14 +1586,9 @@ public class AnalyticsController {
                     "shop_api_details", "Basic API connection issue")));
 
     // Test 2: Products API (Should work)
-    String productsUrl = "https://" + shop + "/admin/api/2023-10/products.json?limit=1";
     tests.add(
-        webClient
-            .get()
-            .uri(productsUrl)
-            .header("X-Shopify-Access-Token", token)
-            .retrieve()
-            .bodyToMono(String.class)
+        shopifyGraphqlClient
+            .fetchProducts(shop, token, 1, null)
             .map(
                 response ->
                     Map.of(
@@ -1839,14 +1602,9 @@ public class AnalyticsController {
                     "products_api_details", "Products API access issue")));
 
     // Test 3: Orders API (Will fail if Protected Customer Data not approved)
-    String ordersUrl = "https://" + shop + "/admin/api/2023-10/orders.json?limit=1&status=any";
     tests.add(
-        webClient
-            .get()
-            .uri(ordersUrl)
-            .header("X-Shopify-Access-Token", token)
-            .retrieve()
-            .bodyToMono(String.class)
+        shopifyGraphqlClient
+            .fetchOrders(shop, token, 1, null, null)
             .map(
                 response ->
                     Map.of(
@@ -1860,21 +1618,15 @@ public class AnalyticsController {
                     "orders_api_details", "Protected Customer Data access REQUIRED")));
 
     // Test 4: Customers API (Protected Customer Data)
-    String customersUrl = "https://" + shop + "/admin/api/2023-10/customers.json?limit=1";
     tests.add(
-        webClient
-            .get()
-            .uri(customersUrl)
-            .header("X-Shopify-Access-Token", token)
-            .retrieve()
-            .bodyToMono(String.class)
-            .map(
-                response ->
-                    Map.of(
-                        "customers_api",
-                        (Object) "✅ SUCCESS",
-                        "customers_api_details",
-                        "Customer data access approved"))
+        shopifyGraphqlClient
+            .verifyCustomerAccess(shop, token)
+            .thenReturn(
+                Map.of(
+                    "customers_api",
+                    (Object) "✅ SUCCESS",
+                    "customers_api_details",
+                    "Customer data access approved"))
             .onErrorReturn(
                 Map.of(
                     "customers_api", "❌ BLOCKED - 403 FORBIDDEN",
@@ -1982,38 +1734,18 @@ public class AnalyticsController {
           java.time.LocalDate.now()
               .minusDays(60)
               .format(java.time.format.DateTimeFormatter.ISO_DATE);
-      // Use proper ISO 8601 format with Z for UTC timezone and higher limit like other endpoints
-      String url =
-          "https://"
-              + shop
-              + "/admin/api/2023-10/orders.json?created_at_min="
-              + since
-              + "T00:00:00Z&limit=250&status=any";
+      Map<String, Object> response =
+          shopifyGraphqlClient.fetchOrders(shop, token, 250, null, "created_at:>=" + since).block();
+      List<Map<String, Object>> orders =
+          response == null ? List.of() : (List<Map<String, Object>>) response.get("orders");
 
-      String response =
-          webClient
-              .get()
-              .uri(url)
-              .header("X-Shopify-Access-Token", token)
-              .retrieve()
-              .bodyToMono(String.class)
-              .block(); // Synchronous call to avoid generics issues
-
-      ObjectMapper mapper = new ObjectMapper();
-      JsonNode jsonResponse = mapper.readTree(response);
-      JsonNode orders = jsonResponse.get("orders");
-
-      if (orders == null || !orders.isArray()) {
+      if (orders == null) {
         return ResponseEntity.ok(Map.of("error", "UNEXPECTED_RESPONSE", "orders", List.of()));
       }
 
       List<Map<String, Object>> orderList = new ArrayList<>();
-      for (JsonNode order : orders) {
-        if (order.get("total_price") == null) continue;
-
-        // Convert JsonNode to Map for processing
-        Map<String, Object> orderMap = mapper.convertValue(order, Map.class);
-
+      for (Map<String, Object> orderMap : orders) {
+        if (orderMap.get("total_price") == null) continue;
         // Apply data minimization - only process essential fields
         Map<String, Object> minimizedOrder = dataPrivacyService.minimizeOrderData(orderMap);
         orderList.add(minimizedOrder);
@@ -2348,12 +2080,8 @@ public class AnalyticsController {
 
     dataPrivacyService.logDataAccess("STORE_STATS_REQUEST", "Store statistics accessed", shop);
 
-    return webClient
-        .get()
-        .uri("https://{shop}/admin/api/2023-10/orders.json?status=any&limit=10", shop)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(Map.class)
+    return shopifyGraphqlClient
+        .fetchOrders(shop, token, 10, null, null)
         .map(
             response -> {
               try {

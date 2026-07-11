@@ -25,10 +25,9 @@ RUN ./gradlew dependencies --no-daemon --refresh-dependencies
 # Copy source code (this layer changes more frequently)
 COPY backend/src ./src
 
-# Build the application with aggressive optimizations
-# Use parallel builds, skip tests, and enable all caching options
+# Build and verify the exact application artifact shipped in the image.
 ENV GRADLE_OPTS="-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true"
-RUN ./gradlew clean build -x test -x spotlessCheck -x spotlessApply --no-daemon --build-cache --parallel --max-workers=4
+RUN ./gradlew clean build spotlessCheck --no-daemon --build-cache --parallel --max-workers=4
 
 # Final stage
 FROM eclipse-temurin:17-jre-alpine
@@ -42,4 +41,4 @@ COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
 EXPOSE 8080
 
 # Run the application
-CMD ["java", "-jar", "app.jar"] 
+CMD ["java", "-jar", "app.jar"]

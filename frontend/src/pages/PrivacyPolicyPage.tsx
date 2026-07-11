@@ -7,10 +7,10 @@ export default function PrivacyPolicyPage() {
       <div className="bg-white shadow-lg rounded-lg p-8">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">ShopGauge Privacy Policy</h1>
-          <p className="text-lg text-gray-600">Data Protection & Privacy Compliance</p>
+          <p className="text-lg text-gray-600">Data Protection & Privacy Practices</p>
           <div className="mt-4 text-sm text-gray-500">
             <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
-              ✅ GDPR & CCPA Compliant
+              Privacy controls documented
             </span>
           </div>
         </div>
@@ -23,7 +23,7 @@ export default function PrivacyPolicyPage() {
             </h2>
             <p className="text-gray-700 leading-relaxed">
               ShopGauge is committed to protecting merchant and customer privacy while providing valuable business analytics. 
-              This document outlines our data handling practices in compliance with Shopify's Protected Customer Data requirements.
+              This document outlines our data handling practices and the controls intended to support Shopify's Protected Customer Data requirements.
             </p>
           </section>
 
@@ -160,9 +160,9 @@ export default function PrivacyPolicyPage() {
               <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
                 <h3 className="text-lg font-semibold text-purple-800 mb-3">🔒 Encryption</h3>
                 <ul className="space-y-2 text-purple-700">
-                  <li><strong>In Transit:</strong> TLS 1.3 encryption for all API communications</li>
-                  <li><strong>At Rest:</strong> AES-256 encryption for stored data</li>
-                  <li><strong>Key Management:</strong> Secure key rotation every 90 days</li>
+                  <li><strong>In Transit:</strong> Production endpoints are configured for HTTPS</li>
+                  <li><strong>At Rest:</strong> Application secrets use encrypted storage where configured</li>
+                  <li><strong>Key Management:</strong> Deployment secrets are supplied outside source control</li>
                 </ul>
               </div>
 
@@ -171,7 +171,7 @@ export default function PrivacyPolicyPage() {
                 <ul className="space-y-2 text-indigo-700">
                   <li><strong>Least Privilege:</strong> Staff access limited to essential functions only</li>
                   <li><strong>Audit Logging:</strong> All data access logged and monitored</li>
-                  <li><strong>Secure Infrastructure:</strong> Data stored in SOC 2 compliant facilities</li>
+                  <li><strong>Infrastructure Controls:</strong> Access restrictions, audit logging, and encrypted transport are configured by the application and hosting providers</li>
                 </ul>
               </div>
             </div>
@@ -338,4 +338,4 @@ export default function PrivacyPolicyPage() {
       </div>
     </div>
   );
-} 
+}

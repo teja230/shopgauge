@@ -814,7 +814,7 @@ const DASHBOARD_TUTORIAL_STEPS: Step[] = [
   {
     target: '.dashboard-chart-toggle',
     title: 'Advanced Analytics',
-    content: 'Switch between Classic View and Advanced Analytics to access AI-powered revenue forecasting with 7-60 day predictions.',
+    content: 'Switch between Classic View and experimental projections. Treat projected values as planning aids, not guaranteed forecasts.',
     placement: 'top',
     disableBeacon: true,
   },
@@ -3780,8 +3780,8 @@ const DashboardPage = () => {
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#5f6b76', fontWeight: 700 }}>
                   {chartMode === 'unified'
-                    ? 'AI forecasts, confidence intervals, and export-ready analysis are active.'
-                    : 'Review classic revenue trends or switch into AI-powered forecasting.'}
+                    ? 'Experimental projections, ranges, and export-ready analysis are active.'
+                    : 'Review historical revenue trends or switch into experimental projections.'}
                 </Typography>
               </Box>
             </Box>

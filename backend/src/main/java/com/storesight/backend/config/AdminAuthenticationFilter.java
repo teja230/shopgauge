@@ -52,8 +52,14 @@ public class AdminAuthenticationFilter extends OncePerRequestFilter {
     String clientIp = getClientIpAddress(request);
     String method = request.getMethod();
 
-    // Only apply admin auth to admin endpoints
-    if (!path.startsWith("/api/admin/") && !path.startsWith("/api/sessions/admin/")) {
+    // Admin metrics are protected by the same JWT as the administrative API.
+    boolean actuatorMetrics =
+        path.equals("/actuator/prometheus") || path.startsWith("/actuator/metrics");
+    boolean adminSseTools = path.startsWith("/api/sse/");
+    if (!path.startsWith("/api/admin/")
+        && !path.startsWith("/api/sessions/admin/")
+        && !actuatorMetrics
+        && !adminSseTools) {
       filterChain.doFilter(request, response);
       return;
     }
@@ -238,16 +244,6 @@ public class AdminAuthenticationFilter extends OncePerRequestFilter {
   }
 
   private String getClientIpAddress(HttpServletRequest request) {
-    String xForwardedFor = request.getHeader("X-Forwarded-For");
-    if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-      return xForwardedFor.split(",")[0].trim();
-    }
-
-    String xRealIp = request.getHeader("X-Real-IP");
-    if (xRealIp != null && !xRealIp.isEmpty()) {
-      return xRealIp;
-    }
-
     return request.getRemoteAddr();
   }
 

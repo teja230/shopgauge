@@ -17,191 +17,16 @@ import {
   Play,
   RefreshCw,
   Share2,
-  ShieldCheck,
   ShoppingCart,
   Sparkles,
   Store,
-  Target,
   TrendingUp,
-  Users,
   X,
 } from 'lucide-react';
 import { normalizeShopDomain } from '../utils/normalizeShopDomain';
 import IntelligentLoadingScreen from '../components/ui/IntelligentLoadingScreen';
-
-const features = [
-  'AI-Powered Revenue Forecasting with 7-60 day predictions and confidence intervals',
-  'Professional Export Options: PNG (3 quality levels), PDF (templates), Excel (full data series)',
-  '7 Advanced Chart Types including Area, Line, Bar, Candlestick, Waterfall, Stacked, and Composed views with predictive analytics',
-  'Intelligent Color Separation for Historical vs Forecast data visualization',
-  'Track up to 10 competitors with intelligent monitoring and price alerts',
-  'Real-time price monitoring with automated competitor discovery',
-  'Multi-session concurrent access from up to 5 devices with team collaboration',
-  'Session-based notification system with granular privacy controls',
-  'Social Media Integration: LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging',
-  'Enhanced Mobile Experience with optimized chart loading and responsive design',
-  'Advanced analytics dashboard with intelligent caching and 120-minute retention',
-  'AI-powered market intelligence with automated competitor suggestions',
-  'Comprehensive admin dashboard with audit logging and compliance monitoring',
-  'Enhanced security with session isolation and enterprise-grade data protection',
-  'Full Shopify integration with real-time sync and OAuth 2.0 authentication',
-  'GDPR/CCPA compliance with automated data export and privacy reporting',
-  'Instant file downloads with professional templates and auto-generated messaging',
-  'Enterprise-grade session management with automatic cleanup and optimization'
-];
-
-const featureCategories = [
-  {
-    icon: LayoutDashboard,
-    title: 'Dashboard Experience',
-    accent: '#2f5bea',
-    tint: '#e7ecff',
-    items: [
-      'Beautiful, intuitive dashboard with instant insights',
-      'Real-time revenue, orders, and conversion tracking',
-      'One-click chart switching between 7 visualization types',
-      'Mobile-optimized interface for on-the-go monitoring',
-      'Smart notifications for important business milestones',
-    ],
-  },
-  {
-    icon: TrendingUp,
-    title: 'AI-Powered Forecasting',
-    accent: '#15b87a',
-    tint: '#dff8ea',
-    items: [
-      '7 advanced chart types with predictive analytics',
-      '7-60 day revenue forecasting with confidence intervals',
-      'Intelligent color separation for historical vs forecast data',
-      'Professional shareable charts with PNG/PDF export',
-      'Enhanced mobile experience with optimized loading',
-    ],
-  },
-  {
-    icon: Share2,
-    title: 'Professional Sharing & Export',
-    accent: '#f59e0b',
-    tint: '#fff1cf',
-    items: [
-      'Export in PNG (Standard/High/Ultra quality), PDF (professional templates), Excel (full data series)',
-      'Share on LinkedIn, Twitter, Email, Slack, Teams with chart-relevant messaging',
-      'Professional Templates: Executive, Investor, Marketing PDF formats with metadata',
-      'Chart-Relevant Messaging: Auto-generated professional content for social sharing',
-    ],
-  },
-  {
-    icon: Target,
-    title: 'Market Intelligence',
-    accent: '#f9734d',
-    tint: '#ffe4d8',
-    items: [
-      'AI-powered competitor discovery and analysis',
-      'Real-time price monitoring with automated alerts',
-      'Strategic positioning insights and recommendations',
-      'Track up to 10 competitors with intelligent monitoring',
-    ],
-    note: 'Unlimited competitor tracking coming soon!',
-  },
-  {
-    icon: Users,
-    title: 'Multi-Session Support',
-    accent: '#2f5bea',
-    tint: '#e7ecff',
-    items: [
-      'Concurrent access from up to 5 devices',
-      'Session-based notification privacy',
-      'Team collaboration without conflicts',
-      'Secure session isolation & management',
-    ],
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Enterprise Security',
-    accent: '#101820',
-    tint: '#eef1f4',
-    items: [
-      'Comprehensive audit logging',
-      'GDPR/CCPA compliance built-in',
-      'Admin dashboard with full control',
-      'Advanced debugging & monitoring',
-    ],
-  },
-];
-
-const testimonials = [
-  {
-    quote:
-      'The AI-powered forecasting with confidence intervals helps us plan inventory perfectly. The professional chart exports made our board presentation look incredible!',
-    name: 'Alex, DTC Brand Owner',
-    stat: 'Revenue forecasting accuracy: 94%',
-  },
-  {
-    quote:
-      'Love the color separation between historical and forecast data! The LinkedIn integration lets me share our growth milestones effortlessly with professional templates.',
-    name: 'Priya, Shopify Merchant',
-    stat: 'Social engagement increased 60%',
-  },
-  {
-    quote:
-      'The 7 chart types with predictive analytics give us insights we never had. The Executive template PDFs are perfect for investor updates!',
-    name: 'Marcus, E-commerce Director',
-    stat: 'Investment confidence improved dramatically',
-  },
-];
-
-const socialProofStats = [
-  {
-    value: '10',
-    label: 'competitors tracked',
-    description: 'per store with intelligent monitoring',
-    icon: Store,
-  },
-  {
-    value: '7-60',
-    label: 'day forecasts',
-    description: 'revenue, order, and conversion outlooks',
-    icon: TrendingUp,
-  },
-  {
-    value: '85-95%',
-    label: 'planning accuracy',
-    description: 'typical range with clean historical data',
-    icon: CheckCircle2,
-  },
-];
-
-const faqs = [
-  {
-    question: 'How accurate is the AI forecasting?',
-    answer:
-      'Our AI-powered forecasting uses advanced algorithms with confidence intervals to predict revenue, orders, and conversion rates 7-60 days ahead. Historical accuracy averages 85-95% depending on data quality and market conditions.',
-  },
-  {
-    question: 'What export and sharing options are available?',
-    answer:
-      'Export charts as PNG (3 quality levels), PDF (professional templates with metadata), and Excel (full data series). Share directly on LinkedIn, Twitter, Email, Slack, and Teams with auto-generated professional messaging. All files download instantly with no waiting time.',
-  },
-  {
-    question: 'How do the 7 chart types work?',
-    answer:
-      'Choose from Line, Area, Bar, Candlestick, Waterfall, Stacked, and Composed charts. Each chart type offers unique insights with intelligent color separation between historical (blue/green/amber) and forecast (lighter/dashed) data.',
-  },
-  {
-    question: 'Is my data secure and compliant?',
-    answer:
-      'Yes! We provide enterprise-grade security with audit logging, GDPR/CCPA compliance, session isolation, and comprehensive admin controls for complete data protection.',
-  },
-  {
-    question: 'What happens after my free trial?',
-    answer:
-      "After your 3-day free trial, you'll be automatically enrolled in our Pro plan at $19.99/month. You can cancel anytime with no commitment. All your data, sessions, and configurations are preserved.",
-  },
-  {
-    question: 'What payment methods do you accept?',
-    answer:
-      'We accept all major credit cards, PayPal, and enterprise billing options. All transactions are processed securely with industry-standard encryption and audit trails.',
-  },
-];
+import PricingValidationCard from '../components/PricingValidationCard';
+import { faqs, featureCategories, features, productPrinciples, productStats } from '../content/marketingContent';
 
 const heroPrimaryButton =
   'inline-flex min-h-11 items-center justify-center rounded-md bg-[#2f5bea] px-5 py-3 text-sm font-bold text-white shadow-[0_18px_34px_-24px_rgba(47,91,234,0.9)] transition-colors duration-200 hover:bg-[#244bd4] disabled:cursor-not-allowed disabled:opacity-50';
@@ -287,7 +112,7 @@ const HomePage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCode, setErrorCode] = useState('');
   const [showConnectForm, setShowConnectForm] = useState(false);
-  const { isAuthenticated, shop, authLoading, logout, setShop, hasInitiallyLoaded } = useAuth();
+  const { isAuthenticated, shop, authLoading, hasInitiallyLoaded } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notifications = useNotifications();
@@ -480,21 +305,21 @@ const HomePage = () => {
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:min-h-[calc(100vh-152px)] lg:grid-cols-[0.82fr_1.18fr] lg:px-8 lg:py-12">
           <div>
             <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold text-[#b9c8ff]">
-              Commerce command center · 3-day trial
+              Competitor pricing workspace · early access
             </span>
             <h1 className="mt-6 text-5xl font-black leading-none text-white sm:text-6xl lg:text-7xl">
               ShopGauge
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-[#c3ccd5]">
-              A focused operating room for Shopify merchants: forecast revenue, watch competitors,
-              spot inventory risk, and ask AI what to do next.
+              Connect Shopify product context with competitor prices, stock changes, and price history
+              so merchandising teams can decide what to review next.
             </p>
 
             <div className="mt-7 grid max-w-xl grid-cols-3 gap-3 text-sm">
               {[
                 ['Forecast', '7-60 day outlook'],
                 ['Monitor', 'Price movement'],
-                ['Act', 'AI next steps'],
+                ['Act', 'Review pricing signals'],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-md border border-white/10 bg-white/[0.06] p-3">
                   <p className="font-bold text-white">{label}</p>
@@ -561,7 +386,7 @@ const HomePage = () => {
             </div>
 
             <p className="mt-5 text-sm text-[#8b96a2]">
-              No credit card required for trial. Explore instantly with sample data.
+              No billing is active. Explore instantly with sample data or connect a development store.
             </p>
           </div>
 
@@ -588,7 +413,7 @@ const HomePage = () => {
                     <p className="text-[11px] font-black uppercase text-[#9db4ff]">Operating overview</p>
                     <p className="mt-1 text-lg font-black text-white">Dashboard</p>
                     <p className="mt-1 text-xs text-[#c3ccd5]">
-                      Revenue, orders, inventory risk, and forecast signals for demo-shopgauge.myshopify.com.
+                      Store context, competitor signals, and inventory risk for demo-shopgauge.myshopify.com.
                     </p>
                   </div>
                   <span className="flex items-center gap-1.5 self-start rounded-md border border-white/25 px-3 py-1.5 text-xs font-bold text-white">
@@ -665,18 +490,18 @@ const HomePage = () => {
                       <LineChart className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="text-[11px] font-black uppercase text-[#2f5bea]">Forecasting workspace</p>
-                      <p className="text-[11px] text-[#5f6b76]">Classic trends or AI-powered forecasting.</p>
+                      <p className="text-[11px] font-black uppercase text-[#2f5bea]">Trend workspace</p>
+                      <p className="text-[11px] text-[#5f6b76]">Descriptive history and experimental planning ranges.</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex rounded-md border border-[#e4e7eb] bg-[#f6f7f9] p-0.5 text-[10px] font-bold">
                       <span className="rounded-md bg-white px-2 py-1 text-[#101820] shadow-sm">Classic</span>
-                      <span className="px-2 py-1 text-[#5f6b76]">AI forecasts</span>
+                      <span className="px-2 py-1 text-[#5f6b76]">Planning range</span>
                     </div>
                     <span className="flex items-center gap-1 rounded-md bg-[#2f5bea] px-2.5 py-1.5 text-[10px] font-bold text-white">
                       <Sparkles className="h-3 w-3" />
-                      Try AI
+                      Review trend
                     </span>
                   </div>
                 </div>
@@ -768,7 +593,7 @@ const HomePage = () => {
       {/* Social Proof */}
       <section className="border-b border-[#e4e7eb] bg-white">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 sm:px-6 md:grid-cols-3 lg:px-8">
-          {socialProofStats.map(({ value, label, description, icon: Icon }) => (
+          {productStats.map(({ value, label, description, icon: Icon }) => (
             <div
               key={label}
               className="flex items-center gap-4 rounded-lg border border-[#e4e7eb] bg-[#fbfcfd] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.72)]"
@@ -793,11 +618,11 @@ const HomePage = () => {
           <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant workflows</p>
           <h2 className="mt-2 text-3xl font-black text-[#101820]">Built for daily merchant decisions</h2>
           <p className="mt-3 text-[#5f6b76]">
-            The product experience should put revenue, inventory, competition, and AI guidance within one scan.
+            The product experience puts monitored price, stock, freshness, and Shopify product context within one scan.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {featureCategories.map(({ icon: Icon, title, items, note, accent, tint }) => (
+          {featureCategories.map(({ icon: Icon, title, items, accent, tint }) => (
             <div
               key={title}
               className="group rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#2f5bea]/35 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
@@ -816,12 +641,6 @@ const HomePage = () => {
                     {item}
                   </li>
                 ))}
-                {note && (
-                  <li className="flex items-start font-bold text-[#2f5bea]">
-                    <span className="mr-2 mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#2f5bea]" />
-                    {note}
-                  </li>
-                )}
               </ul>
             </div>
           ))}
@@ -843,15 +662,15 @@ const HomePage = () => {
       </section>
       </Reveal>
 
-      {/* Testimonials */}
+      {/* Product principles */}
       <Reveal>
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Merchant proof</p>
-          <h2 className="mt-2 text-2xl font-black text-[#101820]">What merchants say</h2>
+          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#2f5bea]">Product standard</p>
+          <h2 className="mt-2 text-2xl font-black text-[#101820]">How monitoring should earn trust</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((t) => (
+          {productPrinciples.map((t) => (
             <figure
               key={t.name}
               className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-6 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 hover:-translate-y-px hover:border-[#2f5bea]/35 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
@@ -876,6 +695,8 @@ const HomePage = () => {
         </div>
       </section>
       </Reveal>
+
+      <PricingValidationCard />
 
       {/* FAQ */}
       <Reveal>

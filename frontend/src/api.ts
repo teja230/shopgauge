@@ -77,6 +77,9 @@ const defaultOptions: RequestInit = {
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  withXSRFToken: true,
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'
@@ -139,6 +142,13 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     // Don't throw immediately, let the server respond with 401 if needed
   }
   
+  const csrfToken = document.cookie
+    .split('; ')
+    .find(cookie => cookie.startsWith('XSRF-TOKEN='))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+
   try {
   const response = await fetch(fullUrl, {
     ...options,
@@ -147,6 +157,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'X-Correlation-ID': correlationId,
+      ...(csrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(csrfToken) } : {}),
       ...options.headers,
     },
   });

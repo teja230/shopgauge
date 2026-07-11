@@ -1,11 +1,13 @@
 package com.storesight.backend.controller;
 
-import com.storesight.backend.config.ShopifyConfig;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.repository.ShopRepository;
 import com.storesight.backend.service.NotificationService;
 import com.storesight.backend.service.OAuthRecoveryService;
 import com.storesight.backend.service.SecretService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.ShopifyGraphqlClient;
+import com.storesight.backend.service.ShopifyOAuthSecurityService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.Cookie;
@@ -23,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -39,7 +42,9 @@ public class ShopifyAuthController {
   private final ShopRepository shopRepository;
   private final SecretService secretService;
   private final OAuthRecoveryService oAuthRecoveryService;
-  private final ShopifyConfig shopifyConfig;
+  private final ShopifyGraphqlClient shopifyGraphqlClient;
+  private final ObjectMapper objectMapper;
+  private final ShopifyOAuthSecurityService oauthSecurityService;
 
   // Redis key prefix for tracking used authorization codes
   private static final String USED_CODE_PREFIX = "oauth:used_code:";
@@ -70,7 +75,9 @@ public class ShopifyAuthController {
       ShopRepository shopRepository,
       SecretService secretService,
       OAuthRecoveryService oAuthRecoveryService,
-      ShopifyConfig shopifyConfig) {
+      ShopifyOAuthSecurityService oauthSecurityService,
+      ShopifyGraphqlClient shopifyGraphqlClient,
+      ObjectMapper objectMapper) {
 
     // Use the globally configured WebClient.Builder
     this.webClient = webClientBuilder.build();
@@ -81,7 +88,9 @@ public class ShopifyAuthController {
     this.shopRepository = shopRepository;
     this.secretService = secretService;
     this.oAuthRecoveryService = oAuthRecoveryService;
-    this.shopifyConfig = shopifyConfig;
+    this.oauthSecurityService = oauthSecurityService;
+    this.shopifyGraphqlClient = shopifyGraphqlClient;
+    this.objectMapper = objectMapper;
   }
 
   @PostConstruct
@@ -211,7 +220,9 @@ public class ShopifyAuthController {
       String redirectUrl =
           "/api/auth/shopify/install?shop=" + URLEncoder.encode(shop, StandardCharsets.UTF_8);
       if (return_url != null && !return_url.isBlank()) {
-        redirectUrl += "&return_url=" + URLEncoder.encode(return_url, StandardCharsets.UTF_8);
+        String normalizedReturnUrl = oauthSecurityService.normalizeReturnUrl(return_url);
+        redirectUrl +=
+            "&return_url=" + URLEncoder.encode(normalizedReturnUrl, StandardCharsets.UTF_8);
       }
       logger.info("Redirecting to: {}", redirectUrl);
       response.sendRedirect(redirectUrl);
@@ -239,23 +250,7 @@ public class ShopifyAuthController {
         return ResponseEntity.badRequest().body(Map.of("error", "Invalid shop domain format"));
       }
 
-      String state = generateState();
-
-      // Store return_url in Redis with state as key for later retrieval
-      if (return_url != null && !return_url.isBlank()) {
-        try {
-          redisTemplate
-              .opsForValue()
-              .set(
-                  "oauth:return_url:" + state,
-                  return_url,
-                  java.time.Duration.ofMinutes(10) // 10 minute TTL
-                  );
-          logger.info("Stored return_url in Redis with state: {}", state);
-        } catch (Exception e) {
-          logger.warn("Failed to store return_url in Redis: {}", e.getMessage());
-        }
-      }
+      String state = oauthSecurityService.createState(shop, return_url);
 
       String url =
           String.format(
@@ -291,19 +286,32 @@ public class ShopifyAuthController {
       String timestamp = params.get("timestamp");
 
       logger.info(
-          "Callback received - shop: {}, code: {}, error: {}, error_description: {}, hmac: {}, state: {}, timestamp: {}",
+          "Shopify callback received - shop: {}, error: {}, signed: {}, state_present: {}, timestamp: {}",
           shop,
-          code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null",
           error,
-          errorDescription,
-          hmac != null ? hmac.substring(0, Math.min(8, hmac.length())) + "..." : "null",
-          state != null ? state.substring(0, Math.min(8, state.length())) + "..." : "null",
+          hmac != null,
+          state != null,
           timestamp);
-      logger.info(
-          "Callback - Request headers: {}",
-          Collections.list(request.getHeaderNames()).stream()
-              .collect(Collectors.toMap(name -> name, request::getHeader)));
-      logger.info("Callback - Request cookies: {}", Arrays.toString(request.getCookies()));
+      logger.debug("OAuth callback received with expected Shopify parameters");
+
+      if (shop == null || hmac == null || state == null) {
+        logger.error("OAuth callback is missing required signed parameters");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid OAuth callback");
+        return;
+      }
+      if (!oauthSecurityService.verifyHmac(params, apiSecret)) {
+        logger.error("Shopify OAuth callback HMAC validation failed for shop: {}", shop);
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid Shopify signature");
+        return;
+      }
+      ShopifyOAuthSecurityService.OAuthState oauthState;
+      try {
+        oauthState = oauthSecurityService.consumeState(state, shop);
+      } catch (SecurityException invalidState) {
+        logger.error("Shopify OAuth state validation failed for shop: {}", shop);
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid OAuth state");
+        return;
+      }
 
       // Check for Shopify error response
       if (error != null) {
@@ -322,16 +330,9 @@ public class ShopifyAuthController {
         return;
       }
 
-      if (shop == null || code == null) {
-        logger.error("Missing required parameters - shop: {}, code: {}", shop, code);
-        String redirectUrl =
-            frontendUrl
-                + "/?error=missing_params&error_message="
-                + java.net.URLEncoder.encode(
-                    "Missing required parameters. Please try the installation process again.",
-                    "UTF-8");
-        logger.info("Redirecting to frontend with missing params error: {}", redirectUrl);
-        response.sendRedirect(redirectUrl);
+      if (code == null || code.isBlank()) {
+        logger.error("Shopify OAuth callback did not include an authorization code");
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Authorization code is required");
         return;
       }
 
@@ -346,41 +347,13 @@ public class ShopifyAuthController {
         return;
       }
 
-      // Validate HMAC if present (optional but recommended for security)
-      if (hmac != null && apiSecret != null) {
-        try {
-          boolean isValidHmac = validateHmac(params, apiSecret);
-          if (!isValidHmac) {
-            logger.error("HMAC validation failed for shop: {}", shop);
-            String redirectUrl =
-                frontendUrl
-                    + "/?error=hmac_validation&error_message="
-                    + java.net.URLEncoder.encode(
-                        "Security validation failed. Please try the installation process again.",
-                        "UTF-8");
-            logger.info("Redirecting to frontend with HMAC validation error: {}", redirectUrl);
-            response.sendRedirect(redirectUrl);
-            return;
-          }
-          logger.info("HMAC validation successful for shop: {}", shop);
-        } catch (Exception hmacError) {
-          logger.warn("HMAC validation error (continuing anyway): {}", hmacError.getMessage());
-        }
-      } else {
-        logger.info(
-            "Skipping HMAC validation - hmac: {}, apiSecret: {}",
-            hmac != null ? "present" : "null",
-            apiSecret != null ? "present" : "null");
-      }
-
       logger.info("Starting token exchange process for shop: {}", shop);
       String accessToken = exchangeCodeForAccessToken(shop, code);
       logger.info("Access token obtained for shop: {}", shop);
 
       // Create session more carefully with Redis fallback
       // For OAuth callback, we'll use a more robust session creation approach
-      String sessionId = null;
-      boolean sessionCreated = false;
+      String sessionId;
 
       try {
         // For OAuth callback, always create a fresh session to avoid conflicts
@@ -398,34 +371,18 @@ public class ShopifyAuthController {
         // Create new session for OAuth
         var newSession = request.getSession(true);
         sessionId = newSession.getId();
-        sessionCreated = true;
-        logger.info("New OAuth session created successfully - sessionId: {}", sessionId);
+        logger.info("New server-backed OAuth session created successfully");
 
         // Set a marker to indicate this is an OAuth session
         newSession.setAttribute("oauth_session", true);
         newSession.setAttribute("shop", shop);
 
       } catch (Exception sessionError) {
-        logger.warn(
-            "Failed to create OAuth session (likely Redis issue), using fallback approach: {}",
-            sessionError.getMessage());
-        // Fallback: use a timestamp-based session ID that doesn't require Redis
-        sessionId = "oauth_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
-        sessionCreated = true;
-        logger.info("Using fallback OAuth sessionId: {}", sessionId);
+        logger.error("Failed to create server-backed OAuth session", sessionError);
+        throw new IllegalStateException("Session service is unavailable", sessionError);
       }
 
-      // Validate session ID
-      if (sessionId == null || sessionId.trim().isEmpty()) {
-        sessionId = "emergency_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
-        logger.warn("Emergency sessionId created: {}", sessionId);
-      }
-
-      logger.info(
-          "Saving shop data - shop: {}, sessionId: {}, sessionCreated: {}",
-          shop,
-          sessionId,
-          sessionCreated);
+      logger.info("Saving authenticated shop data for shop: {}", shop);
 
       // Clear any stuck session markers for OAuth to ensure clean state
       shopService.clearOAuthSessionMarkers(sessionId);
@@ -445,8 +402,7 @@ public class ShopifyAuthController {
         logger.debug("Post-save operations completed for shop: {}", shop);
 
         // Simple verification that the session was saved (skip complex validation for OAuth)
-        logger.info(
-            "OAuth session creation completed for shop: {} and session: {}", shop, sessionId);
+        logger.info("OAuth session creation completed for shop: {}", shop);
 
         // Reduced delay to minimize timing window for concurrent requests
         try {
@@ -487,16 +443,14 @@ public class ShopifyAuthController {
       if (isProduction) {
         // For production, set domain to allow sharing between subdomains
         shopCookie.setSecure(true);
-        shopCookie.setDomain("shopgaugeai.com");
-        logger.info(
-            "Production environment detected - using secure cookies with shopgaugeai.com domain");
+        logger.info("Production environment detected - using secure host-only cookies");
       } else {
         // Development environment - localhost doesn't need domain
         shopCookie.setSecure(false); // HTTP allowed in development
         logger.info("Development environment detected - using local cookie settings");
       }
 
-      shopCookie.setHttpOnly(false); // Allow JavaScript access
+      shopCookie.setHttpOnly(true);
       shopCookie.setMaxAge(60 * 60 * 24 * 7); // 7 days
 
       // Add cookie to response
@@ -505,16 +459,14 @@ public class ShopifyAuthController {
       // Also set cookie using header for better control over SameSite attribute
       // For same-site requests (both www and api on shopgaugeai.com), use Lax
       String sameSiteValue = isProduction ? "Lax" : "Lax";
-      String domainAttribute = isProduction ? "Domain=shopgaugeai.com; " : "";
       response.addHeader(
           "Set-Cookie",
           String.format(
-              "%s=%s; Path=%s; Max-Age=%d; %sSameSite=%s; %s",
+              "%s=%s; Path=%s; Max-Age=%d; HttpOnly; SameSite=%s; %s",
               shopCookie.getName(),
               shopCookie.getValue(),
               shopCookie.getPath(),
               shopCookie.getMaxAge(),
-              domainAttribute,
               sameSiteValue,
               isProduction ? "Secure;" : ""));
 
@@ -524,39 +476,25 @@ public class ShopifyAuthController {
         response.addHeader(
             "Set-Cookie",
             String.format(
-                "JSESSIONID=%s; Path=/; Max-Age=%d; Domain=shopgaugeai.com; SameSite=Lax; Secure; HttpOnly",
+                "JSESSIONID=%s; Path=/; Max-Age=%d; SameSite=Lax; Secure; HttpOnly",
                 sessionId, 60 * 60 * 24)); // 24 hours for session
       }
 
       logger.info(
-          "Cookie configuration: secure={}, path={}, SameSite={}, sessionId={}",
+          "OAuth cookies configured: secure={}, path={}, SameSite={}",
           isProduction,
           shopCookie.getPath(),
-          sameSiteValue,
-          sessionId);
+          sameSiteValue);
 
       // Mark the authorization code as successfully processed
       markCodeAsSuccessfullyProcessed(code);
 
-      // Retrieve return_url from Redis using state parameter
-      String returnUrl = null;
-      if (state != null && !state.isBlank()) {
-        try {
-          returnUrl = redisTemplate.opsForValue().get("oauth:return_url:" + state);
-          if (returnUrl != null) {
-            logger.info("Retrieved return_url from Redis: {}", returnUrl);
-            // Clean up the stored return_url
-            redisTemplate.delete("oauth:return_url:" + state);
-          }
-        } catch (Exception e) {
-          logger.warn("Failed to retrieve return_url from Redis: {}", e.getMessage());
-        }
-      }
+      String returnUrl = oauthState.returnUrl();
 
       String redirectUrl;
       if (returnUrl != null && !returnUrl.isBlank()) {
         // Use custom return URL if provided
-        redirectUrl = java.net.URLDecoder.decode(returnUrl, "UTF-8");
+        redirectUrl = returnUrl;
         logger.info("Using custom return URL: {}", redirectUrl);
       } else {
         // Default redirect with shop parameter
@@ -615,67 +553,9 @@ public class ShopifyAuthController {
     }
   }
 
-  private String generateState() {
-    byte[] randomBytes = new byte[32];
-    new java.security.SecureRandom().nextBytes(randomBytes);
-    return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
-  }
-
-  private boolean validateHmac(Map<String, String> params, String apiSecret) {
-    try {
-      // Remove hmac from params for validation
-      Map<String, String> paramsForValidation = new HashMap<>(params);
-      String receivedHmac = paramsForValidation.remove("hmac");
-
-      if (receivedHmac == null) {
-        return false;
-      }
-
-      // Sort parameters alphabetically
-      String queryString =
-          paramsForValidation.entrySet().stream()
-              .sorted(Map.Entry.comparingByKey())
-              .map(entry -> entry.getKey() + "=" + entry.getValue())
-              .collect(Collectors.joining("&"));
-
-      // Create HMAC using SHA256
-      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-      javax.crypto.spec.SecretKeySpec secretKeySpec =
-          new javax.crypto.spec.SecretKeySpec(
-              apiSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-      mac.init(secretKeySpec);
-
-      byte[] hmacBytes = mac.doFinal(queryString.getBytes(StandardCharsets.UTF_8));
-      StringBuilder sb = new StringBuilder();
-      for (byte b : hmacBytes) {
-        sb.append(String.format("%02x", b));
-      }
-      String calculatedHmac = sb.toString();
-
-      logger.debug(
-          "HMAC validation - Query string: {}, Calculated HMAC: {}, Received HMAC: {}",
-          queryString,
-          calculatedHmac,
-          receivedHmac);
-
-      return calculatedHmac.equals(receivedHmac);
-    } catch (Exception e) {
-      logger.error("Error validating HMAC: {}", e.getMessage(), e);
-      return false;
-    }
-  }
-
   private String exchangeCodeForAccessToken(String shop, String code) {
-    logger.info(
-        "Exchanging code for access token - shop: {}, code: {}",
-        shop,
-        code != null ? code.substring(0, Math.min(8, code.length())) + "..." : "null");
-    logger.info(
-        "Using API credentials - key: {}, secret: {}",
-        apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null",
-        apiSecret != null
-            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
-            : "null");
+    logger.info("Exchanging Shopify authorization code for shop: {}", shop);
+    logger.debug("Using configured Shopify application credentials for token exchange");
 
     if (apiKey == null || apiKey.isBlank()) {
       logger.error("Shopify API key is missing or empty");
@@ -770,31 +650,30 @@ public class ShopifyAuthController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 
-    String url = shopifyConfig.buildApiUrl(shop, "");
+    Mono<Map<String, Object>> export;
     if ("products".equals(type)) {
-      url += "products.json";
+      export = shopifyGraphqlClient.fetchProducts(shop, token, 250, null);
     } else if ("orders".equals(type)) {
-      url += "orders.json?status=any";
+      export = shopifyGraphqlClient.fetchOrders(shop, token, 250, null, null);
     } else {
       return Mono.just(ResponseEntity.badRequest().build());
     }
 
-    return webClient
-        .get()
-        .uri(url)
-        .header("X-Shopify-Access-Token", token)
-        .retrieve()
-        .bodyToMono(String.class)
-        .map(
-            data -> {
-              String filename = type + "_" + LocalDate.now() + ".json";
-              return ResponseEntity.ok()
-                  .contentType(MediaType.APPLICATION_JSON)
-                  .header(
-                      HttpHeaders.CONTENT_DISPOSITION,
-                      ContentDisposition.attachment().filename(filename).build().toString())
-                  .body(data.getBytes());
-            });
+    return export.map(
+        data -> {
+          String filename = type + "_" + LocalDate.now() + ".json";
+          try {
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(
+                    HttpHeaders.CONTENT_DISPOSITION,
+                    ContentDisposition.attachment().filename(filename).build().toString())
+                .body(objectMapper.writeValueAsBytes(data));
+          } catch (Exception serializationError) {
+            throw new IllegalStateException(
+                "Unable to serialize Shopify export", serializationError);
+          }
+        });
   }
 
   @GetMapping("/notifications")
@@ -963,7 +842,6 @@ public class ShopifyAuthController {
   public Mono<ResponseEntity<Map<String, Object>>> me(
       @CookieValue(value = "shop", required = false) String shop, HttpServletRequest request) {
     logger.info("Auth: Checking shop status - shop: {}", shop);
-    logger.debug("Auth: Request cookies: {}", Arrays.toString(request.getCookies()));
 
     Map<String, Object> response = new HashMap<>();
 
@@ -975,7 +853,6 @@ public class ShopifyAuthController {
     }
 
     String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
-    logger.info("Auth: Current session ID: {}", sessionId);
 
     String token =
         (sessionId != null && shop != null) ? shopService.getTokenForShop(shop, sessionId) : null;
@@ -1000,11 +877,11 @@ public class ShopifyAuthController {
         if (sessionId == null) {
           try {
             sessionId = request.getSession(true).getId();
-            logger.info("Auth: Created new session for recovery: {}", sessionId);
           } catch (Exception e) {
             logger.warn("Auth: Failed to create new session: {}", e.getMessage());
-            // Use fallback session ID
-            sessionId = "recovery_" + System.currentTimeMillis() + "_" + Math.abs(shop.hashCode());
+            return Mono.just(
+                ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "Session service is unavailable", "shop", shop)));
           }
         }
 
@@ -1020,7 +897,7 @@ public class ShopifyAuthController {
     }
 
     if (token == null) {
-      logger.warn("Auth: No token found for shop: {} and session: {}", shop, sessionId);
+      logger.warn("Auth: No token found for shop: {}", shop);
 
       // Check recovery status
       Map<String, Object> recoveryStatus = oAuthRecoveryService.getRecoveryStatus(shop);
@@ -1032,7 +909,7 @@ public class ShopifyAuthController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response));
     }
 
-    logger.info("Auth: Found token for shop: {} and session: {}", shop, sessionId);
+    logger.info("Auth: Authenticated session found for shop: {}", shop);
     response.put("shop", shop);
     response.put("authenticated", true);
     response.put("sessionId", sessionId);
@@ -1066,7 +943,7 @@ public class ShopifyAuthController {
       String sessionId = request.getSession(true).getId(); // Create session if needed
       try {
         shopService.saveShop(shop, token, sessionId);
-        logger.info("Auth: Session refreshed for shop: {} with session: {}", shop, sessionId);
+        logger.info("Auth: Session refreshed for shop: {}", shop);
 
         response.put("success", true);
         response.put("shop", shop);
@@ -1103,11 +980,11 @@ public class ShopifyAuthController {
         if (sessionId != null) {
           // Remove current session from application tracking
           shopService.removeSession(shop, sessionId);
-          logger.info("Auth: Cleared session for shop: {} and session: {}", shop, sessionId);
+          logger.info("Auth: Cleared current session for shop: {}", shop);
 
           // Let Spring Session handle session cleanup naturally - no explicit invalidation
           // This prevents "Session was invalidated" errors during request processing
-          logger.info("Auth: Session cleanup initiated for HTTP session: {}", sessionId);
+          logger.info("Auth: Session cleanup initiated for shop: {}", shop);
         } else {
           // Fallback: remove all sessions if no current session
           shopService.removeAllSessionsForShop(shop);
@@ -1142,101 +1019,9 @@ public class ShopifyAuthController {
     return ResponseEntity.ok(Map.of("status", "success"));
   }
 
-  @GetMapping("/test-credentials")
-  public ResponseEntity<Map<String, Object>> testCredentials() {
-    Map<String, Object> result = new HashMap<>();
-
-    result.put("api_key_loaded", apiKey != null && !apiKey.isBlank());
-    result.put("api_secret_loaded", apiSecret != null && !apiSecret.isBlank());
-    result.put("api_key_length", apiKey != null ? apiKey.length() : 0);
-    result.put("api_secret_length", apiSecret != null ? apiSecret.length() : 0);
-    result.put(
-        "api_key_preview",
-        apiKey != null ? apiKey.substring(0, Math.min(8, apiKey.length())) + "..." : "null");
-    result.put(
-        "api_secret_preview",
-        apiSecret != null
-            ? apiSecret.substring(0, Math.min(8, apiSecret.length())) + "..."
-            : "null");
-    result.put("scopes", scopes);
-    result.put("redirect_uri", redirectUri);
-    result.put("frontend_url", frontendUrl);
-
-    return ResponseEntity.ok(result);
-  }
-
-  @GetMapping("/test-cookie")
-  public ResponseEntity<Map<String, Object>> testCookie(
-      @CookieValue(value = "shop", required = false) String shop,
-      HttpServletRequest request,
-      HttpServletResponse response) {
-
-    logger.info("Test cookie endpoint called");
-    logger.info("Shop from cookie: {}", shop);
-    logger.info("All cookies: {}", Arrays.toString(request.getCookies()));
-    logger.info(
-        "Request headers: {}",
-        Collections.list(request.getHeaderNames()).stream()
-            .collect(Collectors.toMap(name -> name, request::getHeader)));
-
-    boolean isProduction = frontendUrl != null && frontendUrl.contains("shopgaugeai.com");
-
-    Map<String, Object> result = new HashMap<>();
-    result.put("shop_from_cookie", shop);
-    result.put("is_production", isProduction);
-    result.put("frontend_url", frontendUrl);
-    result.put("user_agent", request.getHeader("User-Agent"));
-    result.put("origin", request.getHeader("Origin"));
-    result.put("referer", request.getHeader("Referer"));
-    result.put(
-        "all_cookies",
-        request.getCookies() != null
-            ? Arrays.stream(request.getCookies())
-                .collect(Collectors.toMap(Cookie::getName, Cookie::getValue))
-            : Collections.emptyMap());
-
-    // Set a test cookie with proper domain configuration
-    String testValue = "test_value_" + System.currentTimeMillis();
-
-    if (isProduction) {
-      // Production: Use Set-Cookie header with proper domain
-      String setCookieHeader =
-          String.format(
-              "test_cookie=%s; Path=/; Max-Age=300; Domain=shopgaugeai.com; Secure; SameSite=Lax",
-              testValue);
-      response.addHeader("Set-Cookie", setCookieHeader);
-      result.put("cookie_domain", "shopgaugeai.com");
-      result.put("cookie_secure", true);
-      result.put("cookie_samesite", "Lax");
-      logger.info("Set production test cookie with header: {}", setCookieHeader);
-    } else {
-      // Development: Use regular cookie
-      Cookie testCookie = new Cookie("test_cookie", testValue);
-      testCookie.setPath("/");
-      testCookie.setMaxAge(300);
-      testCookie.setHttpOnly(false);
-      testCookie.setSecure(false);
-      response.addCookie(testCookie);
-      result.put("cookie_domain", "localhost");
-      result.put("cookie_secure", false);
-      result.put("cookie_samesite", "Lax");
-      logger.info("Set development test cookie for localhost");
-    }
-
-    result.put("test_cookie_set", true);
-    result.put("test_cookie_value", testValue);
-    result.put("timestamp", System.currentTimeMillis());
-
-    return ResponseEntity.ok(result);
-  }
-
   @PostMapping("/profile/force-disconnect")
   public ResponseEntity<Map<String, String>> forceDisconnect(
-      @CookieValue(value = "shop", required = false) String shopCookieValue,
-      @RequestParam(value = "shop", required = false) String shopParam,
-      @RequestBody(required = false) Map<String, Object> body,
-      HttpServletResponse response,
-      HttpServletRequest request) {
+      HttpServletResponse response, HttpServletRequest request, Authentication authentication) {
     logger.info("Auth: Force disconnect requested");
 
     // Clear all cookies
@@ -1260,8 +1045,8 @@ public class ShopifyAuthController {
     shopCookie.setSecure(true);
     response.addCookie(shopCookie);
 
-    // Clear shop parameter if provided
-    String shop = shopParam != null ? shopParam : shopCookieValue;
+    // Tenant identity comes only from the authenticated security context.
+    String shop = authentication != null ? authentication.getName() : null;
 
     if (shop != null && !shop.isBlank()) {
       // Enhanced force cleanup: Clear ALL sessions and data
@@ -1276,8 +1061,7 @@ public class ShopifyAuthController {
         // Let Spring Session handle session cleanup naturally - no explicit invalidation
         // This prevents "Session was invalidated" errors during request processing
         if (sessionId != null) {
-          logger.info(
-              "Auth: Force disconnect session cleanup initiated for HTTP session: {}", sessionId);
+          logger.info("Auth: Force disconnect session cleanup initiated for shop: {}", shop);
         }
 
       } catch (Exception e) {

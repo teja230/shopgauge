@@ -1,6 +1,6 @@
 # ShopGauge Frontend
 
-ShopGauge is an enterprise-grade analytics and competitor intelligence platform for Shopify merchants. Built with React 18, TypeScript, and Vite, it provides real-time business insights, automated competitor tracking, and intelligent business intelligence.
+ShopGauge is an early-stage competitor price-monitoring workspace for Shopify merchants. Built with React 18, TypeScript, and Vite, it connects merchant-approved competitor listings with Shopify product context, price history, stock changes, and descriptive store analytics.
 
 ## 🚀 Live Demo
 
@@ -8,24 +8,24 @@ Try the live application: **[https://www.shopgaugeai.com](https://www.shopgaugea
 
 ## ✨ Features
 
-### 📊 Advanced Analytics Dashboard
-- **Real-time Revenue Tracking**: Live sales data with trend analysis and forecasting
-- **Conversion Rate Optimization**: Detailed conversion funnel analysis with industry benchmarks
-- **Inventory Intelligence**: Low stock alerts, product performance metrics, and demand forecasting
-- **Abandoned Cart Recovery**: Automated detection and recovery strategies for abandoned carts
-- **Customer Behavior Analytics**: Anonymous customer journey mapping and segmentation
+### 📊 Store Context Dashboard
+- **Revenue and Order Context**: Shopify sales history with descriptive trend views
+- **Experimental Projections**: Planning ranges that are not presented as calibrated forecasts
+- **Inventory Context**: Low-stock alerts and product performance metrics
+- **Abandoned Checkout Context**: Descriptive checkout counts when the granted Shopify scope permits access
+- **Export Tools**: Operational chart and price-history exports
 
 ### 🎯 Competitor Intelligence
-- **Automated Competitor Discovery**: AI-powered competitor identification using SerpAPI integration
-- **Price Monitoring**: Real-time price tracking across competitor websites
-- **Market Position Analysis**: Competitive landscape insights and positioning strategies
-- **Suggestion Management**: Curated competitor suggestions with approval workflow
+- **Assisted Competitor Discovery**: Search-provider candidates that require merchant review
+- **Price Monitoring**: Scheduled price and availability checks with freshness indicators
+- **Market Position Analysis**: Compare a Shopify product with its approved monitored listings
+- **Suggestion Management**: Competitor candidates with an explicit approval workflow
 - **Web Scraping**: Automated data collection from competitor sites using Selenium
 
-### 🔒 Enterprise Security & Compliance
-- **GDPR/CCPA Compliance**: Full data privacy compliance with automatic data retention policies
-- **Shopify Protected Data**: Compliant with Shopify's Protected Customer Data requirements
-- **Audit Logging**: Complete audit trail with 365-day retention for compliance monitoring
+### 🔒 Security & Privacy Controls
+- **Privacy Requests**: Export, deletion, anonymization, and retention workflows
+- **Shopify Compliance Webhooks**: Signed mandatory data-request and redaction endpoints
+- **Audit Logging**: Security- and privacy-relevant application events
 - **Session Management**: Secure Redis-based session handling
 
 ## 🛠️ Technology Stack
@@ -61,7 +61,7 @@ Try the live application: **[https://www.shopgaugeai.com](https://www.shopgaugea
 cd frontend
 
 # Install dependencies
-npm install
+npm ci
 
 # Start development server
 npm run dev
@@ -85,8 +85,8 @@ npm run preview
 # Run ESLint
 npm run lint
 
-# Auto-fix linting issues
-npm run lint:fix
+# Run the maintained CI test suite
+npm run test:ci
 ```
 
 ## 📁 Project Structure

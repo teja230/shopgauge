@@ -1,5 +1,7 @@
 package com.storesight.backend.service;
 
+import java.net.IDN;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
@@ -92,9 +94,9 @@ public class InputValidationService {
     try {
       URL urlObj = new URL(trimmedUrl);
 
-      // Check protocol
-      if (!"http".equals(urlObj.getProtocol()) && !"https".equals(urlObj.getProtocol())) {
-        return ValidationResult.invalid("Only HTTP and HTTPS URLs are allowed");
+      // Competitor fetches are restricted to encrypted public endpoints.
+      if (!"https".equals(urlObj.getProtocol())) {
+        return ValidationResult.invalid("Only HTTPS competitor URLs are allowed");
       }
 
       // Check for localhost or private IPs
@@ -121,7 +123,7 @@ public class InputValidationService {
   /** Enhanced URL format validation - more permissive for real-world URLs */
   private boolean isValidUrlFormat(String url) {
     // Basic check for http/https and domain structure
-    if (!url.matches("^https?://.*")) {
+    if (!url.matches("^https://.*")) {
       return false;
     }
 
@@ -276,7 +278,41 @@ public class InputValidationService {
           "^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.|127\\.|0\\.|::1|fc00:|fd00:).*");
 
   private boolean isLocalOrPrivateHost(String host) {
-    return PRIVATE_IP_PATTERN.matcher(host).find();
+    try {
+      String asciiHost = IDN.toASCII(host).toLowerCase();
+      if (asciiHost.equals("localhost")
+          || asciiHost.endsWith(".localhost")
+          || asciiHost.endsWith(".local")
+          || asciiHost.equals("metadata.google.internal")
+          || PRIVATE_IP_PATTERN.matcher(asciiHost).find()) {
+        return true;
+      }
+      for (InetAddress address : InetAddress.getAllByName(asciiHost)) {
+        if (address.isAnyLocalAddress()
+            || address.isLoopbackAddress()
+            || address.isLinkLocalAddress()
+            || address.isSiteLocalAddress()
+            || address.isMulticastAddress()) {
+          return true;
+        }
+        byte[] bytes = address.getAddress();
+        if (bytes.length == 4
+            && (bytes[0] & 0xff) == 100
+            && ((bytes[1] & 0xff) >= 64)
+            && ((bytes[1] & 0xff) <= 127)) {
+          return true;
+        }
+      }
+      return false;
+    } catch (Exception e) {
+      logger.warn("Unable to resolve competitor host safely: {}", host);
+      return true;
+    }
+  }
+
+  public void requireSafeOutboundUrl(String url) {
+    ValidationResult result = validateCompetitorUrl(url);
+    if (!result.isValid()) throw new IllegalArgumentException(result.getErrorMessage());
   }
 
   /** Validation result class */

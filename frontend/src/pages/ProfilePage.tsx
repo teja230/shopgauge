@@ -1174,7 +1174,7 @@ export default function ProfilePage() {
         </h2>
         <p className="text-sm text-[#5f6b76] mb-6">
           ShopGauge respects your privacy and provides full transparency about data processing. 
-          Exercise your data rights using the controls below. All actions are GDPR/CCPA compliant.
+          Exercise export, deletion, and anonymization requests using the controls below. These controls support privacy-request handling but are not a legal certification.
         </p>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1331,33 +1331,33 @@ export default function ProfilePage() {
                           </div>
                           <div>
                             <div className="text-lg font-bold text-[#08734c]">{privacyReport.compliance_status}</div>
-                            <div className="text-sm text-[#059669]">All privacy requirements are being met</div>
+                            <div className="text-sm text-[#059669]">Application privacy controls report</div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-3xl font-bold text-[#059669]">100%</div>
-                          <div className="text-xs text-[#059669] font-medium">Compliance Rate</div>
+                          <div className="text-3xl font-bold text-[#059669]">Active</div>
+                          <div className="text-xs text-[#059669] font-medium">Control status</div>
                         </div>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
                           <div className="w-2 h-2 bg-[#15b87a] rounded-full"></div>
-                          <span className="text-sm font-medium text-[#047857]">GDPR Compliant</span>
+                          <span className="text-sm font-medium text-[#047857]">Export and deletion controls</span>
                         </div>
                         <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
                           <div className="w-2 h-2 bg-[#15b87a] rounded-full"></div>
-                          <span className="text-sm font-medium text-[#047857]">CCPA Compliant</span>
+                          <span className="text-sm font-medium text-[#047857]">Access-request workflow</span>
                         </div>
                         <div className="flex items-center space-x-2 p-3 bg-white/60 rounded-lg">
                           <div className="w-2 h-2 bg-[#15b87a] rounded-full"></div>
-                          <span className="text-sm font-medium text-[#047857]">SOC 2 Ready</span>
+                          <span className="text-sm font-medium text-[#047857]">Auditable privacy events</span>
                         </div>
                       </div>
                       
                       <div className="flex items-center justify-center mt-4 p-3 bg-[#15b87a]/14/80 rounded-lg">
                         <Lock className="w-4 h-4 text-[#059669] mr-2" />
-                        <span className="text-sm font-medium text-[#047857]">Your data is secure and compliant</span>
+                        <span className="text-sm font-medium text-[#047857]">Privacy controls are available for this store</span>
                       </div>
                     </div>
                   </div>
@@ -1415,9 +1415,9 @@ export default function ProfilePage() {
                       <div className="text-xs text-[#7c9cff] mt-1">Monthly activity</div>
             </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-[#059669]">100%</div>
-                      <div className="text-sm text-[#059669]">Compliance Rate</div>
-                      <div className="text-xs text-[#15b87a] mt-1">GDPR/CCPA compliant</div>
+                      <div className="text-3xl font-bold text-[#059669]">Active</div>
+                      <div className="text-sm text-[#059669]">Privacy controls</div>
+                      <div className="text-xs text-[#15b87a] mt-1">Export, deletion, and audit workflows</div>
                     </div>
                   </div>
                   

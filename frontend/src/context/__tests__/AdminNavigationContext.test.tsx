@@ -85,8 +85,8 @@ describe('AdminNavigationContext', () => {
         </AdminNavigationProvider>
       );
 
-      // Should reset to default on new provider instance
-      expect(screen.getByTestId('active-section')).toHaveTextContent('dashboard');
+      // Rerender reconciles the provider at the same tree position, so its state is preserved.
+      expect(screen.getByTestId('active-section')).toHaveTextContent('health');
     });
   });
 
@@ -416,9 +416,8 @@ describe('AdminNavigationContext', () => {
         </AdminNavigationProvider>
       );
 
-      // Callbacks should still be stable (this will be false because it's a new provider instance)
-      // But within the same provider instance, callbacks should be stable
-      expect(screen.getByTestId('callbacks-stable')).toHaveTextContent('false');
+      // The provider is reconciled in place, so memoized callbacks remain stable.
+      expect(screen.getByTestId('callbacks-stable')).toHaveTextContent('true');
     });
   });
 });

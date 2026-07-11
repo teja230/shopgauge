@@ -9,6 +9,7 @@
     "lint": "eslint src/",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:ci": "vitest run src/services/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

@@ -33,8 +33,8 @@
     <meta name="color-scheme" content="light" />
     
     <!-- Enhanced SEO Meta Tags -->
-    <title>ShopGauge - Enterprise Shopify Analytics & Competitor Intelligence</title>
-    <meta name="description" content="Enterprise-grade analytics platform for Shopify stores. Monitor competitor prices, track market trends, and grow your business with AI-powered insights and real-time data." />
+    <title>ShopGauge - Shopify Competitor Price Monitoring</title>
+    <meta name="description" content="Review competitor prices, stock changes, price history, and Shopify product context from one merchant-controlled workspace." />
     <meta name="keywords" content="shopify analytics, competitor monitoring, price tracking, ecommerce insights, shopify tools, market intelligence, business analytics" />
     <meta name="author" content="ShopGauge" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
@@ -43,8 +43,8 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://shopgauge.app/" />
-    <meta property="og:title" content="ShopGauge - Enterprise Shopify Analytics" />
-    <meta property="og:description" content="Transform your Shopify store with enterprise-grade analytics, competitor intelligence, and AI-powered insights." />
+    <meta property="og:title" content="ShopGauge - Shopify Competitor Price Monitoring" />
+    <meta property="og:description" content="Review competitor prices, availability changes, and Shopify product context before making merchandising decisions." />
     <meta property="og:image" content="https://shopgauge.app/images/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -54,8 +54,8 @@
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://shopgauge.app/" />
-    <meta property="twitter:title" content="ShopGauge - Enterprise Shopify Analytics" />
-    <meta property="twitter:description" content="Enterprise-grade analytics platform for Shopify stores with competitor monitoring and AI insights." />
+    <meta property="twitter:title" content="ShopGauge - Shopify Competitor Price Monitoring" />
+    <meta property="twitter:description" content="Merchant-reviewed competitor monitoring with price history, availability signals, and Shopify product context." />
     <meta property="twitter:image" content="https://shopgauge.app/images/twitter-image.png" />
     <meta property="twitter:creator" content="@shopgauge" />
     <meta property="twitter:site" content="@shopgauge" />
@@ -66,18 +66,13 @@
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "ShopGauge",
-      "description": "Enterprise-grade analytics platform for Shopify stores with competitor monitoring and market intelligence.",
+      "description": "Merchant-reviewed competitor price monitoring with Shopify product context.",
       "url": "https://shopgauge.app",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web Browser",
       "offers": {
         "@type": "Offer",
         "category": "SaaS"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "ratingCount": "150"
       },
       "author": {
         "@type": "Organization",
@@ -244,9 +239,10 @@
     
     <!-- Service Worker registration with error handling -->
     <script>
+      const isLocalDevelopment = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
       // Service Worker registration for PWA functionality (production only)
       if ('serviceWorker' in navigator) {
-        if (window.location.hostname === 'localhost') {
+        if (isLocalDevelopment) {
           // Unregister service worker in development
           navigator.serviceWorker.getRegistrations().then((registrations) => {
             for (let registration of registrations) {
@@ -291,7 +287,7 @@
       });
       
       // App update detection (production only)
-      if ('serviceWorker' in navigator && window.location.hostname !== 'localhost') {
+      if ('serviceWorker' in navigator && !isLocalDevelopment) {
         navigator.serviceWorker.addEventListener('controllerchange', () => {
           window.location.reload();
         });

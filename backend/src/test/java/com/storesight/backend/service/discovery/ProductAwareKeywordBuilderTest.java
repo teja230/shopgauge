@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.ShopifyGraphqlClient;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,7 +18,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,15 +27,7 @@ class ProductAwareKeywordBuilderTest {
 
   @Mock private ShopService shopService;
 
-  @Mock private WebClient.Builder webClientBuilder;
-
-  @Mock private WebClient webClient;
-
-  @Mock private WebClient.RequestHeadersUriSpec requestHeadersUriSpec;
-
-  @Mock private WebClient.RequestHeadersSpec requestHeadersSpec;
-
-  @Mock private WebClient.ResponseSpec responseSpec;
+  @Mock private ShopifyGraphqlClient shopifyGraphqlClient;
 
   @InjectMocks private ProductAwareKeywordBuilder keywordBuilder;
 
@@ -121,14 +114,9 @@ class ProductAwareKeywordBuilderTest {
             }
             """;
 
-    JsonNode responseData = objectMapper.readTree(apiResponse);
-
-    when(webClientBuilder.build()).thenReturn(webClient);
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.header(anyString(), anyString())).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(JsonNode.class)).thenReturn(Mono.just(responseData));
+    Map<String, Object> responseData = objectMapper.readValue(apiResponse, Map.class);
+    when(shopifyGraphqlClient.fetchProducts(shopDomain, accessToken, 20, null))
+        .thenReturn(Mono.just(responseData));
 
     // When
     String keywords = keywordBuilder.buildProductAwareKeywords(shopDomain, sessionId);
@@ -176,12 +164,7 @@ class ProductAwareKeywordBuilderTest {
     when(dashboardCacheService.getCachedProductsData(shopDomain)).thenReturn(Optional.empty());
     when(shopService.getTokenForShop(shopDomain, sessionId)).thenReturn(accessToken);
 
-    when(webClientBuilder.build()).thenReturn(webClient);
-    when(webClient.get()).thenReturn(requestHeadersUriSpec);
-    when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.header(anyString(), anyString())).thenReturn(requestHeadersSpec);
-    when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    when(responseSpec.bodyToMono(JsonNode.class))
+    when(shopifyGraphqlClient.fetchProducts(shopDomain, accessToken, 20, null))
         .thenReturn(Mono.error(new RuntimeException("API Error")));
 
     // When

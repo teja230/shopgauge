@@ -8,39 +8,41 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
 
-ShopGauge is a comprehensive, enterprise-grade analytics and competitor intelligence platform designed specifically for
-Shopify merchants. It provides AI-powered revenue forecasting, professional shareable charts, 7 advanced chart types, intelligent data visualization, automated competitor discovery, and enterprise-grade team collaboration with comprehensive compliance features.
+ShopGauge is an early-stage competitor price-monitoring and store-context application for Shopify
+merchants. It associates merchant-approved competitor listings with Shopify products, records price
+and stock history, surfaces changes, and provides descriptive store analytics. Discovery results and
+experimental projections require merchant review; they are not verified AI predictions or guarantees.
 
 ## 🚀 Key Features
 
-### 🔮 **AI-Powered Predictive Analytics**
+### 🔮 **Experimental Planning Projections**
 
-- **Revenue Forecasting**: Advanced AI algorithms predict revenue trends 7-60 days ahead with confidence intervals and statistical accuracy
-- **Order Prediction**: Intelligent forecasting for order volumes and conversion rates with trend analysis
-- **7 Advanced Chart Types**: Area, Line, and Bar charts with predictive analytics
+- **Revenue Projections**: Descriptive 7-60 day planning ranges derived from recent store history
+- **Order Projections**: Experimental order-volume and conversion trend views
+- **Chart Views**: Area, line, and bar charts for historical and projected series
 - **Intelligent Color Separation**: Visual distinction between historical data (blue/green/amber) and forecast data (purple/pink/orange)
 - **Professional Chart Templates**: Executive, Investor, Marketing, Social Celebration, and Minimal Professional templates
 - **High-Resolution Exports**: PNG, PDF, and social media-ready formats with automated branding
 - **Social Media Integration**: Direct sharing to LinkedIn, Twitter, and Email with auto-generated professional messaging
-- **Confidence Intervals**: Statistical confidence bands and prediction accuracy metrics for informed decision making
+- **Projection Ranges**: Visual ranges that must not be interpreted as calibrated confidence or accuracy
 
-### 🤖 **AI-Powered Intelligence**
+### 🔎 **Assisted Merchant Workflows**
 
-- **Smart Competitor Discovery**: AI-driven competitor identification using SerpAPI and intelligent keyword analysis
-- **Automated Suggestion Engine**: Machine learning algorithms suggest relevant competitors based on product categories and keywords
-- **Intelligent Insights**: Context-aware analytics insights with actionable recommendations
-- **Predictive Analytics**: Revenue forecasting and trend analysis with intelligent pattern recognition
-- **Automated Alerts**: Smart notification system that learns from user behavior patterns
+- **Competitor Discovery**: Search-provider results produce candidates for merchant review
+- **Suggestion Review**: Product keywords help find possible matches; merchants approve tracking
+- **Operational Insights**: Rule-based store and competitor signals highlight potential follow-up
+- **Trend Analysis**: Historical and experimental projected series support planning
+- **Change Alerts**: Notifications surface monitored price and availability changes
 
 ### 📊 **Advanced Analytics Dashboard**
 
-- **Unified Analytics & Real-Time Revenue Tracking**: Live sales data with 3 chart types (Area, Line, Bar) plus AI-powered 7-60 day forecasts with confidence bands
+- **Unified Analytics & Revenue Tracking**: Shopify sales context with historical charts and experimental 7-60 day projections
 - **Professional Shareable Charts**: Export charts as high-resolution PNG images or professional PDF reports with branded templates
 - **Enhanced Mobile Experience**: Optimized chart loading and responsive design for seamless mobile analytics
 - **Intelligent Data Visualization**: Clear color separation between historical and forecast data for intuitive insights
-- **Conversion Rate Optimization**: Detailed conversion funnel analysis with industry benchmarks and predictive modeling
-- **Inventory Intelligence**: Low stock alerts, product performance metrics, and demand forecasting with AI predictions
-- **Abandoned Cart Recovery**: Automated detection and recovery strategies for abandoned carts with predictive analytics
+- **Conversion Context**: Descriptive conversion calculations from available Shopify data
+- **Inventory Context**: Low-stock alerts and product performance metrics
+- **Abandoned Cart Context**: Descriptive abandoned-checkout counts where the Shopify scope permits access
 - **Customer Behavior Analytics**: Anonymous customer journey mapping and segmentation with trend analysis
 - **Intelligent Caching**: 120-minute cache duration with debounced refresh controls for optimal performance
 
@@ -61,19 +63,19 @@ Shopify merchants. It provides AI-powered revenue forecasting, professional shar
 - **Social Media Integration**: One-click sharing to LinkedIn, Twitter, and Email with auto-generated professional messaging
 - **High-Resolution Exports**: PNG images (2x scale) and professional PDF reports with company branding
 - **Privacy Controls**: Granular data anonymization and sharing permissions with audit logging
-- **Real-Time Export Progress**: Visual progress indicators and comprehensive error handling for reliable exports
+- **Export Progress**: Visual progress indicators and error handling for long-running exports
 - **Mobile-Optimized Sharing**: Seamless sharing experience across all devices and platforms
 
 ### 🎯 **Competitor Intelligence**
 
-- **Automated Competitor Discovery**: AI-powered competitor identification using SerpAPI integration
-- **Real-time Price Monitoring**: Continuous price tracking across competitor websites with Selenium-based scraping
+- **Assisted Competitor Discovery**: Search-provider candidates with a merchant approval workflow
+- **Scheduled Price Monitoring**: Periodic competitor checks with freshness and failure visibility
 - **Market Position Analysis**: Competitive landscape insights and positioning strategies
 - **Suggestion Management**: Curated competitor suggestions with approval workflow
 - **Web Scraping**: Automated data collection from competitor sites using advanced scraping techniques
 - **Competitive Alerts**: Instant notifications for price changes and market movements
 - **Multi-Tier Caching**: L1 (Frontend), L2 (Redis), L3 (Database) caching with intelligent TTL management
-- **Event-Driven Cache Invalidation**: Real-time cache invalidation based on write operations and system events
+- **Event-Driven Cache Invalidation**: Cache invalidation based on write operations and system events
 - **Batch Processing**: Asynchronous operation handling with queue management and budget tracking
 - **Cache Warming Service**: Pre-loading critical data with priority-based warming strategies
 - **512MB Memory Profile Optimization**: Specialized configuration for resource-constrained environments
@@ -85,16 +87,16 @@ Shopify merchants. It provides AI-powered revenue forecasting, professional shar
 - **Session-Based Notifications**: Private notifications isolated to specific user sessions
 - **Multi-Channel Delivery**: Email (SendGrid) and SMS (Twilio) notification support
 - **Smart Notification Scoping**: Shop-level and session-level notification isolation
-- **Real-time Updates**: Instant in-app notifications with React Hot Toast integration
-- **Notification History**: Complete audit trail of all notifications sent
+- **In-App Updates**: Toast notifications for application events
+- **Notification History**: History of persisted in-app notifications
 - **Customizable Alerts**: User-configurable notification preferences and thresholds
 
-### 🔒 **Enterprise Security & Compliance**
+### 🔒 **Security & Privacy Controls**
 
-- **GDPR/CCPA Compliance**: Full data privacy compliance with automatic data retention policies
-- **Shopify Protected Data**: Compliant with Shopify's Protected Customer Data requirements
-- **Comprehensive Audit Logging**: Complete audit trail with 365-day retention for compliance monitoring
-- **Multi-Layer Encryption**: AES-256 encryption at rest, TLS 1.3 in transit
+- **Privacy Requests**: Export, deletion, anonymization, retention, and Shopify compliance-webhook workflows
+- **Shopify Data Handling**: Data minimization and signed mandatory compliance webhooks
+- **Audit Logging**: Security- and privacy-relevant application events
+- **Transport & Secrets**: HTTPS production configuration and encrypted secret storage where configured
 - **Data Minimization**: Only essential data processed for analytics
 - **Session Security**: Advanced session management with automatic cleanup and expiration
 
@@ -105,7 +107,7 @@ Shopify merchants. It provides AI-powered revenue forecasting, professional shar
 - **Smart 404 Handling**: Engaging 404 page with analytics animations and intelligent redirects
 - **Debounced Controls**: Smart refresh controls that prevent API abuse and improve performance
 - **Progressive Web App**: Optimized for mobile devices with offline support capabilities
-- **Accessibility Compliance**: WCAG-compliant design with screen reader support
+- **Accessibility Work**: Keyboard, screen-reader, and responsive behaviors covered by focused tests; no certification is claimed
 
 ### 🔧 **Developer Experience**
 
@@ -137,7 +139,7 @@ graph TB
         Gateway[Spring Boot Application<br/>Port 8080]
         Controllers[REST Controllers<br/>Analytics, Auth, Competitors, Insights, Admin, Sessions]
         Services[Business Services<br/>Shop, Insights, Notifications, Alerts]
-        Discovery[AI Competitor Discovery<br/>SerpAPI + Keyword Analysis]
+        Discovery[Assisted Competitor Discovery<br/>Search Providers + Keywords]
         Security[Security Layer<br/>CORS + OAuth + Audit]
         Workers[Scheduled Workers<br/>Discovery, Scraping, Cleanup]
         Sessions[Session Management<br/>Multi-Session Support]
@@ -160,7 +162,7 @@ graph TB
     end
     
     subgraph "External Services"
-        SerpAPI[SerpAPI<br/>AI Competitor Discovery]
+        SerpAPI[SerpAPI<br/>Search Candidates]
         SendGrid[SendGrid<br/>Email Notifications]
         Twilio[Twilio<br/>SMS Alerts]
         WebScraping[Selenium + JSoup<br/>Price Monitoring]
@@ -341,8 +343,12 @@ sequenceDiagram
 | `/api/analytics/permissions/check` | GET             | Check API permissions               | Cookie         |
 | `/api/analytics/audit-logs`        | GET             | View audit logs for compliance      | Cookie         |
 | `/api/competitors`                 | GET/POST/DELETE | Competitor management               | Cookie         |
-| `/api/competitors/suggestions`     | GET/POST/DELETE | AI competitor discovery suggestions | Cookie         |
-| `/api/insights`                    | GET             | AI-powered dashboard insights       | Cookie         |
+| `/api/competitors/suggestions`     | GET/POST/DELETE | Competitor candidates for review    | Cookie         |
+| `/api/insights`                    | GET             | Rule-based dashboard insights       | Cookie         |
+| `/api/product-validation/interest` | POST            | Record anonymous plan interest      | Public         |
+| `/api/webhooks/shopify/customers/data-request` | POST | Shopify customer data request | Shopify HMAC |
+| `/api/webhooks/shopify/customers/redact` | POST      | Shopify customer redaction          | Shopify HMAC   |
+| `/api/webhooks/shopify/shop/redact` | POST           | Shopify shop redaction              | Shopify HMAC   |
 | `/api/admin/debug`                 | GET             | Debug API access issues             | Cookie         |
 | `/api/admin/secrets`               | GET/POST/DELETE | Manage encrypted secrets            | Cookie         |
 | `/api/admin/integrations/status`   | GET             | Check integration status            | Cookie         |
@@ -368,11 +374,14 @@ sequenceDiagram
 
 ### Advanced Features
 
+Shopify product, order, shop, customer-permission, and abandoned-checkout reads use the versioned
+Admin GraphQL API configured by `SHOPIFY_API_VERSION` (currently `2026-07`).
+
 - 🔍 **Comprehensive Error Codes** - Detailed error responses with resolution guidance
-- 📊 **Permission Validation** - Real-time API access validation and scope checking
+- 📊 **Permission Validation** - API access and scope checks
 - 🔄 **Automatic Retry Logic** - Intelligent retry with exponential backoff
-- 📝 **Audit Trail** - Complete PostgreSQL-based audit logging with 365-day retention
-- 🛡️ **Privacy Compliance** - GDPR/CCPA compliant data processing and retention
+- 📝 **Audit Events** - PostgreSQL-backed security and privacy events with configurable retention
+- 🛡️ **Privacy Controls** - Export, deletion, anonymization, retention, and audit workflows
 - 🔧 **Debug Endpoints** - Built-in troubleshooting tools for API access issues
 
 ## 🗄️ Database Schema
@@ -420,7 +429,7 @@ CREATE TABLE notifications (
     deleted_at TIMESTAMP WITH TIME ZONE
 );
 
--- Competitor suggestions with AI discovery
+-- Competitor suggestions from assisted discovery
 CREATE TABLE competitor_suggestions (
     id BIGSERIAL PRIMARY KEY,
     shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
@@ -436,7 +445,7 @@ CREATE TABLE competitor_suggestions (
     UNIQUE(shop_id, product_id, suggested_url)
 );
 
--- Comprehensive audit logs for compliance
+-- Security- and privacy-relevant audit events
 CREATE TABLE audit_logs (
     id BIGSERIAL PRIMARY KEY,
     shop_id BIGINT REFERENCES shops(id),
@@ -548,8 +557,8 @@ SHOPIFY_API_KEY=your_shopify_api_key
 SHOPIFY_API_SECRET=your_shopify_api_secret
 SHOPIFY_REDIRECT_URI=http://localhost:8080/api/auth/shopify/callback
 
-# AI & External Services
-SERPAPI_KEY=your_serpapi_key          # For AI competitor discovery
+# Search & Notification Services
+SERPAPI_KEY=your_serpapi_key          # For competitor search candidates
 SENDGRID_API_KEY=your_sendgrid_key    # For email notifications
 TWILIO_ACCOUNT_SID=your_twilio_sid    # For SMS alerts
 TWILIO_AUTH_TOKEN=your_twilio_token   # For SMS alerts
@@ -593,33 +602,38 @@ npm run test
 
 ### Cloud Deployment
 
-The application is production-ready with comprehensive cloud deployment support:
+The backend ships as one tested image with separate API, scheduler, and scraper-worker process
+roles. See [deployment/RUNTIME_ROLES.md](deployment/RUNTIME_ROLES.md) and
+[deployment/docker-compose.roles.yml](deployment/docker-compose.roles.yml) for the supported
+topology and profile configuration.
+
+Deployment components include:
 
 - **Database**: PostgreSQL 15+ with automated migrations
 - **Cache**: Redis 7+ for session management and caching
 - **Secrets**: Environment variable based secret management
-- **Monitoring**: Built-in health checks and debug endpoints
+- **Monitoring**: Built-in health checks, application metrics, and protected diagnostics
 - **Scaling**: Reactive architecture supports horizontal scaling
-- **Security**: Production-grade security with comprehensive audit logging
+- **Security**: CSRF protection, tenant authorization, signed webhooks, and security event logging
 
 ## 🔒 Security Features
 
-### Enterprise-Grade Security
+### Security controls
 
 - **Multi-Session Management** - Secure concurrent access from multiple devices
 - **Token Isolation** - Independent access tokens per session
-- **Comprehensive Audit Logging** - Complete activity tracking with 365-day retention
-- **Data Encryption** - AES-256 at rest, TLS 1.3 in transit
-- **GDPR/CCPA Compliance** - Built-in data protection and privacy controls
+- **Security Event Logging** - Security- and privacy-relevant events with configurable retention
+- **Data Protection** - Encrypted application secrets and HTTPS production deployment configuration
+- **Privacy Requests** - Built-in export, deletion, anonymization, and retention controls
 - **Session Security** - Automatic cleanup, expiration, and conflict resolution
 - **IP Tracking** - Comprehensive session monitoring and device tracking
 
-### Compliance Features
+### Privacy and Shopify Compliance Controls
 
 - **Data Minimization** - Only essential data processed for analytics
 - **Privacy Controls** - User-controlled data export and deletion
-- **Audit Trail** - Complete compliance monitoring with detailed logs
-- **Protected Data Handling** - Shopify Protected Customer Data compliant
+- **Audit Events** - Security- and privacy-relevant application events
+- **Protected Data Handling** - Data-minimization and mandatory Shopify compliance-webhook handling
 - **Retention Policies** - Automated data retention with configurable policies
 
 ## 📊 Analytics & Insights
@@ -627,17 +641,17 @@ The application is production-ready with comprehensive cloud deployment support:
 ### Advanced Analytics Capabilities
 
 - **7 Chart Types** - Area, Bar, Candlestick, Waterfall, Stacked, Composed, Line charts
-- **Real-time Data Processing** - Live analytics with intelligent caching (120-minute duration)
-- **AI-Powered Insights** - Context-aware recommendations with machine learning
-- **Predictive Analytics** - Revenue forecasting and trend analysis
+- **Cached Data Processing** - Analytics cached for up to the configured duration
+- **Operational Insights** - Rule-based context for merchant follow-up
+- **Experimental Projections** - Planning-oriented revenue and trend views without accuracy guarantees
 - **Performance Metrics** - Comprehensive dashboard with KPI tracking
 - **Conversion Optimization** - Detailed funnel analysis with industry benchmarks
 
 ### Intelligent Features
 
 - **Smart Caching** - 120-minute cache with debounced refresh controls
-- **Automated Competitor Discovery** - AI-powered suggestions using SerpAPI
-- **Predictive Insights** - Machine learning-based trend analysis
+- **Assisted Competitor Discovery** - Search candidates that require merchant approval
+- **Trend Views** - Historical and experimental projected series
 - **Anomaly Detection** - Automatic detection of unusual patterns
 - **Performance Optimization** - Intelligent query optimization and data processing
 
@@ -691,7 +705,7 @@ Issue resolution and debugging guides
 
 ### Upcoming Features
 
-- **Advanced AI Analytics** - Machine learning-based predictive insights
+- **Validated Decision Support** - Projection calibration and merchant outcome measurement before any AI claim
 - **Team Management** - Multi-user access with role-based permissions
 - **Advanced Integrations** - More third-party service integrations
 - **Mobile App** - Native mobile application for iOS and Android

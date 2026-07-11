@@ -1,7 +1,7 @@
 {
-  "name": "ShopGauge - Enterprise Shopify Analytics",
+  "name": "ShopGauge - Competitor Price Monitoring",
   "short_name": "ShopGauge",
-  "description": "Enterprise-grade analytics and insights for your Shopify store. Monitor performance, track competitors, and grow your business with confidence.",
+  "description": "Review competitor prices, stock changes, price history, and Shopify product context from one workspace.",
   "version": "1.0.0",
   "start_url": "/",
   "scope": "/",
@@ -127,4 +127,4 @@
   ],
   "prefer_related_applications": false,
   "display_override": ["standalone", "minimal-ui"]
-} 
+}

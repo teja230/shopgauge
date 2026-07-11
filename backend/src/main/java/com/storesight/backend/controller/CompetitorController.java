@@ -17,6 +17,7 @@ import com.storesight.backend.service.PriceScrapingService;
 import com.storesight.backend.service.RedisPriceRefreshQueueService;
 import com.storesight.backend.service.SessionSynchronizationService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.ShopifyGraphqlClient;
 import com.storesight.backend.service.SmartSnapshotService;
 import com.storesight.backend.service.discovery.CompetitorDiscoveryService;
 import com.storesight.backend.service.discovery.MultiSourceSearchClient;
@@ -47,7 +48,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.reactive.function.client.WebClient;
 
 @RestController
 @RequestMapping("/api")
@@ -71,6 +71,7 @@ public class CompetitorController {
   @Autowired private DashboardCacheService dashboardCacheService;
 
   @Autowired private ShopService shopService;
+  @Autowired private ShopifyGraphqlClient shopifyGraphqlClient;
 
   @Autowired private DemoModeService demoModeService;
 
@@ -2488,21 +2489,9 @@ public class CompetitorController {
                   Map.of("error", "Shopify authentication required. Please reconnect your store."));
         }
 
-        // Use the same logic as analytics endpoint
-        String url =
-            String.format(
-                "https://%s.myshopify.com/admin/api/2023-10/products.json?limit=50", shopDomain);
-
         try {
-          WebClient webClient = WebClient.builder().build();
           Map<String, Object> shopifyResponse =
-              webClient
-                  .get()
-                  .uri(url)
-                  .header("X-Shopify-Access-Token", token)
-                  .retrieve()
-                  .bodyToMono(Map.class)
-                  .block();
+              shopifyGraphqlClient.fetchProducts(shopDomain, token, 50, null).block();
 
           if (shopifyResponse != null && shopifyResponse.containsKey("products")) {
             @SuppressWarnings("unchecked")
@@ -3105,12 +3094,13 @@ public class CompetitorController {
   /** Extract product title from HTML page */
   private String extractTitleFromHtml(String url) {
     try {
+      inputValidationService.requireSafeOutboundUrl(url);
       // Use Jsoup to fetch and parse the page
       org.jsoup.nodes.Document doc =
           org.jsoup.Jsoup.connect(url)
               .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
               .timeout(5000)
-              .followRedirects(true)
+              .followRedirects(false)
               .get();
 
       // Try multiple selectors for product titles

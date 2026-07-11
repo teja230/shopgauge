@@ -5,6 +5,9 @@ import com.storesight.backend.service.discovery.MultiSourceSearchClient;
 import com.storesight.backend.service.discovery.ScrapingdogSearchClient;
 import com.storesight.backend.service.discovery.SerpApiSearchClient;
 import com.storesight.backend.service.discovery.SerperSearchClient;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.*;
@@ -16,7 +19,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -31,12 +33,14 @@ public class PriceScrapingService {
   private static final Logger log = LoggerFactory.getLogger(PriceScrapingService.class);
   private static final String SHARED_PRICE_CACHE_PREFIX = "mi:price_refresh:cache:";
 
-  @Autowired private MultiSourceSearchClient multiSourceSearchClient;
-  @Autowired private ScrapingdogSearchClient scrapingdogSearchClient;
-  @Autowired private SerperSearchClient serperSearchClient;
-  @Autowired private SerpApiSearchClient serpApiSearchClient;
-  @Autowired private WebClient webClient;
-  @Autowired private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+  private final MultiSourceSearchClient multiSourceSearchClient;
+  private final ScrapingdogSearchClient scrapingdogSearchClient;
+  private final SerperSearchClient serperSearchClient;
+  private final SerpApiSearchClient serpApiSearchClient;
+  private final WebClient webClient;
+  private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+  private final InputValidationService inputValidationService;
+  private final MeterRegistry meterRegistry;
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
   @Value("${discovery.scrapingdog.key:${SCRAPINGDOG_KEY:dummy_scrapingdog_key}}")
@@ -119,6 +123,25 @@ public class PriceScrapingService {
         new String[] {".price", ".product-price", ".money", "[data-price]", ".cost", ".amount"});
   }
 
+  public PriceScrapingService(
+      MultiSourceSearchClient multiSourceSearchClient,
+      ScrapingdogSearchClient scrapingdogSearchClient,
+      SerperSearchClient serperSearchClient,
+      SerpApiSearchClient serpApiSearchClient,
+      WebClient webClient,
+      org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate,
+      InputValidationService inputValidationService,
+      MeterRegistry meterRegistry) {
+    this.multiSourceSearchClient = multiSourceSearchClient;
+    this.scrapingdogSearchClient = scrapingdogSearchClient;
+    this.serperSearchClient = serperSearchClient;
+    this.serpApiSearchClient = serpApiSearchClient;
+    this.webClient = webClient;
+    this.stringRedisTemplate = stringRedisTemplate;
+    this.inputValidationService = inputValidationService;
+    this.meterRegistry = meterRegistry;
+  }
+
   @PostConstruct
   public void init() {
     log.info("Initialized PriceScrapingService with API configurations");
@@ -132,6 +155,34 @@ public class PriceScrapingService {
    * with proper error handling and cost tracking
    */
   public PriceScrapingResult scrapePriceWithMultiTier(String url) {
+    Timer.Sample sample = Timer.start(meterRegistry);
+    PriceScrapingResult result;
+    try {
+      inputValidationService.requireSafeOutboundUrl(url);
+      result = doScrapePriceWithMultiTier(url);
+    } catch (IllegalArgumentException unsafeUrl) {
+      log.warn("Rejected unsafe competitor URL: {}", unsafeUrl.getMessage());
+      result =
+          PriceScrapingResult.failure(
+              "Competitor URL failed outbound security validation", "unsafe-url", 0);
+    } catch (RuntimeException unexpected) {
+      log.error("Unexpected scraping failure: {}", unexpected.getMessage());
+      result = PriceScrapingResult.failure("Unexpected scraping failure", "internal-error", 0);
+    }
+    Counter.builder("storesight.scraper.requests")
+        .tag("outcome", result.isSuccess() ? "success" : "failure")
+        .tag("source", result.getScraperSource())
+        .tag("platform", result.getPlatform())
+        .register(meterRegistry)
+        .increment();
+    sample.stop(
+        Timer.builder("storesight.scraper.duration")
+            .tag("outcome", result.isSuccess() ? "success" : "failure")
+            .register(meterRegistry));
+    return result;
+  }
+
+  private PriceScrapingResult doScrapePriceWithMultiTier(String url) {
     long startTime = System.currentTimeMillis();
     String platform = identifyPlatform(url);
 
@@ -269,7 +320,7 @@ public class PriceScrapingService {
               .userAgent(
                   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
               .timeout(10000)
-              .followRedirects(true)
+              .followRedirects(false)
               .header(
                   "Accept",
                   "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")

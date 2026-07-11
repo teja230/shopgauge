@@ -48,6 +48,7 @@ public class CompetitorScraperWorker {
   @Autowired private AsyncProcessingService asyncProcessingService;
   @Autowired private PriceScrapingService priceScrapingService;
   @Autowired private PriceChangeCalculationService priceChangeCalculationService;
+  @Autowired private InputValidationService inputValidationService;
 
   @Value("${selenium.enabled:true}")
   private boolean seleniumEnabled;
@@ -389,6 +390,7 @@ public class CompetitorScraperWorker {
 
   /** Scrape using Selenium (for JavaScript-heavy sites) */
   private CompetitorData scrapeWithSelenium(String url) {
+    inputValidationService.requireSafeOutboundUrl(url);
     if (driver == null) {
       initializeWebDriver();
     }
@@ -452,11 +454,12 @@ public class CompetitorScraperWorker {
   private CompetitorData scrapeWithJsoup(String url) {
     long startTime = System.currentTimeMillis();
     try {
+      inputValidationService.requireSafeOutboundUrl(url);
       Document doc =
           Jsoup.connect(url)
               .userAgent(userAgent)
               .timeout(timeoutSeconds * 1000)
-              .followRedirects(true)
+              .followRedirects(false)
               .get();
 
       long responseTime = System.currentTimeMillis() - startTime;

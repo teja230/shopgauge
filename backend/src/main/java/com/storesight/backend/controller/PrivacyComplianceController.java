@@ -4,6 +4,7 @@ import com.storesight.backend.model.PrivacyRequest;
 import com.storesight.backend.repository.PrivacyRequestRepository;
 import com.storesight.backend.service.CompetitorAuditService;
 import com.storesight.backend.service.DataPrivacyService;
+import com.storesight.backend.service.TenantAuthorizationService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -11,8 +12,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -25,20 +27,31 @@ public class PrivacyComplianceController {
 
   private static final Logger logger = LoggerFactory.getLogger(PrivacyComplianceController.class);
 
-  @Autowired private DataPrivacyService dataPrivacyService;
+  private final DataPrivacyService dataPrivacyService;
+  private final CompetitorAuditService competitorAuditService;
+  private final PrivacyRequestRepository privacyRequestRepository;
+  private final TenantAuthorizationService tenantAuthorizationService;
 
-  @Autowired private CompetitorAuditService competitorAuditService;
-
-  @Autowired private PrivacyRequestRepository privacyRequestRepository;
+  public PrivacyComplianceController(
+      DataPrivacyService dataPrivacyService,
+      CompetitorAuditService competitorAuditService,
+      PrivacyRequestRepository privacyRequestRepository,
+      TenantAuthorizationService tenantAuthorizationService) {
+    this.dataPrivacyService = dataPrivacyService;
+    this.competitorAuditService = competitorAuditService;
+    this.privacyRequestRepository = privacyRequestRepository;
+    this.tenantAuthorizationService = tenantAuthorizationService;
+  }
 
   /** Request data export (GDPR Article 20 - Right to data portability) */
   @PostMapping("/export")
   public ResponseEntity<Map<String, Object>> requestDataExport(
-      @RequestParam Long shopId, HttpServletRequest request) {
+      @RequestParam Long shopId, HttpServletRequest request, Authentication authentication) {
 
     logger.info("Data export requested for shop: {}", shopId);
 
     try {
+      tenantAuthorizationService.requireShop(shopId, authentication);
       // Check for existing pending export requests
       boolean hasPendingRequest =
           privacyRequestRepository.existsByShopIdAndStatus(shopId, PrivacyRequest.Status.PENDING);
@@ -85,6 +98,8 @@ public class PrivacyComplianceController {
 
       return ResponseEntity.ok(response);
 
+    } catch (AccessDeniedException denied) {
+      throw denied;
     } catch (Exception e) {
       logger.error("Failed to export data for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.internalServerError()
@@ -97,11 +112,13 @@ public class PrivacyComplianceController {
   public ResponseEntity<Map<String, Object>> requestDataDeletion(
       @RequestParam Long shopId,
       @RequestParam(required = false, defaultValue = "User request") String reason,
-      HttpServletRequest request) {
+      HttpServletRequest request,
+      Authentication authentication) {
 
     logger.info("Data deletion requested for shop: {} - Reason: {}", shopId, reason);
 
     try {
+      tenantAuthorizationService.requireShop(shopId, authentication);
       // Check for existing pending deletion requests
       boolean hasPendingRequest =
           privacyRequestRepository.existsByShopIdAndStatus(shopId, PrivacyRequest.Status.PENDING);
@@ -154,6 +171,8 @@ public class PrivacyComplianceController {
 
       return ResponseEntity.ok(response);
 
+    } catch (AccessDeniedException denied) {
+      throw denied;
     } catch (Exception e) {
       logger.error("Failed to process deletion request for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.internalServerError()
@@ -171,11 +190,13 @@ public class PrivacyComplianceController {
   public ResponseEntity<Map<String, Object>> requestDataAnonymization(
       @RequestParam Long shopId,
       @RequestParam(required = false, defaultValue = "User request") String reason,
-      HttpServletRequest request) {
+      HttpServletRequest request,
+      Authentication authentication) {
 
     logger.info("Data anonymization requested for shop: {} - Reason: {}", shopId, reason);
 
     try {
+      tenantAuthorizationService.requireShop(shopId, authentication);
       // Create privacy request record
       PrivacyRequest privacyRequest =
           new PrivacyRequest(
@@ -204,6 +225,8 @@ public class PrivacyComplianceController {
 
       return ResponseEntity.ok(response);
 
+    } catch (AccessDeniedException denied) {
+      throw denied;
     } catch (Exception e) {
       logger.error("Failed to anonymize data for shop {}: {}", shopId, e.getMessage(), e);
       return ResponseEntity.internalServerError()
@@ -213,12 +236,14 @@ public class PrivacyComplianceController {
 
   /** Get privacy request status */
   @GetMapping("/requests/{requestId}")
-  public ResponseEntity<Map<String, Object>> getRequestStatus(@PathVariable Long requestId) {
+  public ResponseEntity<Map<String, Object>> getRequestStatus(
+      @PathVariable Long requestId, Authentication authentication) {
     try {
       PrivacyRequest request =
           privacyRequestRepository
               .findById(requestId)
               .orElseThrow(() -> new RuntimeException("Request not found"));
+      tenantAuthorizationService.requireShop(request.getShopId(), authentication);
 
       Map<String, Object> response = new HashMap<>();
       response.put("id", request.getId());
@@ -232,6 +257,8 @@ public class PrivacyComplianceController {
 
       return ResponseEntity.ok(response);
 
+    } catch (AccessDeniedException denied) {
+      throw denied;
     } catch (Exception e) {
       logger.error("Failed to get request status for ID {}: {}", requestId, e.getMessage());
       return ResponseEntity.internalServerError()
@@ -243,11 +270,15 @@ public class PrivacyComplianceController {
 
   /** Get data retention status for a shop */
   @GetMapping("/retention-status")
-  public ResponseEntity<Map<String, Object>> getRetentionStatus(@RequestParam Long shopId) {
+  public ResponseEntity<Map<String, Object>> getRetentionStatus(
+      @RequestParam Long shopId, Authentication authentication) {
     try {
+      tenantAuthorizationService.requireShop(shopId, authentication);
       Map<String, Object> status = dataPrivacyService.getDataRetentionStatus(shopId);
       return ResponseEntity.ok(status);
 
+    } catch (AccessDeniedException denied) {
+      throw denied;
     } catch (Exception e) {
       logger.error("Failed to get retention status for shop {}: {}", shopId, e.getMessage());
       return ResponseEntity.internalServerError()
@@ -262,8 +293,10 @@ public class PrivacyComplianceController {
 
   /** Get privacy requests for a shop */
   @GetMapping("/requests")
-  public ResponseEntity<Map<String, Object>> getShopRequests(@RequestParam Long shopId) {
+  public ResponseEntity<Map<String, Object>> getShopRequests(
+      @RequestParam Long shopId, Authentication authentication) {
     try {
+      tenantAuthorizationService.requireShop(shopId, authentication);
       var requests = privacyRequestRepository.findByShopIdOrderByRequestedAtDesc(shopId);
 
       Map<String, Object> response = new HashMap<>();
@@ -272,6 +305,8 @@ public class PrivacyComplianceController {
 
       return ResponseEntity.ok(response);
 
+    } catch (AccessDeniedException denied) {
+      throw denied;
     } catch (Exception e) {
       logger.error("Failed to get requests for shop {}: {}", shopId, e.getMessage());
       return ResponseEntity.internalServerError()
@@ -281,16 +316,6 @@ public class PrivacyComplianceController {
 
   /** Extract client IP address from request */
   private String getClientIpAddress(HttpServletRequest request) {
-    String xForwardedFor = request.getHeader("X-Forwarded-For");
-    if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-      return xForwardedFor.split(",")[0].trim();
-    }
-
-    String xRealIp = request.getHeader("X-Real-IP");
-    if (xRealIp != null && !xRealIp.isEmpty()) {
-      return xRealIp;
-    }
-
     return request.getRemoteAddr();
   }
 }

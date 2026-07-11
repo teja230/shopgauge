@@ -605,7 +605,7 @@ const NavBar: React.FC = () => {
           <BrandMark />
           <Box sx={{ flexGrow: 1 }} />
           <Chip
-            label="3-day trial"
+            label="Early access"
             size="small"
             sx={{ bgcolor: '#e8edff', color: '#1d3db8', border: '1px solid #b3c4f5' }}
           />

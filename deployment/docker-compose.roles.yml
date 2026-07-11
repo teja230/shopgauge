@@ -1,0 +1,40 @@
+name: storesight-runtime
+
+x-backend: &backend
+  image: ${STORESIGHT_IMAGE:-storesight-backend:latest}
+  restart: unless-stopped
+  environment: &backend-environment
+    DB_URL: ${DB_URL}
+    DB_USER: ${DB_USER}
+    DB_PASS: ${DB_PASS}
+    REDIS_HOST: ${REDIS_HOST}
+    REDIS_PORT: ${REDIS_PORT:-6379}
+    SHOPIFY_API_KEY: ${SHOPIFY_API_KEY}
+    SHOPIFY_API_SECRET: ${SHOPIFY_API_SECRET}
+    JWT_SECRET: ${JWT_SECRET}
+    ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+    SESSION_SECURITY_ENCRYPTION_KEY: ${SESSION_SECURITY_ENCRYPTION_KEY}
+
+services:
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+
+  scheduler:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      SPRING_PROFILES_ACTIVE: prod,scheduler
+      SERVER_PORT: 8081
+
+  scraper-worker:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      SPRING_PROFILES_ACTIVE: prod,worker
+      SERVER_PORT: 8082

@@ -4,16 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.service.DashboardCacheService;
 import com.storesight.backend.service.ShopService;
+import com.storesight.backend.service.ShopifyGraphqlClient;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * Product-aware keyword builder that generates intelligent search keywords based on actual store
@@ -26,10 +25,21 @@ public class ProductAwareKeywordBuilder extends KeywordBuilder {
 
   private static final Logger log = LoggerFactory.getLogger(ProductAwareKeywordBuilder.class);
 
-  @Autowired private DashboardCacheService dashboardCacheService;
-  @Autowired private ShopService shopService;
-  @Autowired private WebClient.Builder webClientBuilder;
-  @Autowired private ObjectMapper objectMapper;
+  private final DashboardCacheService dashboardCacheService;
+  private final ShopService shopService;
+  private final ShopifyGraphqlClient shopifyGraphqlClient;
+  private final ObjectMapper objectMapper;
+
+  public ProductAwareKeywordBuilder(
+      DashboardCacheService dashboardCacheService,
+      ShopService shopService,
+      ShopifyGraphqlClient shopifyGraphqlClient,
+      ObjectMapper objectMapper) {
+    this.dashboardCacheService = dashboardCacheService;
+    this.shopService = shopService;
+    this.shopifyGraphqlClient = shopifyGraphqlClient;
+    this.objectMapper = objectMapper;
+  }
 
   @Value("${keyword.generation.max-products:20}")
   private int maxProductsToAnalyze;
@@ -153,20 +163,11 @@ public class ProductAwareKeywordBuilder extends KeywordBuilder {
         return List.of();
       }
 
-      String url =
-          String.format(
-              "https://%s.myshopify.com/admin/api/2023-10/products.json?limit=%d",
-              shopDomain.replace(".myshopify.com", ""), maxProductsToAnalyze);
-
-      WebClient webClient = webClientBuilder.build();
-      JsonNode response =
-          webClient
-              .get()
-              .uri(url)
-              .header("X-Shopify-Access-Token", accessToken)
-              .retrieve()
-              .bodyToMono(JsonNode.class)
+      Map<String, Object> graphqlResponse =
+          shopifyGraphqlClient
+              .fetchProducts(shopDomain, accessToken, maxProductsToAnalyze, null)
               .block();
+      JsonNode response = objectMapper.valueToTree(graphqlResponse);
 
       if (response != null && response.has("products")) {
         List<ProductInfo> products = new ArrayList<>();

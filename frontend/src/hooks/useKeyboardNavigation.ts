@@ -50,13 +50,14 @@ export const useKeyboardNavigation = (options: UseKeyboardNavigationOptions = {}
     ) as HTMLElement[];
 
     return elements.filter(element => {
-      // Check if element is visible and not hidden
+      // Geometry checks report every element as hidden in non-layout environments and can also
+      // exclude valid controls during CSS transitions. Explicit hidden state is deterministic.
       const style = window.getComputedStyle(element);
       return (
+        !element.hidden &&
+        element.getAttribute('aria-hidden') !== 'true' &&
         style.display !== 'none' &&
-        style.visibility !== 'hidden' &&
-        element.offsetWidth > 0 &&
-        element.offsetHeight > 0
+        style.visibility !== 'hidden'
       );
     });
   }, []);
@@ -188,12 +189,13 @@ export const useKeyboardNavigation = (options: UseKeyboardNavigationOptions = {}
       attributeFilter: ['disabled', 'tabindex', 'aria-disabled'],
     });
 
-    // Add keyboard event listener
-    container.addEventListener('keydown', handleKeyDown);
+    // Shortcuts must still work when the container itself is not focusable. Arrow and tab
+    // navigation remain scoped because their handlers require an active element in this container.
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       observer.disconnect();
-      container.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleKeyDown, updateFocusableElements]);
 

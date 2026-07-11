@@ -12,10 +12,6 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -56,24 +52,27 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     String path = request.getRequestURI();
 
     // Skip auth for public endpoints - comprehensive list
-    if (path.startsWith("/api/auth/shopify/")
-        || path.startsWith("/actuator/")
-        || path.startsWith("/health/")
-        || path.startsWith("/api/health/")
+    if (path.equals("/api/auth/shopify/login")
+        || path.equals("/api/auth/shopify/install")
+        || path.equals("/api/auth/shopify/callback")
+        || path.startsWith("/api/webhooks/shopify/")
+        || path.equals("/actuator/health")
+        || path.startsWith("/actuator/health/")
+        || path.equals("/actuator/prometheus")
+        || path.startsWith("/actuator/metrics")
+        || path.equals("/health")
+        || path.equals("/api/health/live")
+        || path.equals("/api/health/ready")
         || path.startsWith(
             "/api/admin/") // Skip admin endpoints - handled by AdminAuthenticationFilter
         || path.startsWith("/api/sessions/admin/") // Skip admin session endpoints - handled by
         // AdminAuthenticationFilter
+        || path.startsWith("/api/sse/") // Diagnostic SSE tools are admin-only
         || path.startsWith("/api/demo/") // Skip demo endpoints - handled by demo controller
+        || path.equals("/api/product-validation/interest")
         || path.equals("/")
         || path.equals("/health")
-        || path.equals("/api/health")
-        || path.startsWith("/error")
-        || path.contains("/auth/shopify/me") // Explicitly allow /me endpoint
-        || path.contains("/auth/shopify/login")
-        || path.contains("/auth/shopify/install")
-        || path.contains("/auth/shopify/callback")
-        || path.contains("/auth/shopify/refresh")) {
+        || path.startsWith("/error")) {
       logger.debug("Skipping authentication for public endpoint: {}", path);
       filterChain.doFilter(request, response);
       return;
@@ -116,16 +115,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
       // Extract shop from cookie with fallback mechanisms
       String shopDomain = getShopFromCookie(request);
 
-      // Fallback 1: Check query parameter
-      if (shopDomain == null) {
-        shopDomain = request.getParameter("shop");
-        if (shopDomain != null) {
-          logger.info("Found shop in query parameter: {}", shopDomain);
-          setShopCookie(response, shopDomain);
-        }
-      }
-
-      // Fallback 2: Check session
+      // Fall back only to the server-owned session. Query parameters cannot select a tenant.
       if (shopDomain == null) {
         shopDomain = getShopFromSession(request);
         if (shopDomain != null) {
@@ -190,16 +180,8 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
                   sessionId,
                   isOAuthValidation);
 
-              // For OAuth validation endpoints, be more lenient
-              if (isOAuthValidation) {
-                logger.debug(
-                    "Allowing OAuth validation despite session issues for shop: {}", shopDomain);
-                UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                        shopDomain, null, AuthorityUtils.createAuthorityList("ROLE_SHOP"));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-              } else {
-                // For regular API calls, attempt session recovery first
+              {
+                // Attempt session recovery before rejecting the request.
                 logger.debug(
                     "Attempting session recovery for shop: {} and session: {}",
                     shopDomain,
@@ -377,43 +359,11 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
   }
 
   private void logRequestDetails(HttpServletRequest request) {
-    // Log headers
-    Enumeration<String> headerNames = request.getHeaderNames();
-    if (headerNames != null) {
-      logger.debug(
-          "Request headers: {}",
-          Collections.list(headerNames).stream()
-              .map(name -> name + "=" + request.getHeader(name))
-              .collect(Collectors.joining(", ")));
-    }
-
-    // Log cookies
-    Cookie[] cookies = request.getCookies();
-    if (cookies != null) {
-      logger.debug(
-          "Request cookies: {}",
-          Arrays.stream(cookies)
-              .map(
-                  c ->
-                      c.getName()
-                          + "="
-                          + c.getValue()
-                          + " (domain="
-                          + c.getDomain()
-                          + ",path="
-                          + c.getPath()
-                          + ")")
-              .collect(Collectors.joining(", ")));
-    } else {
-      logger.debug("No cookies in request");
-    }
-
-    // Log session info
-    if (request.getSession(false) != null) {
-      logger.debug("Session ID: {}", request.getSession().getId());
-    } else {
-      logger.debug("No active session");
-    }
+    logger.debug(
+        "Authenticating request method={} path={} session_present={}",
+        request.getMethod(),
+        request.getRequestURI(),
+        request.getSession(false) != null);
   }
 
   private String getShopFromCookie(HttpServletRequest request) {
@@ -421,11 +371,7 @@ public class ShopifyAuthenticationFilter extends OncePerRequestFilter {
     if (cookies != null) {
       for (Cookie cookie : cookies) {
         if ("shop".equals(cookie.getName())) {
-          logger.info(
-              "Found shop cookie: {} with domain: {}, path: {}",
-              cookie.getValue(),
-              cookie.getDomain(),
-              cookie.getPath());
+          logger.debug("Found server-managed shop cookie");
           return cookie.getValue();
         }
       }
