@@ -364,6 +364,7 @@ public class RedisSessionService {
     private String accessToken;
     private String ipAddress;
     private String userAgent;
+    private String deviceFingerprint;
     private LocalDateTime createdAt;
     private LocalDateTime lastAccessedAt;
     private LocalDateTime expiresAt;
@@ -426,6 +427,14 @@ public class RedisSessionService {
 
     public void setUserAgent(String userAgent) {
       this.userAgent = userAgent;
+    }
+
+    public String getDeviceFingerprint() {
+      return deviceFingerprint;
+    }
+
+    public void setDeviceFingerprint(String deviceFingerprint) {
+      this.deviceFingerprint = deviceFingerprint;
     }
 
     public LocalDateTime getCreatedAt() {

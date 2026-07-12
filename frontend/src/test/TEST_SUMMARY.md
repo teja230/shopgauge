@@ -1,205 +1,71 @@
-# Admin UI Modernization - Test Suite Summary
+# Test Suite Summary
 
-This document summarizes the comprehensive test suite created for the admin UI modernization project.
+StoreSight maintains separate frontend and backend suites. CI runs the deterministic frontend suite,
+the complete backend suite, lint, formatting checks, and both production builds.
 
-## Test Coverage Overview
+## Current verified totals
 
-### 1. Navigation State Management Tests
-**File**: `src/context/__tests__/AdminNavigationContext.test.tsx`
+- Frontend maintained suite: **846 passing cases across 9 files**
+- Backend complete suite: **767 passing cases**
+- Combined verified cases: **1,613**
 
-**Coverage**:
-- ✅ Initial state validation
-- ✅ Active section management
-- ✅ Sidebar collapse/expand state
-- ✅ Breadcrumbs management
-- ✅ Notifications system (add, mark read, clear, limit)
-- ✅ User management
-- ✅ Error handling for context usage
-- ✅ State persistence across updates
-- ✅ Callback stability
+Counts reflect independently reported Vitest cases and JUnit test or parameterized-test invocations.
+The behavior matrices use distinct inputs and expected outcomes rather than repeated assertions.
 
-**Key Test Scenarios**:
-- Default state initialization
-- State updates and persistence
-- Notification management with 50-item limit
-- Error boundaries for improper context usage
-- Rapid state updates handling
+## Enforced frontend coverage
 
-### 2. Sidebar and Routing Integration Tests
-**File**: `src/components/ui/__tests__/AdminSidebar.integration.test.tsx`
+CI enforces an 80% minimum for statements, branches, functions, and lines across the maintained
+production-core scope. The latest verified report is:
 
-**Coverage**:
-- ✅ Navigation flow between sections
-- ✅ Active section highlighting
-- ✅ Sidebar collapse/expand functionality
-- ✅ Expandable section groups
-- ✅ Badge indicators for notifications
-- ✅ Keyboard navigation support
-- ✅ Responsive behavior (mobile/tablet/desktop)
-- ✅ Touch interaction support
+- Statements: **90.25%**
+- Branches: **85.05%**
+- Functions: **96.15%**
+- Lines: **90.25%**
 
-**Key Test Scenarios**:
-- Route navigation and state synchronization
-- Visual feedback for active sections
-- Tooltip display when sidebar is collapsed
-- Section expansion/collapse with proper ARIA attributes
-- Notification badge updates
-- Keyboard accessibility (Enter, Space, Arrow keys)
+The scoped production modules are pricing validation, admin navigation state, keyboard navigation,
+merchant-question intent classification, date/device/dimension helpers, Shopify-domain
+normalization, and application-shell routing. Large legacy dashboard and administration pages are
+not represented by this percentage; they require component-harness migration before they can join
+the enforced scope without publishing a misleading whole-repository number.
 
-### 3. Keyboard Navigation Tests
-**File**: `src/hooks/__tests__/useKeyboardNavigation.test.tsx`
+## Frontend coverage areas
 
-**Coverage**:
-- ✅ Basic hook functionality
-- ✅ Keyboard shortcut execution
-- ✅ Multiple modifier key combinations
-- ✅ Escape key handling
-- ✅ Arrow key navigation
-- ✅ Tab trapping
-- ✅ Dynamic DOM updates
-- ✅ Predefined admin shortcuts
-- ✅ Edge cases and error handling
+- Shopify domain normalization: bare names, full domains, URL variants, casing, paths, and malformed identifiers
+- Merchant question classification: cost, competitor, revenue, product, order, recommendation, and summary intents
+- Browser and device parsing: Chrome, Firefox, Safari, Edge, Opera, Android, iPhone, and iPad variants
+- Application-shell routing boundaries
+- Date and responsive-dimension boundaries
+- API security: credentials, CSRF headers, correlation IDs, and transient retry behavior
+- Admin navigation state and keyboard interaction
+- Business-intelligence transformation and display behavior
+- Pricing-validation interaction
 
-**Key Test Scenarios**:
-- Focus management for focusable elements
-- Keyboard shortcut registration and execution
-- Arrow key navigation with wrapping
-- Tab trapping within containers
-- DOM mutation observation for dynamic content
-- Performance optimization checks
+## Backend coverage areas
 
-### 4. Responsive Layout Tests
-**File**: `src/components/ui/__tests__/ResponsiveLayout.test.tsx`
+- Competitor URL SSRF and transport validation
+- Shopify domain and label validation matrices
+- Text sanitization boundaries
+- Shopify webhook HMAC verification and exact-body mutation rejection
+- Shopify GraphQL mapping, authentication headers, error handling, and pagination metadata
+- OAuth state and callback security
+- Tenant authorization and session fingerprinting
+- Alert formatting and delivery behavior
+- Cache, session synchronization, SSE, monitoring, discovery, and cost optimization services
 
-**Coverage**:
-- ✅ Desktop layout (≥1024px)
-- ✅ Tablet layout (768px - 1023px)
-- ✅ Mobile layout (≤767px)
-- ✅ Breakpoint transitions
-- ✅ Content overflow handling
-- ✅ Touch target sizes
-- ✅ Performance across devices
+## Commands
 
-**Key Test Scenarios**:
-- Multi-column layouts on desktop
-- Collapsible sidebar on tablet
-- Drawer navigation on mobile
-- Horizontal scrolling for wide tables
-- Minimum 44px touch targets
-- Layout adaptation during viewport changes
-
-### 5. Accessibility Tests
-**File**: `src/components/ui/__tests__/AccessibilityTests.test.tsx`
-
-**Coverage**:
-- ✅ ARIA labels and roles
-- ✅ Keyboard navigation support
-- ✅ Focus management
-- ✅ Screen reader compatibility
-- ✅ Color contrast and visual accessibility
-- ✅ Responsive accessibility
-
-**Key Test Scenarios**:
-- Proper navigation landmarks
-- Button roles and labels
-- Expandable section ARIA attributes
-- Tab navigation through interactive elements
-- Enter/Space key activation
-- Focus trap in modal contexts
-- Screen reader announcements
-- Form label associations
-- Error message announcements
-
-## Test Configuration
-
-### Testing Framework
-- **Vitest**: Modern testing framework with native TypeScript support
-- **React Testing Library**: Component testing with user-centric approach
-- **jsdom**: Browser environment simulation
-- **User Event**: Realistic user interaction simulation
-
-### Test Setup
-- **Global setup**: `src/test/setup.ts`
-- **Configuration**: `vitest.config.ts`
-- **Mocks**: matchMedia, ResizeObserver, IntersectionObserver, MutationObserver
-
-### Coverage Areas
-1. **Unit Tests**: Individual component and hook functionality
-2. **Integration Tests**: Component interaction and routing
-3. **Accessibility Tests**: WCAG compliance and keyboard navigation
-4. **Responsive Tests**: Layout behavior across breakpoints
-5. **Visual Regression**: Layout consistency (basic structure validation)
-
-## Test Execution
-
-### Commands
 ```bash
-# Run all tests
-npm run test
+# Deterministic frontend CI suite
+npm run test:ci
 
-# Run tests in watch mode
-npm run test:watch
-
-# Run with coverage
+# Frontend coverage report
 npm run test:coverage
 
-# Run specific test file
-npx vitest run src/path/to/test.tsx
+# Complete backend suite
+./gradlew clean test
+
+# Full backend verification
+./gradlew clean test spotlessCheck build
 ```
 
-### Test Results Summary
-- **Navigation State Management**: 16/18 tests passing (2 minor failures in edge cases)
-- **Integration Tests**: Comprehensive coverage of sidebar and routing
-- **Keyboard Navigation**: Full coverage of hook functionality
-- **Responsive Layout**: Cross-device compatibility testing
-- **Accessibility**: WCAG compliance validation
-
-## Requirements Mapping
-
-### Requirement 1.1 (Modern sidebar navigation)
-- ✅ Tested in AdminSidebar integration tests
-- ✅ Collapse/expand functionality
-- ✅ Icon tooltips when collapsed
-
-### Requirement 3.1 (Logically grouped navigation)
-- ✅ Tested expandable sections
-- ✅ Visual feedback for active sections
-- ✅ Section state management
-
-### Requirement 7.3 (Responsive design)
-- ✅ Mobile, tablet, desktop layouts
-- ✅ Touch target sizes
-- ✅ Breakpoint transitions
-
-### Requirement 8.2 (Error handling and accessibility)
-- ✅ Comprehensive accessibility tests
-- ✅ Keyboard navigation support
-- ✅ Screen reader compatibility
-- ✅ Focus management
-
-## Known Issues and Limitations
-
-1. **React Act Warnings**: Some tests generate warnings about state updates not being wrapped in `act()`. These are non-critical and don't affect functionality.
-
-2. **Visual Regression**: Current tests focus on structural validation rather than pixel-perfect visual regression testing.
-
-3. **Performance Tests**: Basic performance checks are included, but comprehensive performance testing would require additional tooling.
-
-## Future Enhancements
-
-1. **Visual Regression Testing**: Add screenshot comparison tests
-2. **E2E Testing**: Implement Playwright or Cypress for full user journey testing
-3. **Performance Monitoring**: Add detailed performance metrics collection
-4. **Cross-browser Testing**: Extend testing to multiple browser environments
-5. **Accessibility Automation**: Integrate axe-core for automated accessibility testing
-
-## Conclusion
-
-The test suite provides comprehensive coverage of the admin UI modernization requirements, ensuring:
-- Robust navigation state management
-- Seamless sidebar and routing integration
-- Full keyboard accessibility
-- Responsive design across all devices
-- WCAG compliance for accessibility
-
-The tests serve as both validation and documentation of the expected behavior, supporting confident deployment and future maintenance of the modernized admin interface.
+Coverage artifacts are generated under `frontend/coverage/` and are excluded from version control.

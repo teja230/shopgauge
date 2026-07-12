@@ -107,8 +107,8 @@ jobs:
       - name: Lint frontend
         run: npm run lint
         working-directory: frontend
-      - name: Test frontend
-        run: npm run test:ci
+      - name: Test frontend and enforce coverage thresholds
+        run: npm run test:coverage
         working-directory: frontend
       - name: Build production frontend
         run: npm run build

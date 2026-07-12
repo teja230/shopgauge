@@ -66,16 +66,16 @@ export const parseUserAgent = (userAgent: string): DeviceInfo => {
 
   // OS detection
   let os = 'Unknown';
-  if (userAgent.includes('Windows')) {
+  if (userAgent.includes('Android')) {
+    os = 'Android';
+  } else if (userAgent.includes('iOS') || userAgent.includes('iPhone') || userAgent.includes('iPad')) {
+    os = 'iOS';
+  } else if (userAgent.includes('Windows')) {
     os = 'Windows';
   } else if (userAgent.includes('Mac OS X')) {
     os = 'macOS';
   } else if (userAgent.includes('Linux')) {
     os = 'Linux';
-  } else if (userAgent.includes('Android')) {
-    os = 'Android';
-  } else if (userAgent.includes('iOS') || userAgent.includes('iPhone') || userAgent.includes('iPad')) {
-    os = 'iOS';
   }
 
   // Device type detection
@@ -226,4 +226,4 @@ export const getLocationFromIP = (ipAddress: string): string => {
   
   // You could integrate with a service like ipapi.co or similar
   return 'Unknown Location';
-}; 
+};

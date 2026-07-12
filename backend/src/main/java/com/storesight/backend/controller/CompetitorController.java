@@ -802,23 +802,50 @@ public class CompetitorController {
 
           // Try to fetch products from Shopify API as fallback
           try {
-            // This would be a call to Shopify API to get products
-            // For now, we'll allow addition without product association
-            // TODO: Implement Shopify API call to fetch products
+            String sessionId = httpRequest.getSession().getId();
+            String token = shopService.getTokenForShop(shopDomain, sessionId);
+            if (token == null || token.isBlank()) {
+              return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                  .body(
+                      Map.of(
+                          "error",
+                          "Shopify authentication required. Please reconnect your store."));
+            }
+
+            Map<String, Object> productsData =
+                shopifyGraphqlClient.fetchProducts(shopDomain, token, 50, null).block();
+            if (productsData == null) {
+              throw new IllegalStateException("Shopify returned no product response");
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> products =
+                (List<Map<String, Object>>) productsData.get("products");
+            if (products == null || products.isEmpty() || products.get(0).get("id") == null) {
+              return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                  .body(
+                      Map.of(
+                          "error", "PRODUCTS_SYNC_NEEDED",
+                          "message", "No Shopify products are available to associate.",
+                          "action", "SYNC_PRODUCTS",
+                          "redirect_url", "/dashboard"));
+            }
+
+            dashboardCacheService.cacheProductsData(shopDomain, productsData);
+            productId = products.get(0).get("id").toString();
             logger.info(
-                "addCompetitor: Shopify API fallback not implemented yet, allowing competitor addition without product association");
-            productId = null; // No product association for now
-
-            // TODO: When Shopify API integration is ready, we can:
-            // 1. Call Shopify API to get products
-            // 2. Use first product or best match
-            // 3. Cache the products for future use
-            // 4. Associate competitor with selected product
-
+                "addCompetitor: Associated Shopify product {} after GraphQL cache miss", productId);
           } catch (Exception e) {
             logger.warn(
                 "addCompetitor: Failed to fetch products from Shopify API: {}", e.getMessage());
-            productId = null; // No product association
+            return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                .body(
+                    Map.of(
+                        "error", "PRODUCTS_SYNC_NEEDED",
+                        "message",
+                            "Unable to load Shopify products. Please sync products and retry.",
+                        "action", "SYNC_PRODUCTS",
+                        "redirect_url", "/dashboard"));
           }
         }
       }

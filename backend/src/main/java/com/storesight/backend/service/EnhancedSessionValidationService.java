@@ -181,8 +181,14 @@ public class EnhancedSessionValidationService {
       EnhancedValidationResult result) {
     try {
       String currentFingerprint = generateDeviceFingerprint(requestHeaders);
-      // TODO: Add device fingerprint field to SessionData
-      String originalFingerprint = null; // sessionData.getDeviceFingerprint();
+      String originalFingerprint = sessionData.getDeviceFingerprint();
+
+      if (originalFingerprint == null || originalFingerprint.isBlank()) {
+        sessionData.setDeviceFingerprint(currentFingerprint);
+        redisSessionService.cacheSessionData(
+            sessionData.getShopDomain(), sessionData.getSessionId(), sessionData);
+        return;
+      }
 
       if (originalFingerprint != null && !originalFingerprint.equals(currentFingerprint)) {
         result.addWarning("DEVICE_FINGERPRINT_MISMATCH", "Device fingerprint has changed");

@@ -78,6 +78,7 @@ Thumbs.db
 # Build directories
 build/
 dist/
+coverage/
 out/
 
 # Temporary files

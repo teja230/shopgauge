@@ -1,5 +1,7 @@
 package com.storesight.backend.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,6 +76,8 @@ public class MarketIntelligenceWriteService {
   private final MarketIntelligenceCacheService cacheService;
   private final MarketIntelligenceBatchService batchService;
   private final ApplicationEventPublisher eventPublisher;
+  private final JdbcTemplate jdbcTemplate;
+  private final ObjectMapper objectMapper;
 
   // Statistics tracking
   private final AtomicLong totalWriteOperations = new AtomicLong(0);
@@ -94,10 +99,14 @@ public class MarketIntelligenceWriteService {
   public MarketIntelligenceWriteService(
       MarketIntelligenceCacheService cacheService,
       MarketIntelligenceBatchService batchService,
-      ApplicationEventPublisher eventPublisher) {
+      ApplicationEventPublisher eventPublisher,
+      JdbcTemplate jdbcTemplate,
+      ObjectMapper objectMapper) {
     this.cacheService = cacheService;
     this.batchService = batchService;
     this.eventPublisher = eventPublisher;
+    this.jdbcTemplate = jdbcTemplate;
+    this.objectMapper = objectMapper;
 
     logger.info(
         "MarketIntelligenceWriteService initialized - Memory Profile: {}, "
@@ -381,37 +390,49 @@ public class MarketIntelligenceWriteService {
   }
 
   // =====================================
-  // DATABASE WRITE OPERATIONS (Placeholders)
+  // DATABASE WRITE OPERATIONS
   // =====================================
 
   /** Write competitor data to database */
   private void writeCompetitorDataToDatabase(String shopDomain, Object data) {
-    // TODO: Implement actual repository write
-    logger.debug("Database write: competitor data for shop {}", shopDomain);
+    persistWrite("competitor_data", shopDomain, data);
   }
 
   /** Write price data to database */
   private void writePriceDataToDatabase(String shopDomain, Object data) {
-    // TODO: Implement actual repository write
-    logger.debug("Database write: price data for shop {}", shopDomain);
+    persistWrite("price_data", shopDomain, data);
   }
 
   /** Write cost analytics to database */
   private void writeCostAnalyticsToDatabase(String shopDomain, Object data) {
-    // TODO: Implement actual repository write
-    logger.debug("Database write: cost analytics for shop {}", shopDomain);
+    persistWrite("cost_analytics", shopDomain, data);
   }
 
   /** Write system status to database */
   private void writeSystemStatusToDatabase(String shopDomain, Object data) {
-    // TODO: Implement actual repository write
-    logger.debug("Database write: system status for shop {}", shopDomain);
+    persistWrite("system_status", shopDomain, data);
   }
 
   /** Write performance metrics to database */
   private void writePerformanceMetricsToDatabase(String shopDomain, Object data) {
-    // TODO: Implement actual repository write
-    logger.debug("Database write: performance metrics for shop {}", shopDomain);
+    persistWrite("performance_metrics", shopDomain, data);
+  }
+
+  private void persistWrite(String dataType, String shopDomain, Object data) {
+    try {
+      jdbcTemplate.update(
+          """
+          INSERT INTO market_intelligence_write_log
+              (operation_id, shop_domain, data_type, payload, created_at)
+          VALUES (?, ?, ?, CAST(? AS jsonb), CURRENT_TIMESTAMP)
+          """,
+          UUID.randomUUID(),
+          shopDomain,
+          dataType,
+          objectMapper.writeValueAsString(data));
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("Market intelligence payload is not serializable", e);
+    }
   }
 
   // =====================================

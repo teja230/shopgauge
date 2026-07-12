@@ -9,9 +9,9 @@
     "lint": "eslint src/",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:ci": "vitest run src/services/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__",
+    "test:ci": "vitest run src/test/behaviorMatrix.test.ts src/services/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage src/test/behaviorMatrix.test.ts src/services/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -47,6 +47,7 @@
     "@typescript-eslint/eslint-plugin": "^7.7.0",
     "@typescript-eslint/parser": "^7.7.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^3.2.4",
     "autoprefixer": "^10.4.18",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",

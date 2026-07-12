@@ -3,21 +3,22 @@ package com.storesight.backend.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.config.BackendConfig;
 import jakarta.annotation.PostConstruct;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
-import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.stream.StreamListener;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
 @Profile("worker")
-public class AlertService implements StreamListener<String, MapRecord<String, String, String>> {
+public class AlertService {
   private static final Logger log = LoggerFactory.getLogger(AlertService.class);
   private final RedisTemplate<String, Object> redisTemplate;
   private final StringRedisTemplate stringRedisTemplate;
@@ -25,6 +26,7 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
   private final SecretService secretService;
   private final WebClient webClient;
   private final BackendConfig backendConfig;
+  private final JdbcTemplate jdbcTemplate;
 
   @Value("${sendgrid.api_key:}")
   private String sendGridApiKey;
@@ -46,12 +48,14 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
       StringRedisTemplate stringRedisTemplate,
       SecretService secretService,
       WebClient.Builder webClientBuilder,
-      BackendConfig backendConfig) {
+      BackendConfig backendConfig,
+      JdbcTemplate jdbcTemplate) {
     this.redisTemplate = redisTemplate;
     this.stringRedisTemplate = stringRedisTemplate;
     this.secretService = secretService;
     this.webClient = webClientBuilder.build();
     this.backendConfig = backendConfig;
+    this.jdbcTemplate = jdbcTemplate;
   }
 
   @PostConstruct
@@ -121,15 +125,52 @@ public class AlertService implements StreamListener<String, MapRecord<String, St
 
   @Scheduled(fixedDelay = 10000)
   public void pollAlerts() {
-    // TODO: Use XREAD or Spring Data Redis Streams to consume 'alerts' stream
-    // For each alert, send email and mark as sent in DB
-    log.info("Polling Redis Stream for alerts...");
+    List<Map<String, Object>> pendingAlerts =
+        jdbcTemplate.queryForList(
+            """
+            SELECT pa.id, pa.alert_type, pa.old_price, pa.new_price, pa.change_percent,
+                   s.shopify_domain, COALESCE(cu.label, cu.url, 'competitor') AS competitor
+            FROM price_alerts pa
+            JOIN shops s ON s.id = pa.shop_id
+            LEFT JOIN competitor_urls cu ON cu.id = pa.competitor_url_id
+            WHERE pa.notification_sent = false
+            ORDER BY pa.created_at
+            LIMIT 100
+            """);
+
+    for (Map<String, Object> alert : pendingAlerts) {
+      Long alertId = ((Number) alert.get("id")).longValue();
+      String shop = String.valueOf(alert.get("shopify_domain"));
+      String type = String.valueOf(alert.get("alert_type"));
+      String competitor = String.valueOf(alert.get("competitor"));
+      String message = formatPriceAlertMessage(alert, competitor, type);
+      try {
+        triggerBusinessEvent(shop, "Competitor " + humanizeAlertType(type), message);
+        jdbcTemplate.update(
+            "UPDATE price_alerts SET notification_sent = true WHERE id = ?", alertId);
+      } catch (Exception e) {
+        log.error("Failed to dispatch price alert {}: {}", alertId, e.getMessage(), e);
+      }
+    }
   }
 
-  @Override
-  public void onMessage(MapRecord<String, String, String> message) {
-    // TODO: Parse alert, send email via SendGrid, mark as sent
-    log.info("Received alert: {}", message);
+  static String formatPriceAlertMessage(
+      Map<String, Object> alert, String competitor, String alertType) {
+    Object oldPrice = alert.get("old_price");
+    Object newPrice = alert.get("new_price");
+    Object changePercent = alert.get("change_percent");
+    if ("back_in_stock".equals(alertType)) {
+      return competitor + " is back in stock.";
+    }
+    if ("out_of_stock".equals(alertType)) {
+      return competitor + " is out of stock.";
+    }
+    return String.format(
+        "%s price changed from %s to %s (%s%%).", competitor, oldPrice, newPrice, changePercent);
+  }
+
+  private static String humanizeAlertType(String alertType) {
+    return alertType.replace('_', ' ');
   }
 
   public void sendEmailAlert(String to, String subject, String body) {
