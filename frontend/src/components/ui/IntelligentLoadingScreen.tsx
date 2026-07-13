@@ -305,8 +305,10 @@ const IntelligentLoadingScreen: React.FC<IntelligentLoadingScreenProps> = ({
         const increment = fastMode ? Math.random() * 30 + 20 : Math.random() * 20 + 10;
         progressValue += increment;
         
-        if (progressValue >= 100) {
-          progressValue = 100;
+        // This is an activity estimate, not completion reported by the auth/data request.
+        // Leave visible headroom until the operation actually unmounts this screen.
+        if (progressValue >= 95) {
+          progressValue = 95;
           clearInterval(interval);
         }
 

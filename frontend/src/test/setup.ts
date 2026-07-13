@@ -1,6 +1,13 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// A handful of legacy suites still use Jest's global helper names. Vitest's
+// mock API is compatible, so expose it while those tests are migrated.
+Object.defineProperty(globalThis, 'jest', {
+  configurable: true,
+  value: vi,
+});
+
 // Mock matchMedia for responsive tests
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

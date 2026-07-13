@@ -5,6 +5,7 @@ import { invalidateCache } from '../utils/cacheUtils';
 import { clearAllSessionCookies } from '../utils/sessionUtils';
 import { useEnterpriseSse } from '../hooks/useEnterpriseSse';
 import { debugLog } from '../components/ui/DebugPanel';
+import { fetchWithTimeout } from '../utils/authRequest';
 
 // Types
 interface Shop {
@@ -198,15 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isPostOAuth = urlParams.get('connected') === 'true';
     
     if (isPostOAuth) {
-      console.log('AuthContext: Detected post-OAuth redirect, adding delay for session establishment');
-      // Add a delay to allow session establishment after OAuth
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Clean up the URL parameters
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('connected');
-      newUrl.searchParams.delete('skip_loading');
-      window.history.replaceState({}, '', newUrl.toString());
+      console.log('AuthContext: Detected post-OAuth redirect');
     }
     
     // Retry mechanism for authentication
@@ -222,7 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(true);
           
           // Use direct fetch for initial auth check to avoid triggering global error handler
-          const response = await fetch(`${API_BASE_URL}/api/auth/shopify/me`, {
+          const response = await fetchWithTimeout(`${API_BASE_URL}/api/auth/shopify/me`, {
             method: 'GET',
             headers: {
               'Accept': 'application/json',
@@ -249,6 +242,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Sync API authentication state
               setApiAuthState(true, data.shop);
               setHasInitiallyLoaded(true);
+
+              // Keep the OAuth marker until authentication succeeds so route-level
+              // handling can distinguish a callback from a normal unauthenticated visit.
+              if (isPostOAuth) {
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.delete('connected');
+                newUrl.searchParams.delete('skip_loading');
+                window.history.replaceState({}, '', newUrl.toString());
+              }
               return;
             }
           }
@@ -281,6 +283,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Sync API authentication state
       setApiAuthState(false, null);
+
+      if (isPostOAuth) {
+        const newUrl = new URL(window.location.href);
+        newUrl.pathname = '/';
+        newUrl.search = '';
+        newUrl.searchParams.set('error', 'auth_failed');
+        newUrl.searchParams.set(
+          'error_message',
+          lastError instanceof Error && lastError.name === 'AbortError'
+            ? 'The store connection timed out. Please try again.'
+            : 'We could not verify your Shopify session. Please try connecting again.',
+        );
+        window.history.replaceState({}, '', newUrl.toString());
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
       
     } catch (error) {
       console.error('AuthContext: Unexpected error during authentication check:', error);
@@ -417,4 +434,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-}; 
+};

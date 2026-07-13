@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { AdminNavigationProvider } from '../../../context/AdminNavigationContext';
+import { NotificationSettingsProvider } from '../../../context/NotificationSettingsContext';
 import AdminLayout from '../AdminLayout';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -9,9 +10,11 @@ const theme = createTheme();
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <ThemeProvider theme={theme}>
-    <AdminNavigationProvider>
-      {children}
-    </AdminNavigationProvider>
+    <NotificationSettingsProvider>
+      <AdminNavigationProvider>
+        {children}
+      </AdminNavigationProvider>
+    </NotificationSettingsProvider>
   </ThemeProvider>
 );
 
@@ -51,6 +54,6 @@ describe('AdminLayout', () => {
     );
     
     // Check for Dashboard in the sidebar navigation
-    expect(screen.getByRole('menuitem', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
   });
 });

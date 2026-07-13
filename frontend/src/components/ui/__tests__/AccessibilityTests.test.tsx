@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { AdminNavigationProvider } from '../../../context/AdminNavigationContext';
+import { NotificationSettingsProvider } from '../../../context/NotificationSettingsContext';
 import AdminLayout from '../AdminLayout';
 import AdminSidebar from '../AdminSidebar';
 import KeyboardShortcutsHelp from '../KeyboardShortcutsHelp';
@@ -11,9 +12,11 @@ const theme = createTheme();
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <ThemeProvider theme={theme}>
-    <AdminNavigationProvider>
-      {children}
-    </AdminNavigationProvider>
+    <NotificationSettingsProvider>
+      <AdminNavigationProvider>
+        {children}
+      </AdminNavigationProvider>
+    </NotificationSettingsProvider>
   </ThemeProvider>
 );
 
@@ -43,14 +46,14 @@ describe('Accessibility Tests', () => {
       );
 
       // Navigation buttons should have proper roles
-      const dashboardButton = screen.getByRole('button', { name: /dashboard/i });
+      const dashboardButton = screen.getByRole('menuitem', { name: /dashboard/i });
       expect(dashboardButton).toBeInTheDocument();
       expect(dashboardButton).toHaveAttribute('type', 'button');
 
-      // Toggle button should have proper label
-      const toggleButton = screen.getByRole('button', { name: /toggle sidebar/i });
-      expect(toggleButton).toBeInTheDocument();
-      expect(toggleButton).toHaveAttribute('aria-label', 'Toggle sidebar');
+      // Expandable sections should expose their state and controlled content.
+      const systemHealthButton = screen.getByRole('button', { name: /system health/i });
+      expect(systemHealthButton).toHaveAttribute('aria-expanded');
+      expect(systemHealthButton).toHaveAttribute('aria-controls');
     });
 
     it('has proper expandable section attributes', async () => {
@@ -109,8 +112,8 @@ describe('Accessibility Tests', () => {
       await user.tab();
       
       // First focusable element should be focused
-      const firstButton = screen.getAllByRole('button')[0];
-      expect(firstButton).toHaveFocus();
+      const firstItem = screen.getAllByRole('menuitem')[0];
+      expect(firstItem).toHaveFocus();
 
       await user.tab();
       
@@ -129,7 +132,7 @@ describe('Accessibility Tests', () => {
         </TestWrapper>
       );
 
-      const dashboardButton = screen.getByRole('button', { name: /dashboard/i });
+      const dashboardButton = screen.getByRole('menuitem', { name: /dashboard/i });
       dashboardButton.focus();
 
       await user.keyboard('{Enter}');
@@ -162,17 +165,26 @@ describe('Accessibility Tests', () => {
     it('provides keyboard shortcuts help', () => {
       render(
         <TestWrapper>
-          <KeyboardShortcutsHelp />
+          <KeyboardShortcutsHelp
+            open
+            onClose={vi.fn()}
+            shortcuts={[
+              { key: 'b', ctrlKey: true, description: 'Toggle sidebar', action: vi.fn() },
+              { key: 'r', ctrlKey: true, description: 'Refresh data', action: vi.fn() },
+              { key: 'k', ctrlKey: true, description: 'Search', action: vi.fn() },
+            ]}
+          />
         </TestWrapper>
       );
 
       // Should show keyboard shortcuts
-      expect(screen.getByText(/keyboard shortcuts/i)).toBeInTheDocument();
+      expect(document.getElementById('keyboard-shortcuts-title')).toHaveTextContent('Keyboard Shortcuts');
       
       // Should list common shortcuts
-      expect(screen.getByText(/ctrl.*b/i)).toBeInTheDocument(); // Toggle sidebar
-      expect(screen.getByText(/ctrl.*r/i)).toBeInTheDocument(); // Refresh
-      expect(screen.getByText(/ctrl.*k/i)).toBeInTheDocument(); // Search
+      expect(screen.getByText('Toggle sidebar')).toBeInTheDocument();
+      expect(screen.getByText('Refresh data')).toBeInTheDocument();
+      expect(screen.getByText('Search')).toBeInTheDocument();
+      expect(screen.getAllByText('Ctrl')).toHaveLength(3);
     });
 
     it('handles Escape key for closing modals', async () => {

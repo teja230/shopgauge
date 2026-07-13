@@ -72,6 +72,8 @@ export interface FilterState {
   [key: string]: any;
 }
 
+const EMPTY_FILTER_STATE: FilterState = {};
+
 export interface SortState {
   column: string | null;
   direction: 'asc' | 'desc';
@@ -288,7 +290,7 @@ const SearchField: React.FC<{
         ),
         endAdornment: localValue && (
           <InputAdornment position="end">
-            <IconButton size="small" onClick={handleClear}>
+            <IconButton size="small" onClick={handleClear} aria-label="Clear search">
               <ClearIcon />
             </IconButton>
           </InputAdornment>
@@ -337,6 +339,8 @@ const FilterControls: React.FC<{
           startIcon={<FilterIcon />}
           endIcon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          aria-controls="data-table-filters"
           variant="text"
           size="small"
         >
@@ -350,7 +354,7 @@ const FilterControls: React.FC<{
         )}
       </Box>
 
-      <Collapse in={expanded}>
+      <Collapse id="data-table-filters" in={expanded}>
         <Box sx={{ mt: 2 }}>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
             {filterableColumns.map((column) => {
@@ -358,10 +362,12 @@ const FilterControls: React.FC<{
               const filterValue = filters[columnId] || '';
 
               if (column.filterType === 'select' && column.filterOptions) {
+                const labelId = `data-table-filter-${columnId}-label`;
                 return (
                   <FormControl key={columnId} size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>{column.label}</InputLabel>
+                    <InputLabel id={labelId}>{column.label}</InputLabel>
                     <Select
+                      labelId={labelId}
                       value={filterValue}
                       onChange={(e) => handleFilterChange(columnId, e.target.value)}
                       input={<OutlinedInput label={column.label} />}
@@ -379,10 +385,12 @@ const FilterControls: React.FC<{
 
               if (column.filterType === 'multiselect' && column.filterOptions) {
                 const selectedValues = Array.isArray(filterValue) ? filterValue : [];
+                const labelId = `data-table-filter-${columnId}-label`;
                 return (
                   <FormControl key={columnId} size="small" sx={{ minWidth: 200 }}>
-                    <InputLabel>{column.label}</InputLabel>
+                    <InputLabel id={labelId}>{column.label}</InputLabel>
                     <Select
+                      labelId={labelId}
                       multiple
                       value={selectedValues}
                       onChange={(e) => handleFilterChange(columnId, e.target.value)}
@@ -475,12 +483,20 @@ const SortableHeader: React.FC<{
 
   return (
     <Box
+      component="button"
+      type="button"
       sx={{
         display: 'flex',
         alignItems: 'center',
         gap: 0.5,
         cursor: 'pointer',
         userSelect: 'none',
+        width: '100%',
+        border: 0,
+        padding: 0,
+        background: 'none',
+        color: 'inherit',
+        font: 'inherit',
       }}
       onClick={handleSort}
     >
@@ -604,7 +620,7 @@ export const ModernDataTable = <T extends Record<string, any>>({
   onSort,
   sortState,
   onFilter,
-  filterState = {},
+  filterState = EMPTY_FILTER_STATE,
   debounceMs = 300,
 }: ModernDataTableProps<T>) => {
   const theme = useTheme();
@@ -613,6 +629,8 @@ export const ModernDataTable = <T extends Record<string, any>>({
   
   const [searchTerm, setSearchTerm] = useState('');
   const [localFilters, setLocalFilters] = useState<FilterState>(filterState);
+  const [localSortState, setLocalSortState] = useState<SortState>({ column: null, direction: 'asc' });
+  const effectiveSortState = sortState ?? localSortState;
   const { announce } = useFocusAnnouncement();
 
   // Keyboard navigation for table rows
@@ -665,9 +683,14 @@ export const ModernDataTable = <T extends Record<string, any>>({
       if (filterValue !== '' && filterValue != null) {
         filtered = filtered.filter(row => {
           const cellValue = row[columnId as keyof T];
+          const column = columns.find(candidate => String(candidate.id) === columnId);
           
           if (Array.isArray(filterValue)) {
             return filterValue.includes(String(cellValue));
+          }
+
+          if (column?.filterType === 'select') {
+            return String(cellValue) === String(filterValue);
           }
           
           return String(cellValue || '').toLowerCase().includes(String(filterValue).toLowerCase());
@@ -676,8 +699,8 @@ export const ModernDataTable = <T extends Record<string, any>>({
     });
 
     // Apply sorting
-    if (sortState?.column && !onSort) {
-      const { column: sortColumn, direction } = sortState;
+    if (effectiveSortState.column && !onSort) {
+      const { column: sortColumn, direction } = effectiveSortState;
       filtered.sort((a, b) => {
         const aValue = a[sortColumn as keyof T];
         const bValue = b[sortColumn as keyof T];
@@ -689,7 +712,7 @@ export const ModernDataTable = <T extends Record<string, any>>({
     }
 
     return filtered;
-  }, [data, searchTerm, localFilters, sortState, columns, searchable, onFilter, onSort]);
+  }, [data, searchTerm, localFilters, effectiveSortState, columns, searchable, onFilter, onSort]);
 
   // Loading state
   if (loading) {
@@ -845,12 +868,14 @@ export const ModernDataTable = <T extends Record<string, any>>({
                   >
                     <SortableHeader
                       column={column}
-                      sortState={sortState}
+                      sortState={effectiveSortState}
                       onSort={(col, dir) => {
                         if (onSort) {
                           onSort(col, dir);
-                          announce(`Table sorted by ${column.label} ${dir}ending`, 'polite');
+                        } else {
+                          setLocalSortState({ column: col, direction: dir });
                         }
+                        announce(`Table sorted by ${column.label} ${dir}ending`, 'polite');
                       }}
                     />
                   </TableCell>

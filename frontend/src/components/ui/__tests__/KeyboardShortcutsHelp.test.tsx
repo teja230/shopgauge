@@ -79,7 +79,7 @@ describe('KeyboardShortcutsHelp', () => {
     );
 
     // Check for Ctrl+B shortcut
-    expect(screen.getByText('Ctrl')).toBeInTheDocument();
+    expect(screen.getAllByText('Ctrl')).toHaveLength(2);
     expect(screen.getByText('B')).toBeInTheDocument();
 
     // Check for Ctrl+R shortcut
@@ -147,7 +147,7 @@ describe('KeyboardShortcutsHelp', () => {
     expect(dialog).toHaveAttribute('aria-labelledby', 'keyboard-shortcuts-title');
     expect(dialog).toHaveAttribute('aria-describedby', 'keyboard-shortcuts-description');
 
-    expect(screen.getByText('Keyboard Shortcuts')).toHaveAttribute('id', 'keyboard-shortcuts-title');
+    expect(document.getElementById('keyboard-shortcuts-title')).toHaveTextContent('Keyboard Shortcuts');
   });
 
   it('displays accessibility tips section', () => {

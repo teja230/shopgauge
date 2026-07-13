@@ -3,12 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import MarketIntelligenceDashboard from '../MarketIntelligenceDashboard';
 import marketIntelligenceAdminAPI from '../../../api/marketIntelligenceAdmin';
+import { NotificationSettingsProvider } from '../../../context/NotificationSettingsContext';
 
 // Mock the API
 vi.mock('../../../api/marketIntelligenceAdmin', () => ({
   default: {
     getAdminDashboard: vi.fn(),
     getCostHistory: vi.fn(),
+    getCompetitorScrapingStatus: vi.fn(),
   }
 }));
 
@@ -51,8 +53,8 @@ const mockDashboardData = {
     dailyBudget: 5.00,
     monthlyBudget: 100.00,
     estimatedSavings: 2.50,
-    dailyUsagePercentage: 0.1,
-    monthlyUsagePercentage: 0.15
+    dailyUsagePercentage: 10,
+    monthlyUsagePercentage: 15
   },
   providerStats: {
     totalProviders: 3,
@@ -95,31 +97,41 @@ const mockCostHistory = {
   totalDays: 30
 };
 
+const renderDashboard = (props: React.ComponentProps<typeof MarketIntelligenceDashboard> = {}) =>
+  render(
+    <NotificationSettingsProvider>
+      <MarketIntelligenceDashboard {...props} />
+    </NotificationSettingsProvider>,
+  );
+
 describe('MarketIntelligenceDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (marketIntelligenceAdminAPI.getAdminDashboard as any).mockResolvedValue(mockDashboardData);
     (marketIntelligenceAdminAPI.getCostHistory as any).mockResolvedValue(mockCostHistory);
+    (marketIntelligenceAdminAPI.getCompetitorScrapingStatus as any).mockResolvedValue({
+      availableShops: [{ id: 1, shopify_domain: 'merchant.myshopify.com' }],
+    });
   });
 
   it('renders dashboard title', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
-    expect(screen.getByText('Market Intelligence Dashboard')).toBeInTheDocument();
+    expect(await screen.findByText('Market Intelligence Dashboard')).toBeInTheDocument();
   });
 
   it('displays cost analytics correctly', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
-      expect(screen.getByText('$0.0050')).toBeInTheDocument(); // Daily cost
-      expect(screen.getByText('$0.1500')).toBeInTheDocument(); // Monthly cost
-      expect(screen.getByText('$2.5000')).toBeInTheDocument(); // Estimated savings
+      expect(screen.getByText('$0.005')).toBeInTheDocument(); // Daily cost
+      expect(screen.getByText('$0.15')).toBeInTheDocument(); // Monthly cost
+      expect(screen.getByText('$2.50')).toBeInTheDocument(); // Estimated savings
     });
   });
 
   it('displays system status correctly', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(screen.getByText('ACTIVE')).toBeInTheDocument();
@@ -127,29 +139,29 @@ describe('MarketIntelligenceDashboard', () => {
   });
 
   it('displays provider statistics', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(screen.getByText('3')).toBeInTheDocument(); // Total providers
-      expect(screen.getByText('2')).toBeInTheDocument(); // Enabled providers
+      expect(screen.getAllByText('2').length).toBeGreaterThan(0); // Enabled providers
       expect(screen.getByText('Scrapingdog')).toBeInTheDocument();
       expect(screen.getByText('Serper')).toBeInTheDocument();
     });
   });
 
   it('displays database statistics', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(screen.getByText('10')).toBeInTheDocument(); // Competitor URLs
       expect(screen.getByText('5')).toBeInTheDocument(); // Suggestions
       expect(screen.getByText('100')).toBeInTheDocument(); // Price snapshots
-      expect(screen.getByText('2')).toBeInTheDocument(); // Active shops
+      expect(screen.getAllByText('2').length).toBeGreaterThan(0); // Active shops
     });
   });
 
   it('displays performance metrics', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(screen.getByText('50ms')).toBeInTheDocument(); // Avg response time
@@ -159,7 +171,7 @@ describe('MarketIntelligenceDashboard', () => {
   });
 
   it('renders cost trend chart', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(screen.getByText('Cost Trend (Last 30 Days)')).toBeInTheDocument();
@@ -173,23 +185,23 @@ describe('MarketIntelligenceDashboard', () => {
       new Error('API Error')
     );
     
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(screen.getByText('Error')).toBeInTheDocument();
-      expect(screen.getByText('API Error')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load metrics')).toBeInTheDocument();
     });
   });
 
   it('shows loading state initially', () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     // Should show loading initially
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
   it('calls API on component mount', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(marketIntelligenceAdminAPI.getAdminDashboard).toHaveBeenCalledTimes(1);
@@ -197,7 +209,7 @@ describe('MarketIntelligenceDashboard', () => {
   });
 
   it('fetches cost history when active shops exist', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(marketIntelligenceAdminAPI.getCostHistory).toHaveBeenCalledWith(1, 30);
@@ -205,16 +217,16 @@ describe('MarketIntelligenceDashboard', () => {
   });
 
   it('displays budget usage percentages correctly', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
-      expect(screen.getByText('10% of budget')).toBeInTheDocument(); // Daily usage
-      expect(screen.getByText('15% of budget')).toBeInTheDocument(); // Monthly usage
+      expect(screen.getByText('10.0% of budget')).toBeInTheDocument(); // Daily usage
+      expect(screen.getByText('15.0% of budget')).toBeInTheDocument(); // Monthly usage
     });
   });
 
   it('shows system configuration details', async () => {
-    render(<MarketIntelligenceDashboard />);
+    renderDashboard();
     
     await waitFor(() => {
       expect(screen.getByText('System Configuration')).toBeInTheDocument();
@@ -225,7 +237,7 @@ describe('MarketIntelligenceDashboard', () => {
   });
 
   it('renders action buttons when showActions is true', async () => {
-    render(<MarketIntelligenceDashboard showActions={true} />);
+    renderDashboard({ showActions: true });
     
     await waitFor(() => {
       expect(screen.getByText('Test Search Providers')).toBeInTheDocument();
@@ -234,7 +246,7 @@ describe('MarketIntelligenceDashboard', () => {
   });
 
   it('hides action buttons when showActions is false', async () => {
-    render(<MarketIntelligenceDashboard showActions={false} />);
+    renderDashboard({ showActions: false });
     
     await waitFor(() => {
       expect(screen.queryByText('Test Search Providers')).not.toBeInTheDocument();

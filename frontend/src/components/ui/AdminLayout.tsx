@@ -60,9 +60,9 @@ interface BreadcrumbItem {
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  currentSection: string;
-  onSectionChange: (section: string) => void;
-  breadcrumbs: BreadcrumbItem[];
+  currentSection?: string;
+  onSectionChange?: (section: string) => void;
+  breadcrumbs?: BreadcrumbItem[];
   onRefresh?: () => void;
   refreshing?: boolean;
   user?: AdminUser;
@@ -71,9 +71,9 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({
   children,
-  currentSection,
-  onSectionChange,
-  breadcrumbs,
+  currentSection = 'dashboard',
+  onSectionChange = () => undefined,
+  breadcrumbs = [],
   onRefresh,
   refreshing = false,
   user,
@@ -290,6 +290,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({
       >
         <Toolbar>
           <IconButton
+            aria-label="Toggle sidebar"
             color="inherit"
             edge="start"
             onClick={() => setSidebarOpen(!sidebarOpen)}

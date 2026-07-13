@@ -9,9 +9,9 @@
     "lint": "eslint src/",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:ci": "vitest run src/test/behaviorMatrix.test.ts src/services/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__",
+    "test:ci": "vitest run src/test/behaviorMatrix.test.ts src/services/__tests__ src/utils/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage src/test/behaviorMatrix.test.ts src/services/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__"
+    "test:coverage": "vitest run --coverage src/test/behaviorMatrix.test.ts src/services/__tests__ src/utils/__tests__ src/context/__tests__/AdminNavigationContext.test.tsx src/hooks/__tests__/useKeyboardNavigation.test.tsx src/pages/__tests__/BusinessIntelligencePage.test.tsx src/components/__tests__"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

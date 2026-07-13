@@ -34,21 +34,21 @@ import type { NavigationSection } from '../../context/AdminNavigationContext';
 
 
 interface AdminSidebarProps {
-  isCollapsed: boolean;
-  onToggle: () => void;
-  activeSection: string;
-  isMobile: boolean;
+  isCollapsed?: boolean;
+  onToggle?: () => void;
+  activeSection?: string;
+  isMobile?: boolean;
   mobileOpen?: boolean;
-  onSectionChange: (section: string) => void;
+  onSectionChange?: (section: string) => void;
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({
-  isCollapsed,
-  onToggle,
-  activeSection,
-  isMobile,
+  isCollapsed = false,
+  onToggle = () => undefined,
+  activeSection = 'dashboard',
+  isMobile = false,
   mobileOpen = false,
-  onSectionChange,
+  onSectionChange = () => undefined,
 }) => {
   const theme = useTheme();
   const { setActiveSection, setBreadcrumbs } = useAdminNavigation();
@@ -185,6 +185,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
           disableHoverListener={!isCollapsed}
         >
           <button
+            type="button"
             className={`admin-nav__item admin-interactive ${shouldHighlightParent ? 'admin-nav__item--active' : ''}`}
             onClick={() => handleSectionClick(section)}
             role={section.children ? 'button' : 'menuitem'}
@@ -243,6 +244,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 disableHoverListener={!isCollapsed}
               >
                 <button
+                  type="button"
                   className={`admin-nav__item admin-nav__item--child admin-interactive ${activeSection === item.id ? 'admin-nav__item--active' : ''}`}
                   onClick={() => handleItemClick(item, section)}
                   role="menuitem"

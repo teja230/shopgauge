@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -70,12 +70,6 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
     return keys;
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      onClose();
-    }
-  };
-
   return (
     <Dialog
       open={open}
@@ -84,7 +78,6 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
       fullWidth
       aria-labelledby="keyboard-shortcuts-title"
       aria-describedby="keyboard-shortcuts-description"
-      onKeyDown={handleKeyDown}
     >
       <DialogTitle
         id="keyboard-shortcuts-title"

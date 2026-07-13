@@ -16,28 +16,16 @@ const renderWithTheme = (component: React.ReactElement) => {
 // Mock navigator.onLine
 const mockNavigator = {
   onLine: true,
-  connection: {
+  connection: Object.assign(new EventTarget(), {
     effectiveType: '4g',
     downlink: 10,
     rtt: 50,
     saveData: false,
-  },
+  }),
 };
 
 Object.defineProperty(window, 'navigator', {
   value: mockNavigator,
-  writable: true,
-});
-
-// Mock addEventListener and removeEventListener
-const mockAddEventListener = jest.fn();
-const mockRemoveEventListener = jest.fn();
-Object.defineProperty(window, 'addEventListener', {
-  value: mockAddEventListener,
-  writable: true,
-});
-Object.defineProperty(window, 'removeEventListener', {
-  value: mockRemoveEventListener,
   writable: true,
 });
 
@@ -64,6 +52,10 @@ describe('NetworkStatusHandler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockNavigator.onLine = true;
+    mockNavigator.connection.effectiveType = '4g';
+    mockNavigator.connection.downlink = 10;
+    mockNavigator.connection.rtt = 50;
+    mockNavigator.connection.saveData = false;
   });
 
   it('renders without crashing', () => {
@@ -139,26 +131,28 @@ describe('NetworkStatusHandler', () => {
     });
   });
 
-  it('enables auto retry when offline', () => {
-    mockNavigator.onLine = false;
-    
+  it('enables auto retry when offline', async () => {
     renderWithTheme(
       <NetworkStatusHandler 
         autoRetry={true}
         retryInterval={1000}
       />
     );
+
+    mockNavigator.onLine = false;
+    window.dispatchEvent(new Event('offline'));
     
     // Should show auto retry information
-    expect(screen.getByText(/Automatically retrying/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Automatically retrying/i)).toBeInTheDocument();
+    });
   });
 
   it('allows dismissing offline alert', async () => {
-    mockNavigator.onLine = false;
-    
     renderWithTheme(<NetworkStatusHandler />);
     
     // Trigger offline event to show alert
+    mockNavigator.onLine = false;
     const offlineEvent = new Event('offline');
     window.dispatchEvent(offlineEvent);
     
@@ -176,11 +170,10 @@ describe('NetworkStatusHandler', () => {
   });
 
   it('shows retry button in offline alert', async () => {
-    mockNavigator.onLine = false;
-    
     renderWithTheme(<NetworkStatusHandler />);
     
     // Trigger offline event
+    mockNavigator.onLine = false;
     const offlineEvent = new Event('offline');
     window.dispatchEvent(offlineEvent);
     
