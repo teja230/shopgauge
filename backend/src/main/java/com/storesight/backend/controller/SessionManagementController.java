@@ -203,14 +203,14 @@ public class SessionManagementController {
         return ResponseEntity.badRequest().body(response);
       }
 
-        // Treat an already-removed or stale entry as an idempotent success. This also prevents a
-        // caller from terminating a session that belongs to another shop.
-        if (!shopService.hasActiveSession(shop, sessionIdToTerminate)) {
-            response.put("success", true);
-            response.put("message", "Session was already removed");
-            response.put("terminatedSessionId", sessionIdToTerminate);
-            return ResponseEntity.ok(response);
-        }
+      // Treat an already-removed or stale entry as an idempotent success. This also prevents a
+      // caller from terminating a session that belongs to another shop.
+      if (!shopService.hasActiveSession(shop, sessionIdToTerminate)) {
+        response.put("success", true);
+        response.put("message", "Session was already removed");
+        response.put("terminatedSessionId", sessionIdToTerminate);
+        return ResponseEntity.ok(response);
+      }
 
       shopService.removeSession(shop, sessionIdToTerminate);
 
@@ -891,8 +891,7 @@ public class SessionManagementController {
                     Map<String, Object> sessionInfo = new HashMap<>();
                     sessionInfo.put("sessionId", session.getSessionId());
                     sessionInfo.put(
-                        "isCurrentSession",
-                            session.getSessionId().equals(finalCurrentSessionId));
+                            "isCurrentSession", session.getSessionId().equals(finalCurrentSessionId));
                     sessionInfo.put(
                         "createdAt",
                         session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));

@@ -52,11 +52,11 @@ public interface ShopSessionRepository extends JpaRepository<ShopSession, Long> 
   /** Count active sessions for a shop */
   long countByShopAndIsActiveTrue(Shop shop);
 
-    /**
-     * Check whether an active session belongs to the requested shop.
-     */
-    boolean existsBySessionIdAndShopShopifyDomainAndIsActiveTrue(
-            String sessionId, String shopifyDomain);
+  /**
+   * Check whether an active session belongs to the requested shop.
+   */
+  boolean existsBySessionIdAndShopShopifyDomainAndIsActiveTrue(
+          String sessionId, String shopifyDomain);
 
   /** Deactivate session by session ID */
   @Modifying

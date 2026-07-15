@@ -20,5 +20,5 @@ public class CsrfController {
                 "token", csrfToken.getToken(),
                 "headerName", csrfToken.getHeaderName(),
                 "parameterName", csrfToken.getParameterName());
-    }
+  }
 }

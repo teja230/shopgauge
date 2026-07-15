@@ -854,17 +854,17 @@ public class ShopService {
     }
   }
 
-    /**
-     * Check session ownership before a user-triggered termination.
-     */
-    @Transactional(readOnly = true)
-    public boolean hasActiveSession(String shopifyDomain, String sessionId) {
-        if (shopifyDomain == null || sessionId == null) {
-            return false;
-        }
-        return shopSessionRepository.existsBySessionIdAndShopShopifyDomainAndIsActiveTrue(
-                sessionId, shopifyDomain);
+  /**
+   * Check session ownership before a user-triggered termination.
+   */
+  @Transactional(readOnly = true)
+  public boolean hasActiveSession(String shopifyDomain, String sessionId) {
+    if (shopifyDomain == null || sessionId == null) {
+      return false;
     }
+    return shopSessionRepository.existsBySessionIdAndShopShopifyDomainAndIsActiveTrue(
+            sessionId, shopifyDomain);
+  }
 
   /** Get session information for debugging */
   @Transactional(readOnly = true)

@@ -2997,52 +2997,65 @@ export default function CompetitorsPage() {
       <DemoModeBanner />
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101820] p-6 text-white">
-          <p className="text-sm font-black uppercase text-[#9db4ff]">Market Intelligence</p>
-          <h1 className="mt-1 text-2xl font-black leading-tight text-white">Competitor price command</h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#c3ccd5]">
-            Track price movement, stock status, and market pressure from one retail intelligence board.
-          </p>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase text-[#9db4ff]">Market Intelligence</p>
+              <h1 className="mt-1 text-2xl font-black leading-tight text-white">Competitor price command</h1>
+              <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#c3ccd5]">
+                Track price movement, stock status, and market pressure from one retail intelligence board.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={startTutorial}
+              className="tutorial-button inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm font-bold text-[#dbe3ea] transition-colors hover:border-white/35 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9db4ff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101820] sm:w-auto"
+              aria-label="Take a guided tour of Market Intelligence"
+            >
+              <HelpOutlineIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+              Take a tour
+            </button>
+          </div>
         </div>
 
         {/* Limit Display */}
         <LimitDisplay />
         
         {/* Market Insights Cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 market-insights-cards">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4 market-insights-cards">
           {marketMetricCards.map((metric, index) => {
             const Icon = metric.icon;
             return (
               <div
                 key={metric.label}
-                className="group relative overflow-hidden rounded-lg border border-[#e4e7eb] bg-white p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 animate-slideUp hover:-translate-y-px hover:border-[#2f5bea]/40 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:animate-none motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                className="group relative overflow-hidden rounded-lg border border-[#e4e7eb] bg-white p-3 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)] transition-all duration-200 animate-slideUp hover:-translate-y-px hover:border-[#2f5bea]/40 hover:shadow-[0_22px_48px_-36px_rgba(16,24,32,0.88)] motion-reduce:animate-none motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-4"
                 style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
               >
                 <div
                   className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full opacity-20 blur-2xl"
                   style={{ backgroundColor: metric.accent }}
                 />
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-3 flex min-h-9 items-start justify-between gap-2 sm:mb-4">
                   <span
-                    className="rounded-full px-2.5 py-1 text-xs font-black uppercase"
+                    className="rounded-full px-2 py-1 text-[0.68rem] font-black uppercase leading-tight sm:px-2.5 sm:text-xs"
                     style={{ backgroundColor: `${metric.accent}18`, color: metric.text }}
                   >
                     {metric.delta}
                   </span>
                   <div
-                    className="flex h-10 w-10 items-center justify-center rounded-lg border"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border sm:h-10 sm:w-10"
                     style={{ backgroundColor: `${metric.accent}14`, borderColor: `${metric.accent}26` }}
                   >
-                    <Icon className="h-5 w-5" style={{ color: metric.accent }} />
+                    <Icon className="h-[18px] w-[18px] sm:h-5 sm:w-5" style={{ color: metric.accent }} aria-hidden="true" />
                   </div>
                 </div>
                 <p className="text-xs font-black uppercase tracking-[0.08em] text-[#5f6b76]">{metric.label}</p>
                 <p
-                  className="mt-1 text-3xl font-black text-[#101820]"
+                  className="mt-1 text-2xl font-black text-[#101820] sm:text-3xl"
                   style={{ color: metric.text, fontFeatureSettings: '"tnum"' }}
                 >
                   <AnimatedStatValue value={metric.value} format={metric.format} />
                 </p>
-                <p className="mt-2 text-sm font-semibold text-[#5f6b76]">{metric.helper}</p>
+                <p className="mt-2 text-xs font-semibold leading-5 text-[#5f6b76] sm:text-sm">{metric.helper}</p>
               </div>
             );
           })}
@@ -3053,15 +3066,17 @@ export default function CompetitorsPage() {
 
         {/* Control Panel */}
         <div className="rounded-lg border border-[#e4e7eb] bg-[#ffffff] p-4 shadow-[0_18px_42px_-36px_rgba(16,24,32,0.75)]">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
             {/* Left side - Filters and Search */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1 filter-controls">
+            <div className="filter-controls flex w-full flex-1 flex-col items-start gap-3 sm:flex-row sm:items-center 2xl:w-auto">
               <div className="flex items-center gap-2">
-                <FunnelIcon className="h-5 w-5 text-gray-500" />
+                <FunnelIcon className="h-5 w-5 text-gray-500" aria-hidden="true" />
                 <div className="relative filter-dropdown">
                   <button
                     onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
                     className="flex items-center gap-2 rounded-md border border-[#cbd5ce] bg-white px-3 py-2 text-sm font-semibold text-[#5f6b76] outline-none transition-colors hover:border-[#2f5bea] hover:bg-[#fafbfc] focus:ring-2 focus:ring-[#2f5bea]/20"
+                    aria-label="Filter competitors by stock status"
+                    aria-expanded={filterDropdownOpen}
                   >
                     <span className="text-gray-700">
                       {filterStatus === 'all' && 'All Competitors'}
@@ -3123,11 +3138,12 @@ export default function CompetitorsPage() {
                 </div>
               </div>
               
-              <div className="flex-1 relative min-w-64">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+              <div className="relative w-full min-w-0 flex-1 sm:min-w-64">
+                <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search competitors"
+                  aria-label="Search competitors"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -3139,7 +3155,11 @@ export default function CompetitorsPage() {
             </div>
 
             {/* Right side - Action buttons */}
-            <div className="flex items-center gap-3 flex-wrap">
+            <div
+              className="flex w-full flex-wrap items-center gap-2 border-t border-[#e4e7eb] pt-4 2xl:w-auto 2xl:justify-end 2xl:border-t-0 2xl:pt-0"
+              role="group"
+              aria-label="Competitor actions"
+            >
               {/* Demo Mode Toggle - Only show if not in demo store */}
               {!isDemoStore(shop) && (
                 <button
@@ -3818,31 +3838,6 @@ export default function CompetitorsPage() {
           </div>
         </div>
       )}
-
-      {/* Tutorial Trigger Button - Floating Action Button */}
-      {/* Visible on desktop (sm+), hidden on mobile */}
-      <div className="fixed bottom-8 right-8 z-50">
-        <button
-          onClick={() => {
-            setShowTutorial(true);
-          }}
-          aria-label="Start Market Intelligence Tutorial"
-          title="Start Market Intelligence Tutorial"
-          className="hidden sm:flex items-center justify-center rounded-full shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-          style={{
-            width: 56,
-            height: 56,
-            minWidth: 56,
-            minHeight: 56,
-            background: 'linear-gradient(135deg, #101820 0%, #2f5bea 100%)',
-            color: 'white',
-            boxShadow: '0 4px 20px rgba(47, 91, 234, 0.3)',
-            transition: 'all 0.3s ease',
-          }}
-        >
-          <HelpOutlineIcon size={24} />
-        </button>
-      </div>
 
       {/* Product Association Modal */}
       {productAssociationModal.competitor && (
