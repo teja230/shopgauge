@@ -3082,12 +3082,26 @@ const DashboardPage = () => {
               Revenue, orders, inventory risk, and forecast signals for {shop || 'your Shopify store'}.
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0, flexWrap: 'wrap' }}>
             {lastRefreshTime > 0 && (
               <Typography variant="caption" sx={{ color: '#8b96a2', whiteSpace: 'nowrap' }}>
                 Updated {new Date(lastRefreshTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Typography>
             )}
+            <Button
+              variant="text"
+              startIcon={<HelpOutlineIcon size={18} />}
+              onClick={() => setShowTutorial(true)}
+              sx={{
+                color: '#c3ccd5',
+                minWidth: 'auto',
+                px: 1,
+                textTransform: 'none',
+                '&:hover': { color: '#ffffff', bgcolor: 'rgba(255,255,255,0.06)' },
+              }}
+            >
+              Take a tour
+            </Button>
             <RefreshButton
               className="dashboard-refresh-button"
               variant="outlined"
@@ -4085,11 +4099,10 @@ const DashboardPage = () => {
             flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: 'space-between',
             alignItems: { xs: 'center', sm: 'center' },
-            mt: 3,
-            pt: 2,
+            py: 2,
             borderTop: '1px solid',
             borderColor: 'divider',
-            gap: 2,
+            gap: 1,
             order: 5,
           }}
         >
@@ -4105,43 +4118,6 @@ const DashboardPage = () => {
             Last updated: {getLastUpdatedText()}
           </LastUpdatedText>
         </Box>
-
-
-
-        {/* Tutorial Trigger Button - Floating Action Button */}
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: { xs: 20, sm: 30 },
-            right: { xs: 20, sm: 30 },
-            zIndex: 1000,
-          }}
-        >
-          <Button
-            variant="contained"
-            onClick={() => {
-              setShowTutorial(true);
-            }}
-            sx={{
-              borderRadius: '50%',
-              width: 56,
-              height: 56,
-              minWidth: 'unset',
-              boxShadow: '0 4px 12px -2px rgb(15 23 42 / 0.18)',
-              backgroundColor: 'primary.main',
-              '&:hover': {
-                backgroundColor: 'primary.dark',
-                boxShadow: '0 6px 16px -4px rgb(15 23 42 / 0.24)',
-              },
-              transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
-            }}
-            title="Start Dashboard Tutorial"
-            aria-label="Start Dashboard Tutorial"
-          >
-            <HelpOutlineIcon size={24} />
-          </Button>
-        </Box>
-
         {/* Joyride Tutorial Component */}
         <Joyride
           steps={DASHBOARD_TUTORIAL_STEPS}

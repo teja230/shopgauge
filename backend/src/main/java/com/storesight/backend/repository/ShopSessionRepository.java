@@ -2,15 +2,16 @@ package com.storesight.backend.repository;
 
 import com.storesight.backend.model.Shop;
 import com.storesight.backend.model.ShopSession;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ShopSessionRepository extends JpaRepository<ShopSession, Long> {
@@ -50,6 +51,12 @@ public interface ShopSessionRepository extends JpaRepository<ShopSession, Long> 
 
   /** Count active sessions for a shop */
   long countByShopAndIsActiveTrue(Shop shop);
+
+    /**
+     * Check whether an active session belongs to the requested shop.
+     */
+    boolean existsBySessionIdAndShopShopifyDomainAndIsActiveTrue(
+            String sessionId, String shopifyDomain);
 
   /** Deactivate session by session ID */
   @Modifying

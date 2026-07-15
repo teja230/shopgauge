@@ -32,6 +32,12 @@ interface SessionLimitResponse {
   error?: string;
 }
 
+interface SessionDeletionResult {
+  success: number;
+  failed: number;
+  error?: string;
+}
+
 interface UseSessionLimitReturn {
   sessionLimitData: SessionLimitResponse | null;
   loading: boolean;
@@ -40,7 +46,7 @@ interface UseSessionLimitReturn {
   lastChecked: Date | null;
   checkSessionLimit: () => Promise<SessionLimitResponse | null>;
   deleteSession: (sessionId: string) => Promise<boolean>;
-  deleteSessions: (sessionIds: string[]) => Promise<{ success: number; failed: number }>;
+  deleteSessions: (sessionIds: string[]) => Promise<SessionDeletionResult>;
   closeSessionDialog: () => void;
   openSessionDialog: () => void;
   canProceedWithLogin: () => boolean;
@@ -327,9 +333,11 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
     }
   }, [sessionLimitData, notifications]);
 
-  const deleteSessions = useCallback(async (sessionIds: string[]): Promise<{ success: number; failed: number }> => {
+  const deleteSessions = useCallback(async (sessionIds: string[]): Promise<SessionDeletionResult> => {
     let successCount = 0;
     let failedCount = 0;
+    const successfulSessionIds = new Set<string>();
+    const failureMessages: string[] = [];
 
     try {
       // Delete sessions sequentially to avoid overwhelming the server
@@ -347,15 +355,22 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
             const result = await response.json();
             if (result.success) {
               successCount++;
+              successfulSessionIds.add(sessionId);
             } else {
               failedCount++;
+              failureMessages.push(result.error || 'The server could not remove this session.');
             }
           } else {
             failedCount++;
+            const result = await response.json().catch(() => ({}));
+            failureMessages.push(result.message || result.error || `Request failed (${response.status}).`);
           }
         } catch (error) {
           console.error('Error deleting session:', sessionId, error);
           failedCount++;
+          failureMessages.push(
+            error instanceof Error ? error.message : 'The session request could not be completed.'
+          );
         }
 
         // Small delay between requests to avoid overwhelming the server
@@ -366,11 +381,9 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
 
       // Update local session data after all deletions
       if (sessionLimitData && successCount > 0) {
-        const remainingSessionIds = sessionLimitData.sessions
-          .map(s => s.sessionId)
-          .filter(id => !sessionIds.includes(id) || failedCount > 0);
-        
-        const updatedSessions = sessionLimitData.sessions.filter(s => remainingSessionIds.includes(s.sessionId));
+        const updatedSessions = sessionLimitData.sessions.filter(
+          session => !successfulSessionIds.has(session.sessionId)
+        );
         const updatedData = {
           ...sessionLimitData,
           sessions: updatedSessions,
@@ -402,10 +415,13 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
           }
         );
       } else if (failedCount > 0) {
+        const errorMessage = failureMessages[0] || (
+          failedCount === 1
+            ? 'Failed to remove session'
+            : `Failed to remove ${failedCount} sessions`
+        );
         notifications.showError(
-          failedCount === 1 
-            ? 'Failed to remove session' 
-            : `Failed to remove ${failedCount} sessions`, 
+          errorMessage,
           {
             persistent: true,
             category: 'Session Management'
@@ -413,14 +429,22 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
         );
       }
 
-      return { success: successCount, failed: failedCount };
+      return {
+        success: successCount,
+        failed: failedCount,
+        error: failureMessages[0],
+      };
     } catch (error) {
       console.error('Error in bulk session deletion:', error);
       notifications.showError('Network error while removing sessions', {
         persistent: true,
         category: 'Session Management'
       });
-      return { success: 0, failed: sessionIds.length };
+      return {
+        success: 0,
+        failed: sessionIds.length,
+        error: error instanceof Error ? error.message : 'Network error while removing sessions',
+      };
     }
   }, [sessionLimitData, notifications]);
 
@@ -456,4 +480,4 @@ export const useSessionLimit = (): UseSessionLimitReturn => {
   };
 };
 
-export default useSessionLimit; 
+export default useSessionLimit;

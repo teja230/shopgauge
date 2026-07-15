@@ -38,6 +38,7 @@ import { NotificationCenter } from './ui/NotificationCenter';
 import { adminLogout, getAdminStatus } from '../api/admin';
 import { getSuggestionCount } from '../api';
 import { isAppShellPath } from '../utils/routeChrome';
+import { getStoreIdentity } from '../utils/storeIdentity';
 
 const NavBar: React.FC = () => {
   const { isAuthenticated, logout, isDemoMode, shop } = useAuth();
@@ -51,7 +52,8 @@ const NavBar: React.FC = () => {
   const suggestionCountRef = useRef(0);
   const lastFetchTimeRef = useRef(0);
   const storeDomain = shop || (isDemoMode ? 'demo-shopgauge.myshopify.com' : 'Connected store');
-  const storeInitial = storeDomain.replace(/^https?:\/\//, '').charAt(0).toUpperCase() || 'S';
+  const { domain: normalizedStoreDomain, name: storeName, initial: storeInitial } =
+    getStoreIdentity(storeDomain);
 
   const handleLogout = () => {
     // Handle regular logout
@@ -487,6 +489,7 @@ const NavBar: React.FC = () => {
   const StoreCard = ({ mobile = false }: { mobile?: boolean }) => (
     <Box
       data-testid={mobile ? 'mobile-store-card' : 'sidebar-store-card'}
+      aria-label={`Connected store: ${normalizedStoreDomain}`}
       sx={{
         width: '100%',
         minWidth: 0,
@@ -518,23 +521,49 @@ const NavBar: React.FC = () => {
         >
           {storeInitial}
         </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            variant="body2"
-            sx={{
-              color: '#ffffff',
-              fontWeight: 850,
-              lineHeight: 1.25,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              fontFeatureSettings: '"tnum"',
-            }}
-          >
-            {storeDomain}
-          </Typography>
-        </Box>
-        <StorefrontIcon size={18} color="rgba(185,200,255,0.72)" style={{ flexShrink: 0 }} />
+        <Tooltip title={normalizedStoreDomain} placement="top" enterDelay={500}>
+          <Box sx={{ minWidth: 0, flex: 1, cursor: 'default' }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#ffffff',
+                fontWeight: 850,
+                lineHeight: 1.25,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {storeName}
+            </Typography>
+            {storeName !== normalizedStoreDomain && (
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  mt: 0.25,
+                  color: '#8f9daa',
+                  fontSize: 10.5,
+                  lineHeight: 1.2,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontFeatureSettings: '"tnum"',
+                }}
+              >
+                {normalizedStoreDomain}
+              </Typography>
+            )}
+          </Box>
+        </Tooltip>
+        <Tooltip title="Shopify store">
+          <StorefrontIcon
+            aria-hidden="true"
+            size={18}
+            color="rgba(185,200,255,0.72)"
+            style={{ flexShrink: 0 }}
+          />
+        </Tooltip>
       </Box>
       <Box sx={{ mt: 1.1, display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
         <Box

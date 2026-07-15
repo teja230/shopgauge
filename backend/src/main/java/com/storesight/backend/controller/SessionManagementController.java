@@ -2,23 +2,10 @@ package com.storesight.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storesight.backend.model.ShopSession;
-import com.storesight.backend.service.AdminAuthService;
-import com.storesight.backend.service.DemoModeService;
-import com.storesight.backend.service.FeatureFlagService;
-import com.storesight.backend.service.ShopService;
-import com.storesight.backend.service.SseService;
+import com.storesight.backend.service.*;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +17,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/sessions")
@@ -209,6 +202,15 @@ public class SessionManagementController {
         response.put("error", "Cannot terminate your own session. Use logout instead.");
         return ResponseEntity.badRequest().body(response);
       }
+
+        // Treat an already-removed or stale entry as an idempotent success. This also prevents a
+        // caller from terminating a session that belongs to another shop.
+        if (!shopService.hasActiveSession(shop, sessionIdToTerminate)) {
+            response.put("success", true);
+            response.put("message", "Session was already removed");
+            response.put("terminatedSessionId", sessionIdToTerminate);
+            return ResponseEntity.ok(response);
+        }
 
       shopService.removeSession(shop, sessionIdToTerminate);
 
@@ -890,8 +892,7 @@ public class SessionManagementController {
                     sessionInfo.put("sessionId", session.getSessionId());
                     sessionInfo.put(
                         "isCurrentSession",
-                        finalCurrentSessionId != null
-                            && session.getSessionId().equals(finalCurrentSessionId));
+                            session.getSessionId().equals(finalCurrentSessionId));
                     sessionInfo.put(
                         "createdAt",
                         session.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));

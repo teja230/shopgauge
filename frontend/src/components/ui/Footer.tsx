@@ -11,11 +11,11 @@ const Footer: React.FC = () => {
 
   return (
     <footer className="border-t border-[#e4e7eb] bg-transparent">
-      <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p className="text-sm text-[#5f6b76]">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-between gap-3 px-4 py-5 sm:flex-row sm:px-6">
+        <p className="text-center text-sm text-[#5f6b76] sm:text-left">
           © {new Date().getFullYear()} ShopGauge. All rights reserved.
         </p>
-        <nav className="flex items-center gap-6">
+        <nav aria-label="Footer navigation" className="flex items-center gap-6">
           <Link
             to="/privacy-policy"
             className="text-sm text-[#5f6b76] hover:text-[#101820] transition-colors"

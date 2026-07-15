@@ -53,7 +53,11 @@ interface SessionLimitDialogProps {
   open: boolean;
   onClose: () => void;
   onSessionDeleted: (sessionId: string) => void;
-  onSessionsDeleted?: (sessionIds: string[]) => Promise<{ success: number; failed: number }>;
+  onSessionsDeleted?: (sessionIds: string[]) => Promise<{
+    success: number;
+    failed: number;
+    error?: string;
+  }>;
   onContinue: () => void;
   sessions: SessionInfo[];
   loading?: boolean;
@@ -112,7 +116,9 @@ const StyledDialogActions = styled(DialogActions)(({ theme }) => ({
   },
 }));
 
-const HeaderIcon = styled(Box)<{ $color: string; $bgColor: string }>(({ theme, $color, $bgColor }) => ({
+const HeaderIcon = styled(Box, {
+  shouldForwardProp: prop => prop !== '$color' && prop !== '$bgColor',
+})<{ $color: string; $bgColor: string }>(({ theme, $color, $bgColor }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -207,12 +213,14 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
 
   const currentSessionCount = sessions.length;
   const isLimitReached = limitReached || currentSessionCount >= maxSessions;
 
   const handleSessionToggle = (sessionId: string, isCurrentSession: boolean) => {
     if (isCurrentSession) return;
+    setDeletionError(null);
     
     const newSelected = new Set(selectedSessions);
     if (newSelected.has(sessionId)) {
@@ -227,15 +235,27 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
     if (selectedSessions.size === 0 || !onSessionsDeleted) return;
     
     setIsDeleting(true);
+    setDeletionError(null);
     try {
       const sessionIds = Array.from(selectedSessions);
       const result = await onSessionsDeleted(sessionIds);
       
-      if (result.success > 0) {
+      if (result.failed === 0 && result.success > 0) {
         setSelectedSessions(new Set());
+      } else if (result.failed > 0) {
+        const rawError = result.error || 'The selected session could not be removed.';
+        const normalizedError = rawError.toLowerCase();
+        setDeletionError(
+          normalizedError.includes('access denied') || normalizedError.includes('security token')
+            ? 'We could not verify this request. Refresh the page and try again.'
+            : normalizedError.includes('authentication') || normalizedError.includes('sign-in')
+              ? 'Your sign-in has expired. Refresh the page and sign in again.'
+              : rawError
+        );
       }
     } catch (error) {
       console.error('Failed to delete sessions:', error);
+      setDeletionError('Something went wrong while removing the session. Please try again.');
     } finally {
       setIsDeleting(false);
     }
@@ -244,6 +264,7 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   const handleClose = () => {
     setSelectedSessions(new Set());
     setDeleting(new Set());
+    setDeletionError(null);
     onClose();
   };
 
@@ -466,6 +487,23 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
             </Typography>
           </Alert>
         )}
+
+        {deletionError && (
+          <Alert
+            severity="error"
+            sx={{ mt: 2, borderRadius: 2 }}
+            action={(
+              <Button color="inherit" size="small" onClick={() => setDeletionError(null)}>
+                Dismiss
+              </Button>
+            )}
+          >
+            <Typography variant="subtitle2" fontWeight={700}>
+              Session not removed
+            </Typography>
+            <Typography variant="body2">{deletionError}</Typography>
+          </Alert>
+        )}
       </StyledDialogContent>
 
       <StyledDialogActions>
@@ -508,4 +546,4 @@ export const SessionLimitDialog: React.FC<SessionLimitDialogProps> = ({
   );
 };
 
-export default SessionLimitDialog; 
+export default SessionLimitDialog;

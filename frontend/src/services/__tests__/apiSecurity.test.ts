@@ -38,6 +38,52 @@ describe('API request security', () => {
     );
   });
 
+  it('bootstraps CSRF protection when the API cookie belongs to another hostname', async () => {
+    document.cookie = 'XSRF-TOKEN=; Max-Age=0; Path=/';
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'server-token' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(new Response('{"success":true}', { status: 200 }));
+
+    await fetchWithAuth('/api/sessions/terminate', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: 'other-session' }),
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/auth/csrf');
+    const [, options] = fetchMock.mock.calls[1];
+    expect((options?.headers as Record<string, string>)['X-XSRF-TOKEN']).toBe('server-token');
+  });
+
+  it('refreshes a stale CSRF token once after a forbidden mutation', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('{"error":"Access denied"}', { status: 403 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: 'refreshed-token' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(new Response('{"success":true}', { status: 200 }));
+
+    await fetchWithAuth('/api/sessions/terminate', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: 'other-session' }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const [, retryOptions] = fetchMock.mock.calls[2];
+    expect((retryOptions?.headers as Record<string, string>)['X-XSRF-TOKEN']).toBe(
+      'refreshed-token',
+    );
+  });
+
   it('retries transient failures and returns the successful result', async () => {
     vi.useFakeTimers();
     const operation = vi

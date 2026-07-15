@@ -75,16 +75,14 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
       console.log('API: Response status for', fullUrl, ':', response.status);
     }
     
-    // Try to parse response as JSON
-    let data;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
-    }
-
     if (!response.ok) {
+      // Only consume error responses here. Successful response bodies belong to the
+      // caller and may be parsed as JSON, text, or another supported format.
+      const contentType = response.headers.get('content-type');
+      const data = contentType && contentType.includes('application/json')
+        ? await response.json()
+        : await response.text();
+
       // Only log errors for non-auth endpoints or in development
       if (import.meta.env.DEV || !url.includes('/auth/shopify/me')) {
         console.error('API: Error response from', fullUrl, ':', data);

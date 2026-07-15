@@ -30,8 +30,14 @@ export const setGlobalServiceErrorHandler = (handler: (error: any) => boolean) =
 // Authentication state for API calls
 let isApiAuthenticated = false;
 let currentShop: string | null = null;
+let cachedCsrfToken: string | null = null;
+let csrfTokenRequest: Promise<string> | null = null;
 
 export const setApiAuthState = (authenticated: boolean, shop: string | null) => {
+  if (!authenticated || shop !== currentShop) {
+    cachedCsrfToken = null;
+    csrfTokenRequest = null;
+  }
   isApiAuthenticated = authenticated;
   currentShop = shop;
   console.log('API: Updated auth state - authenticated:', authenticated, 'shop:', shop);
@@ -72,6 +78,51 @@ const defaultOptions: RequestInit = {
   headers: {
     'Content-Type': 'application/json',
   },
+};
+
+const readCsrfCookie = (): string | null => {
+  const encodedToken = document.cookie
+    .split('; ')
+    .find(cookie => cookie.startsWith('XSRF-TOKEN='))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+
+  return encodedToken ? decodeURIComponent(encodedToken) : null;
+};
+
+const getCsrfToken = async (forceRefresh = false): Promise<string> => {
+  const cookieToken = readCsrfCookie();
+  if (!forceRefresh && cookieToken) return cookieToken;
+  if (!forceRefresh && cachedCsrfToken) return cachedCsrfToken;
+  if (!forceRefresh && csrfTokenRequest) return csrfTokenRequest;
+
+  csrfTokenRequest = fetch(`${API_BASE_URL}/api/auth/csrf`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      'Accept': 'application/json',
+      'X-Correlation-ID': getOrGenerateCorrelationId(),
+    },
+  })
+    .then(async response => {
+      if (!response.ok) {
+        throw new Error(`Unable to initialize request security (${response.status})`);
+      }
+
+      const data = await response.json() as { token?: string };
+      if (!data.token) {
+        throw new Error('The server did not provide a request security token');
+      }
+
+      cachedCsrfToken = data.token;
+      return data.token;
+    })
+    .finally(() => {
+      csrfTokenRequest = null;
+    });
+
+  return csrfTokenRequest;
 };
 
 export const api = axios.create({
@@ -134,6 +185,8 @@ api.interceptors.response.use(
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const fullUrl = `${API_BASE_URL}${url}`;
   const correlationId = getOrGenerateCorrelationId();
+  const method = (options.method || 'GET').toUpperCase();
+  const requiresCsrfToken = !['GET', 'HEAD', 'OPTIONS'].includes(method);
   console.log('API: Fetching:', fullUrl, 'Correlation ID:', correlationId);
   
   // Pre-flight authentication check
@@ -142,25 +195,28 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     // Don't throw immediately, let the server respond with 401 if needed
   }
   
-  const csrfToken = document.cookie
-    .split('; ')
-    .find(cookie => cookie.startsWith('XSRF-TOKEN='))
-    ?.split('=')
-    .slice(1)
-    .join('=');
-
   try {
-  const response = await fetch(fullUrl, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'X-Correlation-ID': correlationId,
-      ...(csrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(csrfToken) } : {}),
-      ...options.headers,
-    },
-  });
+  let csrfToken = requiresCsrfToken ? await getCsrfToken() : readCsrfCookie();
+  const executeRequest = () => fetch(fullUrl, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId,
+        ...(csrfToken ? { 'X-XSRF-TOKEN': csrfToken } : {}),
+        ...options.headers,
+      },
+    });
+
+  let response = await executeRequest();
+
+  // A session rotation can invalidate a cached token. Refresh it once before surfacing the error.
+  if (response.status === 403 && requiresCsrfToken) {
+    cachedCsrfToken = null;
+    csrfToken = await getCsrfToken(true);
+    response = await executeRequest();
+  }
   console.log('API: Response status:', response.status, fullUrl);
     
     // Handle 502 Bad Gateway or other 5xx errors
@@ -232,7 +288,12 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     
     // Generic non-OK status handler (for all other status codes)
     if (!response.ok) {
-      const err = new Error(`HTTP ${response.status}`);
+      const errorBody = await response.clone().json().catch(() => null) as
+        | { error?: string; message?: string }
+        | null;
+      const err = new Error(
+        errorBody?.message || errorBody?.error || `Request failed (${response.status})`
+      );
       (err as any).status = response.status;
       throw err;
     }
